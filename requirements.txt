@@ -1,0 +1,7 @@
+# Q-VAULT OS Dependencies
+# Python 3.10+ required
+
+PyQt5==5.15.10
+pyinstaller==6.5.0
+supabase>=2.0.0
+requests>=2.31.0

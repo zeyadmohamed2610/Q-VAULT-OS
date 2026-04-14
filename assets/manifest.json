@@ -1,0 +1,117 @@
+{
+  "react_icons": [
+    {
+      "brand": "Terminal",
+      "export_name": "SiGnometerminal",
+      "usage": "icon_terminal",
+      "reason": "Best crisp official-style terminal icon for OS UI"
+    },
+    {
+      "brand": "Folder / Files",
+      "export_name": "SiFiles",
+      "usage": "icon_files",
+      "reason": "Standard clean file explorer icon"
+    },
+    {
+      "brand": "Security",
+      "export_name": "SiHackerone",
+      "usage": "icon_security",
+      "reason": "Professional security-focused shield icon"
+    },
+    {
+      "brand": "Network",
+      "export_name": "SiTorproject",
+      "usage": "icon_network",
+      "reason": "Modern onion/network hub style icon matching privacy OS theme"
+    },
+    {
+      "brand": "Vault",
+      "export_name": "SiHashicorp",
+      "usage": "icon_vault",
+      "reason": "The HashiCorp logo provides a modern, clean geometric vault/safe feel"
+    }
+  ],
+  "downloaded_assets": [
+    {
+      "id": "wallpaper-high-tech-desktop",
+      "kind": "photo",
+      "filename": "wallpaper-high-tech.jpg",
+      "title": "Circuit Patterns Dark Wallpaper",
+      "description": "Abstract high-tech circuit patterns in blue and teal for OS desktop background",
+      "visual_description": "Close-up of abstract digital circuit-like patterns with glowing teal and deep blue lines, modern and clean, dark background suitable for desktop icons",
+      "color_notes": "Dominant: deep blue (#16507E) and vibrant teal. Dark enough for white text overlays.",
+      "mood": "futuristic, focused, professional",
+      "placement": "wallpaper",
+      "recommended": true,
+      "alt_text": "High-tech circuit pattern wallpaper in blue and teal",
+      "dimensions": "1920x1080",
+      "provider": "Pexels",
+      "photographer": "Steve A Johnson",
+      "verified_via": "file_size_check_only"
+    },
+    {
+      "id": "wallpaper-futuristic-architecture",
+      "kind": "photo",
+      "filename": "wallpaper-futuristic-architecture.jpg",
+      "title": "Blue LED Futuristic Architecture",
+      "description": "Stunning blue LED architecture for a high-end futuristic OS feel",
+      "visual_description": "Wide shot of a modern architectural structure at night, lit with vibrant blue LED lights, sharp lines and geometric forms",
+      "color_notes": "Deep blues and cyan LEDs. Very clean and minimalist.",
+      "mood": "premium, futuristic, silent",
+      "placement": "wallpaper",
+      "recommended": false,
+      "alt_text": "Futuristic blue architecture lit by night LEDs",
+      "dimensions": "1920x1080",
+      "provider": "Pexels",
+      "photographer": "Kyle Miller",
+      "verified_via": "file_size_check_only"
+    },
+    {
+      "id": "logo-qvault-primary",
+      "kind": "uploaded_logo",
+      "filename": "logo-qvault-primary.jpg",
+      "title": "Q-Vault OS Primary Logo",
+      "description": "Uploaded shield-and-wordmark brand art used for boot and login identity",
+      "visual_description": "Metallic shield with embedded Q mark, cyan highlights, and Q-Vault OS wordmark on a dark futuristic background",
+      "color_notes": "Dominant: deep navy, electric cyan, silver, and emerald accent",
+      "mood": "secure, premium, futuristic",
+      "placement": "brand_logo",
+      "recommended": true,
+      "alt_text": "Q-Vault OS primary shield logo",
+      "dimensions": "1024x1024",
+      "provider": "user_upload",
+      "verified_via": "local_file_check"
+    },
+    {
+      "id": "icon-terminal-svg",
+      "kind": "downloaded_logo",
+      "filename": "icon-terminal.svg",
+      "title": "Terminal Icon",
+      "description": "Clean white SVG terminal icon",
+      "visual_description": "Minimalist command line prompt icon in white SVG",
+      "placement": "icon_terminal",
+      "recommended": true,
+      "provider": "SimpleIcons",
+      "verified_via": "official_source_plus_svg_header"
+    },
+    {
+      "id": "icon-vault-svg",
+      "kind": "downloaded_logo",
+      "filename": "icon-vault.svg",
+      "title": "Vault Icon",
+      "description": "HashiCorp style geometric vault icon",
+      "visual_description": "Abstract H-shaped geometric block, very clean and tech-forward",
+      "placement": "icon_vault",
+      "recommended": true,
+      "provider": "SimpleIcons",
+      "verified_via": "official_source_plus_svg_header"
+    }
+  ],
+  "missing_assets": [],
+  "usage_notes": [
+    "Use wallpaper-high-tech.jpg as the default desktop background for its non-distracting pattern",
+    "logo-qvault-primary.jpg is the primary brand mark for boot and login surfaces",
+    "All SVG icons are downloaded in white theme to pop against dark mode surfaces",
+    "Use 'react-icons/si' names for inline UI elements and downloaded SVGs for system-level desktop icons"
+  ]
+}
