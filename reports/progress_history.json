@@ -1,0 +1,258 @@
+[
+  {
+    "timestamp": "2026-04-27T21:51:52.056953",
+    "score": 0,
+    "critical": 9,
+    "major": 16,
+    "minor": 86,
+    "total": 111,
+    "files_scanned": 157
+  },
+  {
+    "timestamp": "2026-04-27T21:51:52.954097",
+    "score": 0,
+    "critical": 9,
+    "major": 16,
+    "minor": 86,
+    "total": 111,
+    "files_scanned": 157
+  },
+  {
+    "timestamp": "2026-04-27T21:53:50.848096",
+    "score": 0,
+    "critical": 5,
+    "major": 16,
+    "minor": 90,
+    "total": 111,
+    "files_scanned": 157
+  },
+  {
+    "timestamp": "2026-04-27T21:53:51.774661",
+    "score": 0,
+    "critical": 5,
+    "major": 16,
+    "minor": 90,
+    "total": 111,
+    "files_scanned": 157
+  },
+  {
+    "timestamp": "2026-04-27T21:54:57.015670",
+    "score": 38,
+    "critical": 0,
+    "major": 17,
+    "minor": 91,
+    "total": 108,
+    "files_scanned": 157
+  },
+  {
+    "timestamp": "2026-04-27T21:54:57.943289",
+    "score": 38,
+    "critical": 0,
+    "major": 17,
+    "minor": 91,
+    "total": 108,
+    "files_scanned": 157
+  },
+  {
+    "timestamp": "2026-04-27T21:59:41.448026",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "total": 108,
+    "files_scanned": 158
+  },
+  {
+    "timestamp": "2026-04-27T21:59:42.333698",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "total": 108,
+    "files_scanned": 158
+  },
+  {
+    "timestamp": "2026-04-27T22:04:25.155092",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "total": 108,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-27T22:04:26.073208",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "total": 108,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-27T22:11:28.380815",
+    "score": 25,
+    "critical": 1,
+    "major": 16,
+    "minor": 92,
+    "total": 109,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-27T22:11:29.258034",
+    "score": 25,
+    "critical": 1,
+    "major": 16,
+    "minor": 92,
+    "total": 109,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-27T22:14:07.642711",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "total": 108,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-27T22:14:08.521452",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "total": 108,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-28T02:15:59.329779",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "total": 108,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-28T02:16:00.231662",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "total": 108,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-28T02:16:00.255859",
+    "score": 40,
+    "critical": 0,
+    "major": 16,
+    "minor": 92,
+    "regressions": []
+  },
+  {
+    "timestamp": "2026-04-28T02:19:29.271763",
+    "score": 42,
+    "critical": 0,
+    "major": 15,
+    "minor": 92,
+    "total": 107,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-28T02:19:30.117645",
+    "score": 42,
+    "critical": 0,
+    "major": 15,
+    "minor": 92,
+    "total": 107,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-28T02:19:30.141881",
+    "score": 42,
+    "critical": 0,
+    "major": 15,
+    "minor": 92,
+    "regressions": []
+  },
+  {
+    "timestamp": "2026-04-28T02:20:22.558979",
+    "score": 44,
+    "critical": 0,
+    "major": 14,
+    "minor": 92,
+    "total": 106,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-28T02:20:23.388000",
+    "score": 44,
+    "critical": 0,
+    "major": 14,
+    "minor": 92,
+    "total": 106,
+    "files_scanned": 159
+  },
+  {
+    "timestamp": "2026-04-28T02:20:23.411466",
+    "score": 44,
+    "critical": 0,
+    "major": 14,
+    "minor": 92,
+    "regressions": []
+  },
+  {
+    "timestamp": "2026-04-28T02:45:37.132587",
+    "score": 0,
+    "critical": 4,
+    "major": 14,
+    "minor": 113,
+    "total": 131,
+    "files_scanned": 160
+  },
+  {
+    "timestamp": "2026-04-28T02:45:37.993574",
+    "score": 0,
+    "critical": 4,
+    "major": 14,
+    "minor": 113,
+    "total": 131,
+    "files_scanned": 160
+  },
+  {
+    "timestamp": "2026-04-28T02:45:38.020094",
+    "score": 0,
+    "critical": 4,
+    "major": 14,
+    "minor": 113,
+    "regressions": []
+  },
+  {
+    "timestamp": "2026-04-28T08:44:06.033061",
+    "score": 46,
+    "critical": 0,
+    "major": 11,
+    "minor": 105,
+    "total": 116,
+    "files_scanned": 160
+  },
+  {
+    "timestamp": "2026-04-28T08:44:06.978008",
+    "score": 46,
+    "critical": 0,
+    "major": 11,
+    "minor": 105,
+    "total": 116,
+    "files_scanned": 160
+  },
+  {
+    "timestamp": "2026-04-28T08:44:07.002580",
+    "score": 46,
+    "critical": 0,
+    "major": 11,
+    "minor": 105,
+    "regressions": []
+  }
+]

@@ -1,0 +1,23 @@
+{
+  "app_id": "system_monitor",
+  "name": "System Monitor",
+  "version": "1.0.0",
+  "description": "Golden Standard template app for Q-Vault OS.",
+  "entry_point": "app.py",
+  "class_name": "SystemMonitorWidget",
+  "author": "Q-Vault Developer",
+  "permissions": {
+    "file_access": "virtual_only",
+    "network_access": "DENIED",
+    "system_calls": "DENIED"
+  },
+  "ui": {
+    "min_width": 480,
+    "min_height": 360,
+    "resizable": true
+  },
+  "lifecycle": {
+    "on_start": true,
+    "on_stop": true
+  }
+}

@@ -1,0 +1,20 @@
+# Q-Vault OS - Python Dependencies
+# Requires Python 3.11+ for Rust/PyO3 integration (abi3 stable ABI)
+
+# GUI Framework
+PyQt5==5.15.10
+
+# Rust extension build tool (used by build.py)
+# Run: python build.py  — to set up the environment and build qvault_core
+# maturin>=1.5.0 (installed by build.py automatically)
+
+# Cryptography — used by the Rust core's Python bridge
+argon2-cffi>=23.1.0
+pynacl>=1.5.0
+cryptography>=42.0.0
+
+# Logging
+structlog>=24.0.0
+
+# Networking (used by network_tools.py)
+requests>=2.31.0

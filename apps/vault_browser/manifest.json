@@ -1,0 +1,26 @@
+{
+  "app_id": "vault_browser",
+  "name": "Vault Browser",
+  "version": "1.0.0",
+  "description": "Secure Data Fetcher and Interface Interpreter.",
+  "entry_point": "app.py",
+  "class_name": "VaultBrowser",
+  "author": "Q-Vault Developer",
+
+  "permissions": {
+    "file_access":    "virtual_only",
+    "network_access": "unrestricted",
+    "system_calls":   "DENIED"
+  },
+
+  "ui": {
+    "min_width":  600,
+    "min_height": 500,
+    "resizable":  true
+  },
+
+  "lifecycle": {
+    "on_start": true,
+    "on_stop":  true
+  }
+}

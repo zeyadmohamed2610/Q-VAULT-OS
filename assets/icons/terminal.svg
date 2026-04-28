@@ -1,0 +1,12 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="4" y="8" width="40" height="32" rx="4" stroke="#00e6ff" stroke-width="2"/>
+  <path d="M12 18L18 24L12 30" stroke="#00e6ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M22 32H34" stroke="#00e6ff" stroke-width="2" stroke-linecap="round"/>
+  <rect x="4" y="8" width="40" height="32" rx="4" fill="url(#neon_glow)" fill-opacity="0.1"/>
+  <defs>
+    <radialGradient id="neon_glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(24 24) rotate(90) scale(16 20)">
+      <stop stop-color="#00e6ff"/>
+      <stop offset="1" stop-color="#00e6ff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>

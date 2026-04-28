@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Q-VAULT OS — Your Secure OS Layer</title>
+    <link href='https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'>
+    <style>
+        :root {
+            --bg-dark: #0a0e14;
+            --bg-card: #141a22;
+            --accent-cyan: #00d4ff;
+            --accent-green: #00ff88;
+            --accent-amber: #ffaa00;
+            --accent-red: #ff3366;
+            --text-primary: #ffffff;
+            --text-dim: #8892a0;
+            --border: #2a3442;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* Header */
+        header {
+            padding: 20px 0;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            background: rgba(10, 14, 20, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-cyan);
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #00b8e6;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .btn-outline:hover {
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        /* Hero */
+        .hero {
+            padding: 100px 0 80px;
+            text-align: center;
+            background: radial-gradient(ellipse at center top, rgba(0, 212, 255, 0.15) 0%, transparent 60%);
+        }
+
+        .hero h1 {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 56px;
+            font-weight: 700;
+            margin-bottom: 24px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-green));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--text-dim);
+            max-width: 600px;
+            margin: 0 auto 40px;
+        }
+
+        .hero-btns {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-bottom: 60px;
+        }
+
+        .hero-tagline {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+            color: var(--text-dim);
+        }
+
+        /* Features */
+        .features {
+            padding: 80px 0;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .section-title h2 {
+            font-size: 36px;
+            margin-bottom: 16px;
+        }
+
+        .section-title p {
+            color: var(--text-dim);
+            font-size: 18px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            transition: all 0.3s;
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-4px);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(0, 212, 255, 0.1);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+
+        /* Screenshots */
+        .screenshots {
+            padding: 80px 0;
+            background: var(--bg-card);
+        }
+
+        .screenshot-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+
+        .screenshot {
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .screenshot-placeholder {
+            background: linear-gradient(135deg, #141a22 0%, #1a2230 100%);
+            height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-dim);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 80px 0;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .pricing-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 40px 32px;
+            text-align: center;
+        }
+
+        .pricing-card.featured {
+            border-color: var(--accent-cyan);
+            position: relative;
+        }
+
+        .pricing-card.featured::before {
+            content: 'POPULAR';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--accent-cyan);
+            color: var(--bg-dark);
+            padding: 4px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 4px;
+        }
+
+        .pricing-card h3 {
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+
+        .price {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .price span {
+            font-size: 14px;
+            color: var(--text-dim);
+            font-weight: 400;
+        }
+
+        .pricing-card ul {
+            list-style: none;
+            margin: 24px 0;
+            text-align: left;
+        }
+
+        .pricing-card li {
+            padding: 8px 0;
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+
+        .pricing-card li::before {
+            content: '✓';
+            color: var(--accent-green);
+            margin-right: 8px;
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-dim);
+        }
+
+        footer a {
+            color: var(--accent-cyan);
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 36px;
+            }
+            
+            .features-grid, .pricing-grid, .screenshot-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class='container'>
+            <nav>
+                <a href='#' class='logo'>Q-VAULT OS</a>
+                <ul class='nav-links'>
+                    <li><a href='#features'>Features</a></li>
+                    <li><a href='#screenshots'>Screenshots</a></li>
+                    <li><a href='#pricing'>Pricing</a></li>
+                    <li><a href='#'>Documentation</a></li>
+                    <li><a href='#'>GitHub</a></li>
+                </ul>
+                <a href='https://github.com/qvault-os/qvault-os/releases' class='btn btn-primary'>Download</a>
+            </nav>
+        </div>
+    </header>
+
+    <section class='hero'>
+        <div class='container'>
+            <h1>Your Secure OS Layer</h1>
+            <p>Military-grade security for developers and privacy-conscious users. Isolate. Encrypt. Monitor.</p>
+            <div class='hero-btns'>
+                <a href='https://github.com/qvault-os/qvault-os/releases' class='btn btn-primary'>Download Free</a>
+                <a href='#features' class='btn btn-outline'>Learn More</a>
+            </div>
+            <p class='hero-tagline'>v1.2.0 • Open Source • Windows</p>
+        </div>
+    </section>
+
+    <section class='features' id='features'>
+        <div class='container'>
+            <div class='section-title'>
+                <h2>Security Without Compromise</h2>
+                <p>Everything you need to protect your digital life</p>
+            </div>
+            <div class='features-grid'>
+                <div class='feature-card'>
+                    <div class='feature-icon'>🛡️</div>
+                    <h3>Zero-Trust Architecture</h3>
+                    <p>Every action verified. No implicit permissions. Behavior-based access control ensures maximum security.</p>
+                </div>
+                <div class='feature-card'>
+                    <div class='feature-icon'>🔒</div>
+                    <h3>Complete Encryption</h3>
+                    <p>PBKDF2-SHA256 password hashing. Encrypted storage containers. Your data stays yours.</p>
+                </div>
+                <div class='feature-card'>
+                    <div class='feature-icon'>🤖</div>
+                    <h3>Behavior AI</h3>
+                    <p>Real-time threat detection powered by AI. Monitor suspicious processes and block attacks.</p>
+                </div>
+                <div class='feature-card'>
+                    <div class='feature-icon'>🔄</div>
+                    <h3>Local Sovereignty</h3>
+                    <p>True local sovereignty. Manual encrypted backups with zero-cloud exposure. Your data never leaves your machine unless you explicitly export it.</p>
+                </div>
+                <div class='feature-card'>
+                    <div class='feature-icon'>📊</div>
+                    <h3>Security Dashboard</h3>
+                    <p>Visual security metrics. Real-time monitoring. Complete audit logs of system activity.</p>
+                </div>
+                <div class='feature-card'>
+                    <div class='feature-icon'>📦</div>
+                    <h3>Package Manager</h3>
+                    <p>APT-like package system. Secure installations. Verified packages only.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class='screenshots' id='screenshots'>
+        <div class='container'>
+            <div class='section-title'>
+                <h2>See It In Action</h2>
+                <p>Professional interface with powerful security features</p>
+            </div>
+            <div class='screenshot-grid'>
+                <div class='screenshot'>
+                    <div class='screenshot-placeholder'>Desktop Environment</div>
+                </div>
+                <div class='screenshot'>
+                    <div class='screenshot-placeholder'>Security Dashboard</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class='pricing' id='pricing'>
+        <div class='container'>
+            <div class='section-title'>
+                <h2>Simple Pricing</h2>
+                <p>Start free, upgrade when you need more</p>
+            </div>
+            <div class='pricing-grid'>
+                <div class='pricing-card'>
+                    <h3>Core</h3>
+                    <div class='price'>Free</div>
+                    <ul>
+                        <li>Basic OS environment</li>
+                        <li>Local encryption</li>
+                        <li>Security dashboard</li>
+                        <li>Offline mode</li>
+                        <li>Package manager</li>
+                    </ul>
+                    <a href='https://github.com/qvault-os/qvault-os/releases' class='btn btn-outline'>Get Started</a>
+                </div>
+                <div class='pricing-card featured'>
+                    <h3>Q-Vault OS Pro</h3>
+                    <div class="price">$19.99<span>/one-time</span></div>
+                    <ul>
+                        <li>Local encrypted backup</li>
+                        <li>Advanced telemetry dashboard</li>
+                        <li>Priority updates</li>
+                        <li>Air-gapped security mode</li>
+                    </ul>
+                    <a href='#' class='btn btn-primary'>Coming Soon</a>
+                </div>
+                <div class='pricing-card'>
+                    <h3>Enterprise</h3>
+                    <div class='price'>Custom</div>
+                    <ul>
+                        <li>Everything in Pro</li>
+                        <li>Custom deployments</li>
+                        <li>On-premise option</li>
+                        <li>Dedicated support</li>
+                        <li>Compliance reports</li>
+                    </ul>
+                    <a href='#' class='btn btn-outline'>Contact Us</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class='container'>
+            <p>© 2026 Q-VAULT OS. Open source under MIT License.</p>
+            <p style='margin-top: 12px;'>
+                <a href='#'>GitHub</a> • 
+                <a href='#'>Documentation</a> • 
+                <a href='#'>Privacy Policy</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>

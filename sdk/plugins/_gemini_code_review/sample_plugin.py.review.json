@@ -1,0 +1,31 @@
+{
+  "filename": "sample_plugin.py",
+  "category": "Basic Code Review",
+  "issues": [
+    {
+      "type": "Maintainability/Adherence to Patterns",
+      "severity": "High",
+      "description": "Inconsistency in `MANIFEST['entry_point']`. The manifest specifies `\"entry_point\": \"main\"`, but there is no function or class named `main` in the provided code. The actual entry point appears to be the `on_load(api)` function, which then instantiates `PluginClass`. This discrepancy can lead to confusion and potential loading issues if the Q-VAULT OS expects a specific entry point signature."
+    },
+    {
+      "type": "Code Quality/Best Practices",
+      "severity": "Medium",
+      "description": "Use of `print()` for logging. Inside `on_load`, `print(f\"Loaded setting: {setting}\")` is used. In a plugin environment, it's generally better to use the provided logging mechanism (`self.api.log`) instead of `print()`, as `print()` output might not be captured or handled consistently by the host application. This ensures all plugin-related output goes through the central logging system."
+    },
+    {
+      "type": "Maintainability/Code Quality",
+      "severity": "Low",
+      "description": "Lack of type hints. Adding type hints to function signatures and class attributes (e.g., `def __init__(self, api: ApiType):`) would improve code readability, make the code easier to understand, and enable better static analysis, which is beneficial for maintainability, especially in larger projects or when collaborating."
+    },
+    {
+      "type": "Maintainability/Code Quality",
+      "severity": "Low",
+      "description": "Magic strings for configuration keys. The strings `\"setting_name\"`, `\"default_value\"`, `\"last_unload\"`, and `\"true\"` are used directly in `get_config` and `set_config` calls. While acceptable for a simple template, in a more complex plugin, it's good practice to define these as constants (e.g., `CONFIG_SETTING_NAME = \"setting_name\"`) to prevent typos and improve discoverability and maintainability."
+    },
+    {
+      "type": "Maintainability/Adherence to Patterns",
+      "severity": "Low",
+      "description": "Redundant `name` attribute in `PluginClass`. The plugin's name is already available in the global `MANIFEST` dictionary. Storing it again as `self.name = MANIFEST[\"name\"]` is not strictly necessary unless the plugin's name is expected to change dynamically during its lifecycle. Accessing `MANIFEST[\"name\"]` directly would avoid this minor duplication."
+    }
+  ]
+}
