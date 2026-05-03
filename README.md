@@ -167,6 +167,7 @@ If the security subsystem fails to initialize:
 
 1. **Rust Core**: The system automatically compiles the Rust core using `PyO3` on the first run.
 2. **Security Mediator**: Located in `subsystems/pqc-mediator/`. Requires .NET 9.0 SDK to build.
+
    ```bash
    dotnet publish subsystems/pqc-mediator/PQC-Vault.sln -c Release -r win-x64 --self-contained
    ```
