@@ -22,6 +22,7 @@
 - [🎨 Immersive Experience](#immersive-experience)
 - [⚡ Quick Deployment](#quick-deployment)
 - [🔒 Security Model](#security-model)
+- [🛠️ Developer Guide](#developer-guide)
 - [🤝 Contributing](#contributing)
 - [📄 License](#license)
 
@@ -155,6 +156,7 @@ If the security subsystem fails to initialize:
 ## 🛠️ Developer Guide {#developer-guide}
 
 ### Project Structure
+
 - **`core/`**: Rust-based security kernel.
 - **`kernel/`**: Python-based system orchestration and resource management.
 - **`desktop/`**: UI components and the window manager.
@@ -162,6 +164,7 @@ If the security subsystem fails to initialize:
 - **`subsystems/`**: Source code for integrated apps (Mediator, Terminal, etc.).
 
 ### Building from Source
+
 1. **Rust Core**: The system automatically compiles the Rust core using `PyO3` on the first run.
 2. **Security Mediator**: Located in `subsystems/pqc-mediator/`. Requires .NET 9.0 SDK to build.
    ```bash
