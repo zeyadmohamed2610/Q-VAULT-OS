@@ -133,33 +133,59 @@ class FileManagerApp(QWidget):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Toolbar
-        tb = QHBoxLayout()
-        tb.setContentsMargins(8, 6, 8, 6)
-        tb.setSpacing(6)
-        self._btn_back = QPushButton("←")
-        self._btn_back.setFixedSize(28, 28)
-        self._btn_back.setToolTip("Back")
+        # ── Modern Toolbar ──
+        self.toolbar_container = QFrame()
+        self.toolbar_container.setFixedHeight(50)
+        self.toolbar_container.setStyleSheet("""
+            QFrame {
+                background: #0d162d;
+                border-bottom: 1px solid rgba(84, 177, 198, 0.15);
+            }
+            QPushButton {
+                background: transparent; border: none; border-radius: 4px;
+                color: #54b1c6; font-size: 14pt; padding: 4px;
+            }
+            QPushButton:hover { background: rgba(84, 177, 198, 0.1); }
+            QLineEdit {
+                background: rgba(13, 25, 48, 0.6);
+                border: 1px solid rgba(84, 177, 198, 0.1);
+                border-radius: 6px; color: #d4e8f0; padding: 5px 12px;
+                font-family: 'Segoe UI'; font-size: 9pt;
+            }
+        """)
+        tb_layout = QHBoxLayout(self.toolbar_container)
+        tb_layout.setContentsMargins(10, 0, 10, 0)
+        tb_layout.setSpacing(8)
+
+        # Nav buttons
+        self._btn_back = QPushButton("󰁍") # Arrow icon
         self._btn_back.clicked.connect(self._go_back)
-        tb.addWidget(self._btn_back)
-        self._btn_fwd = QPushButton("→")
-        self._btn_fwd.setFixedSize(28, 28)
-        self._btn_fwd.setToolTip("Forward")
+        tb_layout.addWidget(self._btn_back)
+        
+        self._btn_fwd = QPushButton("󰁔")
         self._btn_fwd.clicked.connect(self._go_forward)
-        tb.addWidget(self._btn_fwd)
-        self._btn_up = QPushButton("↑")
-        self._btn_up.setFixedSize(28, 28)
-        self._btn_up.setToolTip("Up")
-        self._btn_up.clicked.connect(self._go_up)
-        tb.addWidget(self._btn_up)
-        self._path_bar = QLineEdit()
-        self._path_bar.returnPressed.connect(self._on_path_bar_enter)
-        tb.addWidget(self._path_bar, 1)
-        self._btn_refresh = QPushButton("⟳")
-        self._btn_refresh.setFixedSize(28, 28)
+        tb_layout.addWidget(self._btn_fwd)
+
+        # Breadcrumb area
+        self.breadcrumb_area = QFrame()
+        self.breadcrumb_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.bc_layout = QHBoxLayout(self.breadcrumb_area)
+        self.bc_layout.setContentsMargins(5, 0, 5, 0)
+        self.bc_layout.setSpacing(2)
+        tb_layout.addWidget(self.breadcrumb_area, 1)
+
+        # Search Bar
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search files...")
+        self.search_bar.setFixedWidth(200)
+        self.search_bar.textChanged.connect(self._on_search_changed)
+        tb_layout.addWidget(self.search_bar)
+
+        self._btn_refresh = QPushButton("󰑐")
         self._btn_refresh.clicked.connect(self.refresh)
-        tb.addWidget(self._btn_refresh)
-        main_layout.addLayout(tb)
+        tb_layout.addWidget(self._btn_refresh)
+
+        main_layout.addWidget(self.toolbar_container)
 
         # Separator
         sep = QFrame()
@@ -192,8 +218,39 @@ class FileManagerApp(QWidget):
         self._file_list.customContextMenuRequested.connect(self._show_context_menu)
         self._file_list.installEventFilter(self)
         splitter.addWidget(self._file_list)
+        
+        # ── Info Panel (Properties) ──
+        self._info_panel = QFrame()
+        self._info_panel.setFixedWidth(220)
+        self._info_panel.setStyleSheet("""
+            QFrame { background: #0b162d; border-left: 1px solid rgba(84, 177, 198, 0.1); }
+            QLabel { color: #8899aa; font-size: 9pt; background: transparent; }
+            #title { color: #7dd3e8; font-size: 11pt; font-family: 'Segoe UI Semibold'; }
+            #stat { color: #54b1c6; }
+        """)
+        self._info_layout = QVBoxLayout(self._info_panel)
+        self._info_layout.setContentsMargins(15, 20, 15, 20)
+        self._info_layout.setSpacing(10)
+        
+        # Initial placeholder
+        self._info_title = QLabel("Select an item")
+        self._info_title.setObjectName("title")
+        self._info_title.setWordWrap(True)
+        self._info_layout.addWidget(self._info_title)
+        
+        self._info_stats = QLabel("to see details")
+        self._info_stats.setWordWrap(True)
+        self._info_layout.addWidget(self._info_stats)
+        
+        self._info_layout.addStretch()
+        
+        splitter.addWidget(self._info_panel)
+        
         splitter.setStretchFactor(1, 1)
         main_layout.addWidget(splitter, 1)
+        
+        # Selection changed signal
+        self._file_list.itemSelectionChanged.connect(self._on_selection_changed)
 
         # Status bar
         self._status_bar = QLabel("Ready")
@@ -231,8 +288,55 @@ class FileManagerApp(QWidget):
             self._history.append(self._current_path)
             self._fwd_stack.clear()
         self._current_path = path
-        self._path_bar.setText(str(path))
+        self._update_breadcrumbs()
         self._load_dir(path)
+
+    def _update_breadcrumbs(self):
+        # Clear existing
+        while self.bc_layout.count():
+            item = self.bc_layout.takeAt(0)
+            if item.widget(): item.widget().deleteLater()
+        
+        # Build pieces from base_dir to current
+        try:
+            rel = self._current_path.relative_to(self._base_dir)
+            parts = ["Home"] + list(rel.parts)
+        except ValueError:
+            parts = [self._current_path.name]
+
+        accumulated_path = self._base_dir
+        for i, part in enumerate(parts):
+            btn = QPushButton(part)
+            btn.setStyleSheet("""
+                QPushButton { 
+                    color: #8899aa; font-size: 9pt; padding: 2px 6px; 
+                    background: transparent; border-radius: 4px;
+                }
+                QPushButton:hover { background: rgba(84, 177, 198, 0.1); color: #7dd3e8; }
+            """)
+            
+            if i > 0:
+                accumulated_path = accumulated_path / part
+                # Capture current path in closure
+                target = Path(str(accumulated_path))
+                btn.clicked.connect(lambda _, t=target: self._navigate(t))
+            else:
+                btn.clicked.connect(lambda: self._navigate(self._base_dir))
+            
+            self.bc_layout.addWidget(btn)
+            
+            if i < len(parts) - 1:
+                sep = QLabel("›")
+                sep.setStyleSheet("color: #4a6880; font-size: 12pt;")
+                self.bc_layout.addWidget(sep)
+        
+        self.bc_layout.addStretch()
+
+    def _on_search_changed(self, text):
+        text = text.lower()
+        for i in range(self._file_list.count()):
+            item = self._file_list.item(i)
+            item.setHidden(text not in item.text().lower())
 
     def _load_dir(self, path: Path):
         self._file_list.clear()
@@ -262,6 +366,45 @@ class FileManagerApp(QWidget):
 
         total = len(dirs) + len(files)
         self._status_bar.setText(f"{total} item{'s' if total != 1 else ''}  ({len(dirs)} folders, {len(files)} files)")
+        self._on_selection_changed() # Clear panel
+
+    def _on_selection_changed(self):
+        items = self._file_list.selectedItems()
+        if not items:
+            self._info_title.setText("Select an item")
+            self._info_stats.setText("to see details")
+            return
+        
+        if len(items) > 1:
+            self._info_title.setText(f"{len(items)} items selected")
+            total_size = 0
+            for it in items:
+                p = Path(it.data(Qt.UserRole))
+                if p.is_file(): total_size += p.stat().st_size
+            self._info_stats.setText(f"Total size: {total_size:,} bytes")
+            return
+
+        # Single selection
+        path = Path(items[0].data(Qt.UserRole))
+        self._info_title.setText(path.name)
+        
+        import datetime
+        try:
+            s = path.stat()
+            size_str = f"{s.st_size:,} bytes" if path.is_file() else "Folder"
+            modified = f"{datetime.datetime.fromtimestamp(s.st_mtime):%Y-%m-%d %H:%M}"
+            
+            info_html = f"""
+            <div style='line-height: 1.6;'>
+                <span id='stat'>Type:</span> {'Folder' if path.is_dir() else 'File'}<br>
+                <span id='stat'>Size:</span> {size_str}<br>
+                <span id='stat'>Modified:</span> {modified}<br>
+                <span id='stat'>Location:</span> {path.parent.name if path.parent != self._base_dir else 'Home'}
+            </div>
+            """
+            self._info_stats.setText(info_html)
+        except:
+            self._info_stats.setText("Error reading stats")
 
     def _go_back(self):
         if not self._history:

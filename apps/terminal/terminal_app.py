@@ -1,10 +1,12 @@
 import logging
 import os
+import time
+import psutil
 from pathlib import Path
 from collections import deque
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QScrollBar
-from PyQt5.QtGui import QFont, QColor, QTextCharFormat, QSyntaxHighlighter, QTextCursor
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QScrollBar, QFrame, QLabel
+from PyQt5.QtGui import QFont, QColor, QTextCharFormat, QSyntaxHighlighter, QTextCursor, QPainter
 from PyQt5.QtCore import Qt, pyqtSignal, QEvent, QTimer
 
 from system.config import get_qvault_home
@@ -512,10 +514,27 @@ class TerminalApp(QWidget):
         self._metrics_timer.start(2000)
     
     def _update_metrics(self):
-        import random
-        cpu = random.randint(1, 5)
-        mem = random.randint(12, 18)
-        self.metrics_label.setText(f"CPU: {cpu}%  |  MEM: {mem}%  |  Q-VAULT v4.0")
+        try:
+            cpu = psutil.cpu_percent()
+            mem = psutil.virtual_memory().percent
+            self.metrics_label.setText(f"CPU: {cpu}%  |  MEM: {mem}%  |  Q-VAULT v4.0")
+        except Exception:
+            pass
+
+    def _set_dim(self, enabled: bool):
+        """Toggle a semi-transparent dimming overlay for focus."""
+        if not hasattr(self, "_dim_overlay"):
+            self._dim_overlay = QFrame(self)
+            self._dim_overlay.setStyleSheet("background: rgba(0, 0, 0, 160);")
+            self._dim_overlay.hide()
+            
+        if enabled:
+            # Match buffer geometry
+            self._dim_overlay.setGeometry(self._buffer.geometry())
+            self._dim_overlay.show()
+            self._dim_overlay.raise_()
+        else:
+            self._dim_overlay.hide()
 
     def _update_state_ui(self, state):
         # Update header based on engine state
@@ -598,6 +617,7 @@ class TerminalApp(QWidget):
 
     def _open_nano(self, file_path):
         """Opens the NanoEditor overlay."""
+        self._set_dim(True)
         try:
             content = ""
             if file_path.exists():
@@ -609,14 +629,17 @@ class TerminalApp(QWidget):
             self.nano.closed.connect(self._on_nano_closed)
         except Exception as e:
             self._buffer.append_output(f"[ERROR] Nano failed: {e}")
+            self._set_dim(False)
 
     def _on_nano_closed(self):
+        self._set_dim(False)
         self._buffer.setFocus()
         # Trigger a prompt refresh from engine
         self._engine._emit_prompt()
 
     def _open_notepad(self, file_path=None):
         """Opens the NotepadApp overlay."""
+        self._set_dim(True)
         try:
             self.notepad = NotepadApp(secure_api=self.secure_api, parent=self)
             if file_path and file_path.exists():
@@ -627,8 +650,10 @@ class TerminalApp(QWidget):
             self.notepad.show()
         except Exception as e:
             self._buffer.append_output(f"[ERROR] Notepad failed: {e}")
+            self._set_dim(False)
 
     def _on_notepad_closed(self):
+        self._set_dim(False)
         self._buffer.setFocus()
         self._engine._emit_prompt()
 
