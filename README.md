@@ -79,6 +79,15 @@ graph TD
 
 ---
 
+## 🎨 Immersive Experience
+
+Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form and function:
+- **ASCII Boot Sequence**: A high-fidelity, gradient-colored boot banner that signals system readiness.
+- **Dynamic Syntax Highlighting**: A custom-engineered terminal highlighter that provides real-time visual feedback for commands, flags, and security warnings.
+- **Monospace Consistency**: Guaranteed alignment across all systems via an intelligent font-fallback engine, supporting Cascadia Code and JetBrains Mono.
+
+---
+
 ## ⚡ Quick Deployment
 
 Q-Vault features a **One-Command Bootstrapper** that handles environment setup, dependency resolution, and native compilation.
