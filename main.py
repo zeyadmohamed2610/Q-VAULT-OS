@@ -9,12 +9,24 @@ from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget
 from PyQt5.QtCore import Qt, pyqtSlot
 import traceback
 
+R  = "\x1b[38;2;248;81;73m"    # red
+D  = "\x1b[38;2;74;104;128m"   # dim
+RS = "\x1b[0m"                  # reset
+
 def global_exception_hook(exctype, value, tb):
     """Authoritative exception catcher for the entire OS."""
     err_msg = "".join(traceback.format_exception(exctype, value, tb))
     
-    # Use stabilized logging instead of raw print
-    logger.critical(f"[RUNTIME_CRASH] Unhandled Exception: {value}")
+    if issubclass(exctype, KeyboardInterrupt):
+        # Graceful exit for Ctrl+C
+        print(f"\n{D}[SYSTEM]{RS} Termination signal received. Cleaning up...", file=sys.stderr)
+        return
+
+    # Force full traceback to console for immediate visibility during boot issues
+    print(f"\n{R}[CRITICAL_EXCEPTION]{RS}\n{err_msg}", file=sys.stderr)
+    
+    # Use stabilized logging
+    logger.critical(f"[RUNTIME_CRASH] Unhandled Exception: {exctype.__name__}: {value}")
     logger.debug(err_msg)
     
     try:
