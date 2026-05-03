@@ -26,7 +26,7 @@
 
 ---
 
-## 🌌 Overview
+## 🌌 Overview {#overview}
 
 **Q-Vault OS** is a high-fidelity **Operating System Simulation Framework** designed for researchers, security enthusiasts, and developers. It provides a hardened sandbox environment where every application, thread, and byte of data is governed by a dual-layered security architecture.
 
@@ -34,7 +34,7 @@ At its heart lies the **Q-Vault Security Core**, a native Rust implementation th
 
 ---
 
-## 🚀 Key Pillars of Excellence
+## 🚀 Key Pillars of Excellence {#key-pillars-of-excellence}
 
 ### 🦀 Rust-Hardened Kernel
 Leveraging `PyO3`, the security-critical logic is offloaded to a native Rust binary. 
@@ -59,7 +59,7 @@ A custom-built window manager designed for maximum productivity.
 
 ---
 
-## 🛠️ Technical Architecture
+## 🛠️ Technical Architecture {#technical-architecture}
 
 ```mermaid
 graph TD
@@ -83,7 +83,7 @@ graph TD
 
 ---
 
-## 📦 Included Subsystems
+## 📦 Included Subsystems {#included-subsystems}
 
 | Subsystem | Description | Technology | Status |
 | :--- | :--- | :--- | :--- |
@@ -96,7 +96,7 @@ graph TD
 
 ---
 
-## 🎨 Immersive Experience
+## 🎨 Immersive Experience {#immersive-experience}
 
 Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form and function:
 - **ASCII Boot Sequence**: A high-fidelity, gradient-colored boot banner that signals system readiness.
@@ -105,7 +105,7 @@ Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form an
 
 ---
 
-## ⚡ Quick Deployment
+## ⚡ Quick Deployment {#quick-deployment}
 
 ### Prerequisites
 - **Python 3.10+**
@@ -127,7 +127,7 @@ python run.py
 
 ---
 
-## 🔒 Security Model
+## 🔒 Security Model {#security-model}
 
 The simulation operates on the **Principle of Least Privilege (PoLP)**:
 1. **Isolated Widgets**: Each application runs as an isolated proxy.
@@ -143,13 +143,13 @@ If the security subsystem fails to initialize:
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contributing {#contributing}
 
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ---
 
-## 📄 License
+## 📄 License {#license}
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
