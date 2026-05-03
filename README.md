@@ -152,7 +152,23 @@ If the security subsystem fails to initialize:
 
 ---
 
-## 🤝 Contributing {#contributing}
+## 🛠️ Developer Guide {#developer-guide}
+
+### Project Structure
+- **`core/`**: Rust-based security kernel.
+- **`kernel/`**: Python-based system orchestration and resource management.
+- **`desktop/`**: UI components and the window manager.
+- **`binaries/`**: Compiled .NET and Rust artifacts required for runtime.
+- **`subsystems/`**: Source code for integrated apps (Mediator, Terminal, etc.).
+
+### Building from Source
+1. **Rust Core**: The system automatically compiles the Rust core using `PyO3` on the first run.
+2. **Security Mediator**: Located in `subsystems/pqc-mediator/`. Requires .NET 9.0 SDK to build.
+   ```bash
+   dotnet publish subsystems/pqc-mediator/PQC-Vault.sln -c Release -r win-x64 --self-contained
+   ```
+
+### 🤝 Contributing {#contributing}
 
 We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
@@ -164,7 +180,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
----
 **Built with ❤️ by the Q-Vault Development Team**
 *Protecting the simulation, one byte at a time.*
 
