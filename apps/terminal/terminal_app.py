@@ -231,24 +231,79 @@ class TerminalBuffer(QPlainTextEdit):
     def keyPressEvent(self, event):
         cursor = self.textCursor()
         
-        # 0. Keyboard shortcut protection
+        # 0. Keyboard shortcuts
         if event.modifiers() & Qt.ControlModifier:
-            # Ctrl+X: ALWAYS blocked in terminal (no cut ever)
-            if event.key() == Qt.Key_X:
+            # Ctrl+L: Clear terminal
+            if event.key() == Qt.Key_L:
+                self.setPlainText("")
+                self._prompt_pos = 0
+                self.command_entered.emit("clear") # Trigger prompt refresh
                 return
-            # Ctrl+C: Copy selection (not interrupt — we're not a real shell)
+
+            # Ctrl+C: Interrupt
             if event.key() == Qt.Key_C:
                 if cursor.hasSelection():
                     self.copy()
+                else:
+                    curr = self._get_current_input()
+                    self.append_output("^C")
+                    self._replace_current_input("") # Clear current line buffer
+                    self.command_entered.emit("") # Just trigger a new prompt
                 return
+
             # Ctrl+V: Paste at end
             if event.key() == Qt.Key_V:
-                self.paste(); return
-        
-        # 1. Enforce typing zone
-        if cursor.position() < self._prompt_pos:
-            cursor.movePosition(QTextCursor.End)
+                self.paste()
+                return
+
+            # Ctrl+A: Move to beginning of input (after prompt)
+            if event.key() == Qt.Key_A:
+                cursor.setPosition(self._prompt_pos)
+                self.setTextCursor(cursor)
+                return
+
+            # Ctrl+E: Move to end of input
+            if event.key() == Qt.Key_E:
+                cursor.movePosition(QTextCursor.End)
+                self.setTextCursor(cursor)
+                return
+
+            # Ctrl+U: Clear line before cursor
+            if event.key() == Qt.Key_U:
+                cursor.setPosition(self._prompt_pos, QTextCursor.KeepAnchor)
+                cursor.removeSelectedText()
+                return
+
+            # Ctrl+K: Clear line after cursor
+            if event.key() == Qt.Key_K:
+                cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+                cursor.removeSelectedText()
+                return
+
+            # Ctrl+W: Clear word before cursor
+            if event.key() == Qt.Key_W:
+                if cursor.position() > self._prompt_pos:
+                    cursor.movePosition(QTextCursor.PreviousWord, QTextCursor.KeepAnchor)
+                    if cursor.selectionStart() < self._prompt_pos:
+                        cursor.setPosition(self._prompt_pos, QTextCursor.KeepAnchor)
+                    cursor.removeSelectedText()
+                return
+
+        # 1. Special Keys (Home/End/Arrows)
+        if event.key() == Qt.Key_Home:
+            cursor.setPosition(self._prompt_pos)
             self.setTextCursor(cursor)
+            return
+
+        if event.key() == Qt.Key_Left:
+            if cursor.position() <= self._prompt_pos:
+                return # Block moving before prompt
+
+        # 2. Enforce typing zone
+        if cursor.position() < self._prompt_pos:
+            if not (event.modifiers() & Qt.ControlModifier): # Allow copy/select
+                cursor.movePosition(QTextCursor.End)
+                self.setTextCursor(cursor)
 
         # 2. Intercept Enter
         if event.key() in (Qt.Key_Return, Qt.Key_Enter):
@@ -349,37 +404,51 @@ class TerminalApp(QWidget):
         layout.addWidget(self._buffer)
 
     def _handle_tab(self, current_input):
-        """
-        Enhanced Tab completion:
-        - Completes commands if first word.
-        - Completes files/dirs if subsequent words.
-        - Adds '/' to directory completions.
-        - Shows multiple matches and redraws prompt.
-        """
-        parts = current_input.split()
         if not current_input: return
         
-        # If input ends with space, we are looking for a new argument
-        in_new_arg = current_input.endswith(" ")
-        prefix = "" if in_new_arg else parts[-1]
+        # Determine what we are completing
+        # If there are no spaces, we complete commands.
+        # If there are spaces, we complete files/dirs.
+        parts = current_input.split()
+        last_part = current_input.split()[-1] if not current_input.endswith(" ") else ""
         
-        cwd = self._engine.cwd
         matches = []
+        cwd = self._engine.cwd
+
+        # 1. Path-based completion (contains / or starts after a command)
+        if "/" in last_part or len(parts) > 1 or current_input.endswith(" "):
+            # We are completing a path
+            path_prefix = Path(last_part)
+            search_dir = cwd
+            name_prefix = last_part
+
+            if "/" in last_part:
+                # Split into directory to search and prefix of name
+                if last_part.endswith("/"):
+                    search_dir = (cwd / last_part).resolve()
+                    name_prefix = ""
+                else:
+                    search_dir = (cwd / last_part).parent.resolve()
+                    name_prefix = Path(last_part).name
+
+            try:
+                if search_dir.exists() and search_dir.is_dir():
+                    for entry in search_dir.iterdir():
+                        if entry.name.startswith(name_prefix):
+                            suffix = "/" if entry.is_dir() else ""
+                            # Reconstruct the full string to replace the last part
+                            if "/" in last_part:
+                                base = last_part.rsplit("/", 1)[0]
+                                matches.append(base + "/" + entry.name + suffix)
+                            else:
+                                matches.append(entry.name + suffix)
+            except Exception:
+                pass
         
-        if len(parts) <= 1 and not in_new_arg:
-            # Command completion
+        # 2. Command completion (only if it's the first word and doesn't look like a path)
+        if (len(parts) <= 1 and not current_input.endswith(" ")) and "/" not in last_part:
             from ._commands import COMMAND_REGISTRY
-            matches = [c for c in COMMAND_REGISTRY.keys() if c.startswith(prefix)]
-        
-        # File/Dir completion
-        try:
-            entries = list(cwd.iterdir())
-            for e in entries:
-                if e.name.startswith(prefix):
-                    name = e.name + ("/" if e.is_dir() else "")
-                    matches.append(name)
-        except Exception:
-            pass
+            matches += [c for c in COMMAND_REGISTRY.keys() if c.startswith(last_part)]
 
         matches = sorted(list(set(matches)))
         if not matches: return
