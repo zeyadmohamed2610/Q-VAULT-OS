@@ -342,6 +342,10 @@ class OSWindow(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         
+        # INVISIBLE HIT-BOX: Fill entire widget with 1/255 alpha to catch mouse events
+        # on the transparent margins, allowing edge resizing.
+        painter.fillRect(self.rect(), QColor(0, 0, 0, 1))
+        
         # Adjust rect to fit properly within bounds
         rect = QRect(margin, margin, self.width() - 2*margin, self.height() - 2*margin)
         

@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QListWidgetItem,
     QPushButton, QLineEdit, QLabel, QSplitter, QFrame, QMenu, QAction,
     QInputDialog, QMessageBox, QDialog, QFormLayout, QScrollArea,
-    QAbstractItemView, QSizePolicy
+    QAbstractItemView, QSizePolicy, QStyle
 )
 from PyQt5.QtCore import Qt, QSize, QTimer
 from PyQt5.QtGui import QFont, QIcon, QColor, QPixmap
@@ -158,11 +158,14 @@ class FileManagerApp(QWidget):
         tb_layout.setSpacing(8)
 
         # Nav buttons
-        self._btn_back = QPushButton("⬅️") 
+        style = self.style()
+        self._btn_back = QPushButton()
+        self._btn_back.setIcon(style.standardIcon(QStyle.SP_ArrowBack))
         self._btn_back.clicked.connect(self._go_back)
         tb_layout.addWidget(self._btn_back)
         
-        self._btn_fwd = QPushButton("➡️")
+        self._btn_fwd = QPushButton()
+        self._btn_fwd.setIcon(style.standardIcon(QStyle.SP_ArrowForward))
         self._btn_fwd.clicked.connect(self._go_forward)
         tb_layout.addWidget(self._btn_fwd)
 
@@ -181,7 +184,8 @@ class FileManagerApp(QWidget):
         self.search_bar.textChanged.connect(self._on_search_changed)
         tb_layout.addWidget(self.search_bar)
 
-        self._btn_refresh = QPushButton("🔄")
+        self._btn_refresh = QPushButton()
+        self._btn_refresh.setIcon(style.standardIcon(QStyle.SP_BrowserReload))
         self._btn_refresh.clicked.connect(self.refresh)
         tb_layout.addWidget(self._btn_refresh)
 

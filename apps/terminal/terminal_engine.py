@@ -98,6 +98,8 @@ class TerminalEngine(QObject):
         self.threat_score      = 0
         self._cmd_history: deque = deque(maxlen=15)
         self._suspicious_flags = 0
+        
+        self._init_guards_and_executor(secure_api, start_path)
     
     @property
     def state(self) -> EngineState:
@@ -109,6 +111,7 @@ class TerminalEngine(QObject):
             self._state = new_state
             self.state_changed.emit(new_state)
 
+    def _init_guards_and_executor(self, secure_api, start_path):
         self._process_guard = ProcessGuard("Terminal", api=secure_api)
         self._fs_guard      = FileSystemGuard("Terminal", api=secure_api)
 
