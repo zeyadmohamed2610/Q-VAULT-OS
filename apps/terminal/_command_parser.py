@@ -83,16 +83,20 @@ class ParsedCommand(NamedTuple):
     is_builtin     : bool       – handled internally
     is_whitelisted : bool       – may go to real OS via ProcessGuard
     is_local_exec  : bool       – starts with ./ or .\
+    redirect_file  : str | None – target file for > or >>
+    redirect_append: bool       – True if >>
     raw            : str        – original raw input string (for history)
     """
-    parts:          list[str]
-    base:           str
-    flags:          set[str]
-    args:           list[str]
-    is_builtin:     bool
-    is_whitelisted: bool
-    is_local_exec:  bool
-    raw:            str = ""
+    parts:           list[str]
+    base:            str
+    flags:           set[str]
+    args:            list[str]
+    is_builtin:      bool
+    is_whitelisted:  bool
+    is_local_exec:   bool
+    redirect_file:   str | None = None
+    redirect_append: bool = False
+    raw:             str = ""
 
 
 # ── Parser ─────────────────────────────────────────────────────────────────────
@@ -181,6 +185,23 @@ class CommandParser:
             else:
                 args.append(token)
 
+        # ── Redirection extraction ─────────────────────────────────────────
+        redirect_file = None
+        redirect_append = False
+        
+        # Check for > or >> in the parts
+        for i in range(len(parts)):
+            if parts[i] in (">", ">>"):
+                if i + 1 < len(parts):
+                    redirect_file = parts[i + 1]
+                    redirect_append = (parts[i] == ">>")
+                    # Remove the redirect operators and filename from the parts for internal logic
+                    # We only modify a copy for dispatching, but keep original for raw
+                    parts = parts[:i] + parts[i+2:]
+                    # Re-extract args without redirect parts
+                    args = [a for a in args if a != redirect_file]
+                break
+
         return ParsedCommand(
             parts          = parts,
             base           = base,
@@ -189,6 +210,8 @@ class CommandParser:
             is_builtin     = base in cls.BUILTIN_COMMANDS,
             is_whitelisted = base in cls.SUBPROCESS_WHITELIST,
             is_local_exec  = is_local_exec,
+            redirect_file  = redirect_file,
+            redirect_append = redirect_append,
             raw            = raw,
         )
 

@@ -164,10 +164,43 @@ class CommandExecutor(QObject):
             return False
             
         ctx = CommandContext(self)
+        
+        # ── Redirection Logic ──
+        original_emit = self._emit_output
+        redirect_handle = None
+        
+        if parsed.redirect_file:
+            try:
+                target_path = (self.cwd / parsed.redirect_file).resolve()
+                if not str(target_path).startswith(str(self._base_dir)):
+                    self._emit_output(OutputFormatter.permission_denied(parsed.redirect_file))
+                    return True
+                
+                mode = "a" if parsed.redirect_append else "w"
+                redirect_handle = open(target_path, mode, encoding="utf-8")
+                
+                def _redirect_emit(text: str) -> None:
+                    if redirect_handle:
+                        # Strip ANSI codes if writing to file for 100% clean logic
+                        import re
+                        clean_text = re.sub(r'\x1b\[[0-9;]*[mK]', '', text)
+                        redirect_handle.write(clean_text)
+                
+                self._emit_output = _redirect_emit
+            except Exception as e:
+                self._emit_output(f"[ERROR] Redirection failed: {e}\n")
+                return True
+
         try:
             cmd_instance.execute(parsed, ctx)
         except Exception as exc:
             self._emit_output(f"[ERROR] {str(exc)}\n")
+        finally:
+            # Restore original emit and close handle
+            self._emit_output = original_emit
+            if redirect_handle:
+                redirect_handle.close()
+                
         return True
 
     def _handle_nano(self, filename: str) -> None:

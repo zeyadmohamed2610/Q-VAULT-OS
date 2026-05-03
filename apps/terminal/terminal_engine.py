@@ -76,6 +76,7 @@ class TerminalEngine(QObject):
     output_ready  = pyqtSignal(str)
     prompt_update = pyqtSignal(str, str)
     password_mode = pyqtSignal(str, bool)
+    state_changed = pyqtSignal(object) # Emits EngineState
 
     def __init__(self, secure_api=None, start_path: Path | None = None) -> None:
         super().__init__()
@@ -90,13 +91,23 @@ class TerminalEngine(QObject):
         self.current_user = "user"
         self.current_role = "user"
 
-        self.state         = EngineState.NORMAL
+        self._state         = EngineState.NORMAL
         self._pending_pass = ""
         self._pending_cmd  = ""
 
         self.threat_score      = 0
         self._cmd_history: deque = deque(maxlen=15)
         self._suspicious_flags = 0
+    
+    @property
+    def state(self) -> EngineState:
+        return self._state
+
+    @state.setter
+    def state(self, new_state: EngineState):
+        if self._state != new_state:
+            self._state = new_state
+            self.state_changed.emit(new_state)
 
         self._process_guard = ProcessGuard("Terminal", api=secure_api)
         self._fs_guard      = FileSystemGuard("Terminal", api=secure_api)

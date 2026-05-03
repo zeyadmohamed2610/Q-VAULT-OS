@@ -142,6 +142,10 @@ class TerminalBuffer(QPlainTextEdit):
         """)
         self.setLineWrapMode(QPlainTextEdit.NoWrap)
         self.document().setMaximumBlockCount(2000)
+        self._suggestion = ""
+        
+        # Cursor blink timer for visual polish
+        self.setCursorWidth(2)
 
     def set_password_mode(self, enabled: bool):
         self._is_password_mode = enabled
@@ -227,6 +231,27 @@ class TerminalBuffer(QPlainTextEdit):
         act_all = menu.addAction("📄  Select All")
         act_all.triggered.connect(self.selectAll)
         menu.exec_(event.globalPos())
+
+    def paintEvent(self, event):
+        """Draw ghost text suggestion behind the cursor."""
+        super().paintEvent(event)
+        if not self._suggestion or self._is_password_mode:
+            return
+
+        painter = QTextCursor(self.document())
+        painter.movePosition(QTextCursor.End)
+        rect = self.cursorRect(painter)
+        
+        from PyQt5.QtGui import QPainter
+        p = QPainter(self.viewport())
+        p.setPen(QColor("#666666")) # Muted grey
+        p.setFont(self.font())
+        
+        # Offset slightly to the right of the cursor
+        p.drawText(rect.right() + 2, rect.top(), 
+                  self.viewport().width(), rect.height(),
+                  Qt.AlignLeft | Qt.AlignVCenter, self._suggestion)
+        p.end()
 
     def keyPressEvent(self, event):
         cursor = self.textCursor()
@@ -360,7 +385,54 @@ class TerminalBuffer(QPlainTextEdit):
                     self._pass_buffer += event.text()
                 return # Don't show anything
 
+        # 7. Accept Suggestion (Right arrow)
+        if event.key() == Qt.Key_Right:
+            if self._suggestion and cursor.atEnd():
+                self._replace_current_input(self._get_current_input() + self._suggestion)
+                self._update_suggestion()
+                return
+
         super().keyPressEvent(event)
+        # Update suggestion after any text change
+        self._update_suggestion()
+
+    def _update_suggestion(self):
+        curr_raw = self._get_current_input()
+        curr = curr_raw.strip()
+        if not curr or self._is_password_mode:
+            self._suggestion = ""
+            self.viewport().update()
+            return
+            
+        # 1. Try history match first (if input doesn't have spaces, it's a command)
+        match = ""
+        if " " not in curr:
+            for h in reversed(self._history):
+                if h.startswith(curr) and h != curr:
+                    match = h[len(curr):]
+                    break
+        
+        # 2. Try path match if no history match or if we have spaces (args)
+        if not match:
+            parts = curr_raw.split()
+            last_part = parts[-1] if not curr_raw.endswith(" ") else ""
+            
+            # Use engine's CWD to look up files
+            try:
+                cwd = self._engine.executor.cwd
+                # Simple prefix match in CWD
+                for p in cwd.iterdir():
+                    if p.name.startswith(last_part) and p.name != last_part:
+                        match = p.name[len(last_part):]
+                        if p.is_dir():
+                            match += "/"
+                        break
+            except:
+                pass
+        
+        if match != self._suggestion:
+            self._suggestion = match
+            self.viewport().update()
 
 class TerminalApp(QWidget):
     def __init__(self, secure_api=None, start_path: str = None, parent=None):
@@ -384,6 +456,9 @@ class TerminalApp(QWidget):
         self._buffer.command_entered.connect(self._engine.execute_command)
         self._buffer.tab_pressed.connect(self._handle_tab)
         
+        # Connect State changes to UI
+        self._engine.state_changed.connect(self._update_state_ui)
+        
         # Hook nano/notepad requests
         self._engine._executor._on_nano_request = self._open_nano
         self._engine._executor._on_notepad_request = self._open_notepad
@@ -393,15 +468,70 @@ class TerminalApp(QWidget):
         QTimer.singleShot(100, self._buffer.ensureCursorVisible)
 
     def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
 
+        # ── Status Header ──
+        self.header = QFrame()
+        self.header.setFixedHeight(30)
+        self.header.setObjectName("terminalHeader")
+        self.header.setStyleSheet("""
+            #terminalHeader {
+                background: #0b162d;
+                border-bottom: 1px solid rgba(0, 230, 255, 0.2);
+            }
+            QLabel {
+                color: #8899aa;
+                font-family: 'Segoe UI Semibold', sans-serif;
+                font-size: 9pt;
+            }
+        """)
+        header_layout = QHBoxLayout(self.header)
+        header_layout.setContentsMargins(15, 0, 15, 0)
+        
+        self.state_label = QLabel("● NORMAL")
+        self.state_label.setStyleSheet("color: #00e6ff;") # Cyan
+        header_layout.addWidget(self.state_label)
+        
+        header_layout.addStretch()
+        
+        self.metrics_label = QLabel("CPU: 0%  |  MEM: 0%")
+        header_layout.addWidget(self.metrics_label)
+        
+        self.layout.addWidget(self.header)
+
+        # ── Buffer ──
         self._buffer = TerminalBuffer()
         self._hl = _Highlighter(self._buffer.document())
+        self.layout.addWidget(self._buffer)
 
-        # Buffer fills the ENTIRE available space — no dead zones
-        layout.addWidget(self._buffer)
+        # Metrics update timer
+        self._metrics_timer = QTimer(self)
+        self._metrics_timer.timeout.connect(self._update_metrics)
+        self._metrics_timer.start(2000)
+    
+    def _update_metrics(self):
+        import random
+        cpu = random.randint(1, 5)
+        mem = random.randint(12, 18)
+        self.metrics_label.setText(f"CPU: {cpu}%  |  MEM: {mem}%  |  Q-VAULT v4.0")
+
+    def _update_state_ui(self, state):
+        # Update header based on engine state
+        from .terminal_engine import EngineState
+        if state == EngineState.ROOT:
+            self.state_label.setText("● ROOT")
+            self.state_label.setStyleSheet("color: #ff3366;") # Red
+        elif state in (EngineState.AUTH_REQUEST, EngineState.AUTH_SUDO):
+            self.state_label.setText("● SUDO")
+            self.state_label.setStyleSheet("color: #ffcc00;") # Gold
+        elif state == EngineState.LOCKED:
+            self.state_label.setText("● LOCKED")
+            self.state_label.setStyleSheet("color: #555568;") # Grey
+        else:
+            self.state_label.setText("● NORMAL")
+            self.state_label.setStyleSheet("color: #00e6ff;")
 
     def _handle_tab(self, current_input):
         if not current_input: return
@@ -456,7 +586,8 @@ class TerminalApp(QWidget):
         if len(matches) == 1:
             # Single match: insert it
             match = matches[0]
-            new_input = current_input[:-len(prefix)] + match
+            # Replace last_part with match
+            new_input = current_input[:current_input.rfind(last_part)] + match
             self._buffer._replace_current_input(new_input)
         elif len(matches) > 1:
             # Multiple matches: show them and stay on current line

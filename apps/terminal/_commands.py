@@ -109,12 +109,23 @@ class CommandContext:
     ) -> list[Path]:
         results: list[Path] = []
         for name in args:
+            # ── Expansion Logic ──
+            # 1. Handle ~
+            if name.startswith("~"):
+                name = name.replace("~", str(self.base_dir), 1)
+            
+            # 2. Handle Env Vars ($USER, $HOME, etc)
+            for var, val in self._session_env.items():
+                if f"${var}" in name:
+                    name = name.replace(f"${var}", val)
+            
+            # 3. Globbing
             if "*" in name or "?" in name:
                 for p in self.cwd.glob(name):
                     if str(p).startswith(str(self.base_dir)):
                         results.append(p)
             else:
-                p = (self.cwd / name).resolve()
+                p = Path(name).resolve() if Path(name).is_absolute() else (self.cwd / name).resolve()
                 if str(p).startswith(str(self.base_dir)):
                     if must_exist and not p.exists():
                         self.emit_output(f"Error: {name}: No such file or directory\n")
@@ -126,7 +137,16 @@ class CommandContext:
 
     def resolve_one(self, name: str) -> Path | None:
         """Resolve a single name, returning None if outside base_dir."""
-        p = (self.cwd / name).resolve()
+        # 1. Handle ~
+        if name.startswith("~"):
+            name = name.replace("~", str(self.base_dir), 1)
+        
+        # 2. Handle Env Vars
+        for var, val in self._session_env.items():
+            if f"${var}" in name:
+                name = name.replace(f"${var}", val)
+
+        p = Path(name).resolve() if Path(name).is_absolute() else (self.cwd / name).resolve()
         if str(p).startswith(str(self.base_dir)):
             return p
         self.emit_output(OutputFormatter.permission_denied(name))
