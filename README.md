@@ -106,6 +106,7 @@ Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form an
 ### Prerequisites
 - **Python 3.10+**
 - **Rust Toolchain** (latest stable)
+- **.NET 9.0 Runtime** (Required for the Security Mediator)
 - **Git**
 
 ### Installation
@@ -127,7 +128,14 @@ python run.py
 The simulation operates on the **Principle of Least Privilege (PoLP)**:
 1. **Isolated Widgets**: Each application runs as an isolated proxy.
 2. **Permissioned API**: No application can access the host filesystem without explicit tokens.
-3. **Audit Logging**: Every system event is signed and stored in a secure ledger.
+3. **Administrative Elevation**: The Security Mediator (`PQC-Vault`) may request UAC elevation to interface with kernel-level security features.
+4. **Audit Logging**: Every system event is signed and stored in a secure ledger.
+
+### 🔍 Troubleshooting & Diagnostics
+If the security subsystem fails to initialize:
+- Check the integration logs at `~/.qvault/logs/integration.log`.
+- View the mediator's internal stderr/stdout at `~/.qvault/logs/mediator.log`.
+- Ensure `PQC-Vault.exe` and its matching `PQC-Vault.dll` are present in the `binaries/` directory.
 
 ---
 
