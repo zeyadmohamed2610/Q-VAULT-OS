@@ -114,6 +114,15 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         isolation_mode="direct",
         show_on_desktop=True,
     ),
+    AppDefinition(
+        name="Notepad",
+        emoji="📝",
+        module="apps.notepad.notepad_app",
+        class_name="NotepadApp",
+        icon_asset="icons/file_text.svg",
+        isolation_mode="direct",
+        show_on_desktop=True,
+    ),
 )
 
 

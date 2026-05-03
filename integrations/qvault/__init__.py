@@ -8,6 +8,8 @@ MEDIATOR_PROJECT_DIR = _PROJECT_ROOT / "subsystems" / "pqc-mediator"
 
 # Candidate executable paths (searched in order)
 MEDIATOR_EXE_CANDIDATES = [
+    _PROJECT_ROOT / "binaries" / "PQC-Vault.exe",
+    MEDIATOR_PROJECT_DIR / "PQC-Vault.exe",
     MEDIATOR_PROJECT_DIR / "PQC-Vault" / "bin" / "Release" / "net9.0-windows" / "PQC-Vault.exe",
     MEDIATOR_PROJECT_DIR / "PQC-Vault" / "bin" / "Debug" / "net9.0-windows" / "PQC-Vault.exe",
 ]

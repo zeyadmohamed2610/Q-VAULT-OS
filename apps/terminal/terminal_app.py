@@ -10,6 +10,7 @@ from PyQt5.QtCore import Qt, pyqtSignal, QEvent, QTimer
 from system.config import get_qvault_home
 from core.event_bus import EVENT_BUS, SystemEvent
 from .nano_editor import NanoEditor
+from apps.notepad.notepad_app import NotepadApp
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +155,15 @@ class TerminalBuffer(QPlainTextEdit):
         self.ensureCursorVisible()
 
     def append_output(self, text, newline=True):
+        if "\x0c" in text:
+            # Handle clear command
+            self.setPlainText("")
+            self._prompt_pos = 0
+            # Remove the \x0c and proceed if there's more text
+            text = text.replace("\x0c", "")
+            if not text:
+                return
+
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.End)
         self.setTextCursor(cursor)
@@ -319,8 +329,9 @@ class TerminalApp(QWidget):
         self._buffer.command_entered.connect(self._engine.execute_command)
         self._buffer.tab_pressed.connect(self._handle_tab)
         
-        # Hook nano request
+        # Hook nano/notepad requests
         self._engine._executor._on_nano_request = self._open_nano
+        self._engine._executor._on_notepad_request = self._open_notepad
         
         self._engine.boot_terminal()
         # Scroll to bottom so prompt is visible
@@ -338,25 +349,52 @@ class TerminalApp(QWidget):
         layout.addWidget(self._buffer)
 
     def _handle_tab(self, current_input):
-        # Very basic autocomplete for files in CWD
+        """
+        Enhanced Tab completion:
+        - Completes commands if first word.
+        - Completes files/dirs if subsequent words.
+        - Adds '/' to directory completions.
+        - Shows multiple matches and redraws prompt.
+        """
         parts = current_input.split()
-        if not parts: return
+        if not current_input: return
         
-        prefix = parts[-1]
+        # If input ends with space, we are looking for a new argument
+        in_new_arg = current_input.endswith(" ")
+        prefix = "" if in_new_arg else parts[-1]
+        
         cwd = self._engine.cwd
+        matches = []
+        
+        if len(parts) <= 1 and not in_new_arg:
+            # Command completion
+            from ._commands import COMMAND_REGISTRY
+            matches = [c for c in COMMAND_REGISTRY.keys() if c.startswith(prefix)]
+        
+        # File/Dir completion
         try:
-            matches = [e.name for e in cwd.iterdir() if e.name.startswith(prefix)]
-            if len(matches) == 1:
-                new_input = current_input[:-len(prefix)] + matches[0]
-                self._buffer._replace_current_input(new_input)
-            elif len(matches) > 1:
-                self._buffer.append_output("\n" + "  ".join(sorted(matches)))
-                # Re-emit prompt? No, usually you just stay on current line.
-                # But here we need to re-show the prompt to continue.
-                # Actually, real terminal just shows matches and keeps input.
-                # For now, let's just show matches.
+            entries = list(cwd.iterdir())
+            for e in entries:
+                if e.name.startswith(prefix):
+                    name = e.name + ("/" if e.is_dir() else "")
+                    matches.append(name)
         except Exception:
             pass
+
+        matches = sorted(list(set(matches)))
+        if not matches: return
+
+        if len(matches) == 1:
+            # Single match: insert it
+            match = matches[0]
+            new_input = current_input[:-len(prefix)] + match
+            self._buffer._replace_current_input(new_input)
+        elif len(matches) > 1:
+            # Multiple matches: show them and stay on current line
+            self._buffer.append_output("\n" + "  ".join(matches))
+            # Re-emit the prompt and current input to keep typing
+            self._engine._emit_prompt()
+            self._buffer._replace_current_input(current_input)
 
     def _open_nano(self, file_path):
         """Opens the NanoEditor overlay."""
@@ -375,6 +413,23 @@ class TerminalApp(QWidget):
     def _on_nano_closed(self):
         self._buffer.setFocus()
         # Trigger a prompt refresh from engine
+        self._engine._emit_prompt()
+
+    def _open_notepad(self, file_path=None):
+        """Opens the NotepadApp overlay."""
+        try:
+            self.notepad = NotepadApp(secure_api=self.secure_api, parent=self)
+            if file_path and file_path.exists():
+                self.notepad._open_file(str(file_path))
+            
+            self.notepad.setGeometry(self.rect())
+            self.notepad.closed.connect(self._on_notepad_closed)
+            self.notepad.show()
+        except Exception as e:
+            self._buffer.append_output(f"[ERROR] Notepad failed: {e}")
+
+    def _on_notepad_closed(self):
+        self._buffer.setFocus()
         self._engine._emit_prompt()
 
     def change_directory(self, path: str):

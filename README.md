@@ -85,8 +85,9 @@ graph TD
 
 | Subsystem | Description | Technology | Status |
 | :--- | :--- | :--- | :--- |
-| **Terminal** | POSIX-compliant shell with VFS integration. | Python + Rust | ✅ Stable |
+| **Terminal** | POSIX-compliant shell with advanced nano & tab-completion. | Python + Rust | ✅ Stable |
 | **File Manager** | Encrypted explorer with drag-and-drop support. | PyQt5 | ✅ Stable |
+| **Notepad** | Professional GUI text editor with full file I/O. | PyQt5 | ✅ Stable |
 | **System Monitor** | Live telemetry, resource graphs, and Trust Scores. | Matplotlib + IPC | ✅ Stable |
 | **Security Hub** | RBAC policy management and audit log viewer. | Rust Core | 🛠️ In-Dev |
 | **Browser** | Isolated web environment with restricted API access. | QtWebEngine | ✅ Stable |

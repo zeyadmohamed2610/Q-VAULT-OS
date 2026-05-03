@@ -1579,7 +1579,14 @@ class ExecCommand(BaseCommand):
                     ctx.emit_output(f"  > {line[:60]}\n")
             ctx.emit_output("[+] Script execution completed.\n")
         except Exception as e:
-            ctx.emit_output(f"[ERROR] {e}\n")
+            ctx.emit_output(f"[-] Error: {e}\n")
+
+
+class NotepadCommand(BaseCommand):
+    """notepad – opens the graphical Notepad application."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        filename = parsed.args[0] if parsed.args else ""
+        ctx.executor._handle_notepad(filename)
 
 
 class EchoCommand(BaseCommand):
@@ -1689,6 +1696,7 @@ COMMAND_REGISTRY: dict[str, BaseCommand] = {
     "nano":        NanoCommand(),
     "vim":         VimCommand(),
     "vi":          VimCommand(),
+    "notepad":     NotepadCommand(),
     # ── Permissions ──
     "chmod":       ChmodCommand(),
     "chown":       ChownCommand(),

@@ -173,17 +173,26 @@ class CommandExecutor(QObject):
     def _handle_nano(self, filename: str) -> None:
         """Hook for GUI to open nano overlay - overridden by TerminalApp"""
         if hasattr(self, "_on_nano_request"):
-            # Resolve path relative to current working directory
             target = (self.cwd / filename).resolve()
-            
-            # Security Boundary Check
             if not str(target).startswith(str(self._base_dir)):
                 self._emit_output(OutputFormatter.permission_denied(filename))
                 return
-                
             self._on_nano_request(target)
         else:
             self._emit_output("nano: terminal environment does not support GUI overlays\n")
+
+    def _handle_notepad(self, filename: str) -> None:
+        """Hook for GUI to open notepad overlay - overridden by TerminalApp"""
+        if hasattr(self, "_on_notepad_request"):
+            target = (self.cwd / filename).resolve() if filename else None
+            
+            if target and not str(target).startswith(str(self._base_dir)):
+                self._emit_output(OutputFormatter.permission_denied(filename))
+                return
+                
+            self._on_notepad_request(target)
+        else:
+            self._emit_output("notepad: terminal environment does not support GUI overlays\n")
     # Policy violation hook — overridden by TerminalEngine to feed threat score
     def _on_rm_policy_violation(self, name: str) -> None:
         """
