@@ -101,7 +101,7 @@ Q-Vault features a **One-Command Bootstrapper** that handles environment setup, 
 
 ```bash
 # Clone the repository
-git clone https://github.com/q-vault-group/Q-VAULT-project.git
+git clone https://github.com/zeyadmohamed2610/Q-VAULT-OS.git
 cd Q-VAULT-project
 
 # Launch the OS (This will auto-install dependencies and build Rust binaries)
