@@ -64,34 +64,14 @@ def _icon_for(path: Path) -> str:
 
 
 
-# ── File icon system (SVG per type) ──────────────────────────
-ICON_MAP_FM = {
-    "folder":   "assets/icons/folder.svg",
-    ".txt":     "assets/icons/file_text.svg",
-    ".md":      "assets/icons/file_text.svg",
-    ".py":      "assets/icons/file_text.svg",
-    ".js":      "assets/icons/file_text.svg",
-    ".ts":      "assets/icons/file_text.svg",
-    ".json":    "assets/icons/file_text.svg",
-    ".html":    "assets/icons/file_text.svg",
-    ".css":     "assets/icons/file_text.svg",
-    ".c":       "assets/icons/file_text.svg",
-    ".cpp":     "assets/icons/file_text.svg",
-    ".h":       "assets/icons/file_text.svg",
-    "_default": "assets/icons/file_generic.svg",
-}
-
+from PyQt5.QtWidgets import QFileIconProvider
+from PyQt5.QtCore import QFileInfo
 
 def get_file_icon(path: Path, size: int = 48) -> QPixmap:
-    """Return a scaled QPixmap for a file or folder using SVG icon map."""
-    svg = ICON_MAP_FM["folder"] if path.is_dir() else ICON_MAP_FM.get(
-        path.suffix.lower(), ICON_MAP_FM["_default"]
-    )
-    pix = QPixmap(svg)
-    if pix.isNull():
-        pix = QPixmap(size, size)
-        pix.fill(QColor("#0b162d"))
-    return pix.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    """Return a scaled QPixmap for a file or folder using native OS icons."""
+    provider = QFileIconProvider()
+    icon = provider.icon(QFileInfo(str(path)))
+    return icon.pixmap(size, size)
 
 # ── Context menu style (vault palette) ───────────────────────
 CONTEXT_MENU_STYLE = (

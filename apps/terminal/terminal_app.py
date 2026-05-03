@@ -217,7 +217,7 @@ class TerminalBuffer(QPlainTextEdit):
         return cursor.selectionStart() < self._prompt_pos
 
     def contextMenuEvent(self, event):
-        """Custom context menu — Copy & Select All only. No Cut/Delete."""
+        """Custom context menu with Admin elevation, Copy, and Select All."""
         from PyQt5.QtWidgets import QMenu
         menu = QMenu(self)
         menu.setStyleSheet(
@@ -227,13 +227,24 @@ class TerminalBuffer(QPlainTextEdit):
             "QMenu::item:selected{background:rgba(0,230,255,0.15);color:#00e6ff;}"
             "QMenu::item:disabled{color:#555568;}"
         )
+        
+        act_admin = menu.addAction("🛡️  Run as Administrator")
+        act_admin.triggered.connect(self._run_as_admin)
+        menu.addSeparator()
+        
         act_copy = menu.addAction("📋  Copy")
         act_copy.setEnabled(self.textCursor().hasSelection())
         act_copy.triggered.connect(self.copy)
         menu.addSeparator()
+        
         act_all = menu.addAction("📄  Select All")
         act_all.triggered.connect(self.selectAll)
+        
         menu.exec_(event.globalPos())
+
+    def _run_as_admin(self):
+        if hasattr(self, "_engine") and self._engine:
+            self._engine.run_as_administrator()
 
     def paintEvent(self, event):
         """Draw ghost text suggestion behind the cursor."""
@@ -451,6 +462,9 @@ class TerminalApp(QWidget):
         self._engine = TerminalEngine(secure_api=secure_api, start_path=start_path_obj)
         
         self._setup_ui()
+        
+        # Inject engine into buffer for context menu and suggestions
+        self._buffer._engine = self._engine
         
         # Connect Engine -> Buffer
         self._engine.output_ready.connect(self._buffer.append_output)
