@@ -421,7 +421,7 @@ class TerminalBuffer(QPlainTextEdit):
             
             # Use engine's CWD to look up files
             try:
-                cwd = self._engine.executor.cwd
+                cwd = self._engine._executor.cwd
                 # Simple prefix match in CWD
                 for p in cwd.iterdir():
                     if p.name.startswith(last_part) and p.name != last_part:
