@@ -14,14 +14,17 @@ By participating in this project, you are expected to uphold our Code of Conduct
 ## How Can I Contribute?
 
 ### Reporting Bugs
+
 - Check the [Issues tab](https://github.com/zeyadmohamed2610/Q-VAULT-OS/issues) to see if the bug has already been reported.
 - If not, open a new issue. Clearly describe the problem, including steps to reproduce it and your environment (OS, Python version, etc.).
 
 ### Suggesting Enhancements
+
 - Enhancement suggestions are tracked as [GitHub issues](https://github.com/zeyadmohamed2610/Q-VAULT-OS/issues).
 - Describe the feature you'd like to see and why it would be useful.
 
 ### Pull Requests
+
 1. Fork the repo and create your branch from `main`.
 2. If you've added code that should be tested, add tests.
 3. If you've changed APIs, update the documentation.
@@ -31,16 +34,19 @@ By participating in this project, you are expected to uphold our Code of Conduct
 ## Styleguides
 
 ### Git Commit Messages
+
 - Use the present tense ("Add feature" not "Added feature").
 - Use the imperative mood ("Move cursor to..." not "Moves cursor to...").
 - Limit the first line to 72 characters or less.
 
 ### Python Styleguide
+
 - We follow [PEP 8](https://www.python.org/dev/peps/pep-0008/).
 - Use meaningful variable names.
 - Document functions and classes with docstrings.
 
 ### Rust Styleguide
+
 - Run `cargo fmt` before committing.
 - Use `clippy` for linting.
 
