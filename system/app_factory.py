@@ -1,10 +1,3 @@
-# =============================================================
-#  system/app_factory.py — Q-VAULT OS  |  Application Factory
-#
-#  Responsible for creating application instances with the 
-#  correct security wrappers and isolation proxies.
-# =============================================================
-
 import importlib
 import logging
 from typing import Optional, TYPE_CHECKING
@@ -17,24 +10,32 @@ logger = logging.getLogger(__name__)
 
 def create_app_instance(
     app_def: AppDefinition,
-    parent: Optional["QWidget"] = None
+    parent: Optional["QWidget"] = None,
+    extra_kwargs: dict = None
 ) -> Optional["QWidget"]:
     """
     Dynamically load and instantiate an app widget with security context.
     Ensures 100% UX Consistency by using IsolatedAppWidget proxy for process apps.
     """
     # 1. Resolve Module and Class
-    # If module starts with 'components.' or 'apps.', use it as is.
-    # Otherwise, default to 'apps.' for backward compatibility.
+    ALLOWED_PREFIXES = ("apps.", "components.", "system.", "kernel.")
     module_path = app_def.module
-    if not (module_path.startswith("apps.") or module_path.startswith("components.")):
+    if not module_path.startswith(ALLOWED_PREFIXES):
         module_path = f"apps.{module_path}"
 
     try:
         module = importlib.import_module(module_path)
         cls = getattr(module, app_def.class_name)
+    except ModuleNotFoundError as e:
+        REGISTRY.quarantine(
+            app_def.name,
+            f"Module not found: '{module_path}' ({e.name})",
+        )
+        logger.error("AppFactory: %s -> %s", app_def.name, module_path, exc_info=True)
+        return None
     except Exception as e:
         REGISTRY.quarantine(app_def.name, f"Import Error: {e}")
+        logger.error("AppFactory: %s Import Error: %s", app_def.name, e, exc_info=True)
         return None
 
     # Defer imports to avoid circular dependencies
@@ -66,10 +67,13 @@ def create_app_instance(
     try:
         secure_api = SecureAPI(app_id=app_def.name)
         try:
-            widget = cls(secure_api=secure_api, parent=parent)
+            widget = cls(secure_api=secure_api, parent=parent, **extra_kwargs)
         except TypeError:
-            # Fallback for apps not yet updated to accept secure_api in __init__
-            widget = cls(parent=parent)
+            try:
+                widget = cls(secure_api=secure_api, parent=parent)
+            except TypeError:
+                # Fallback for apps not yet updated to accept secure_api in __init__
+                widget = cls(parent=parent)
             if secure_api and not hasattr(widget, "secure_api"):
                 widget.secure_api = secure_api
 
@@ -77,16 +81,23 @@ def create_app_instance(
         logger.info("AppFactory: Launched '%s' (Isolation: %s)", app_def.name, app_def.isolation_mode)
         return widget
     except Exception as exc:
+        # RC-leak fix: stop orphaned subprocess if controller was already started
+        try:
+            if 'widget' in locals() and hasattr(widget, 'controller'):
+                widget.controller.stop()
+        except Exception:
+            pass
         REGISTRY.quarantine(app_def.name, f"Instantiation error: {exc}")
         return None
 
 def create_app_by_name(
     name: str,
-    parent: Optional["QWidget"] = None
+    parent: Optional["QWidget"] = None,
+    **kwargs
 ) -> Optional["QWidget"]:
     """Look up app by name and create instance."""
     app_def = REGISTRY.get_by_name(name)
     if app_def is None:
         logger.warning(f"AppFactory: App '{name}' not found in manifest")
         return None
-    return create_app_instance(app_def, parent=parent)
+    return create_app_instance(app_def, parent=parent, extra_kwargs=kwargs)

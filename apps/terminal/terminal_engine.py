@@ -1,42 +1,17 @@
 """
-apps.terminal.terminal_engine
-────────────────────────────────────────────────────────────────────────────
-Q-Vault OS — Terminal Engine  (Refactored — Facade pattern)
+apps.terminal.terminal_engine — Q-Vault OS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Terminal Engine  |  Upgrade v4
 
-ARCHITECTURE (post-refactor)
-─────────────────────────────
-Before: one 260-line God Object with 20+ methods mixing parsing,
-        execution, sudo, formatting, threat analysis, and output.
-
-After:  four single-responsibility components + one thin Facade.
-
-  ┌──────────────────────────────────────────────────────────┐
-  │  TerminalEngine  (this file — Facade / Coordinator)      │
-  │                                                          │
-  │  ┌──────────────────┐  ┌──────────────────┐             │
-  │  │  CommandParser   │  │   SudoManager    │             │
-  │  │  (pure, static)  │  │  (auth + cache)  │             │
-  │  └──────────────────┘  └──────────────────┘             │
-  │                                                          │
-  │  ┌──────────────────┐  ┌──────────────────┐             │
-  │  │ CommandExecutor  │  │  OutputFormatter │             │
-  │  │ (fs + sys cmds)  │  │  (pure strings)  │             │
-  │  └──────────────────┘  └──────────────────┘             │
-  └──────────────────────────────────────────────────────────┘
-
-EXTERNAL CONTRACT (unchanged — zero breaking changes)
-──────────────────────────────────────────────────────
-  Import path : apps.terminal.terminal_engine
-  Class       : TerminalEngine
-  Signals     : output_ready(str)
-                prompt_update(str, str)   <- ("prompt_update", "<text>")
-                password_mode(str, bool)  <- ("password_mode", True/False)
-  Methods     : boot_terminal()
-                execute_command(str)
-
-Re-exported for backward compat:
-  EngineState, TerminalWorker, _SUBPROCESS_WHITELIST
-────────────────────────────────────────────────────────────────────────────
+Changes from v3
+───────────────
+1. History tracking   – every executed command stored in CommandContext._history
+2. Alias expansion    – passes alias table to CommandParser.parse()
+3. Unknown command    – shows did-you-mean via OutputFormatter.unknown_command()
+4. Right-click admin  – run_as_administrator() public method sets ROOT state
+5. Arrow-key history  – history_prev() / history_next() for UI to call
+6. Pipe detection     – single-level pipe (cmd1 | cmd2) handled gracefully
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 from __future__ import annotations
 
@@ -53,6 +28,7 @@ from system.security.auth_manager import AuthManager
 
 from ._command_parser import CommandParser, SUBPROCESS_WHITELIST
 from ._command_executor import CommandExecutor, TerminalWorker
+from ._commands import CommandContext
 from ._sudo_manager import (
     SudoManager,
     THREAT_FAILED_SUDO,
@@ -73,29 +49,35 @@ __all__ = [
 
 
 class EngineState(Enum):
-    NORMAL         = 0
-    SETUP_PASS     = 1
-    SETUP_CONFIRM  = 2
-    AUTH_SUDO      = 3
-    LOCKED         = 4
-    TERMINATED     = 5
+    NORMAL       = 0
+    AUTH_REQUEST = 1
+    AUTH_CONFIRM = 2
+    AUTH_SUDO    = 3
+    LOCKED       = 4
+    TERMINATED   = 5
+    ROOT         = 6
 
 
 class TerminalEngine(QObject):
     """
     Facade that coordinates four single-responsibility components.
-    The only things that remain here are:
-      - Signal declarations (IsolatedAppWidget contract)
-      - EngineState machine (sudo + lock transitions)
-      - Threat / IDS logic (reads + writes self.state)
-      - Component wiring
+
+    New in v4
+    ─────────
+    - Command history stored in CommandContext._history (shared class-level list)
+    - Alias table shared via CommandContext._aliases
+    - Arrow-key navigation: history_prev() / history_next()
+    - run_as_administrator() — called by right-click context menu
+    - Single-level pipe support: 'cmd1 | cmd2' routes output of cmd1 as
+      input file argument to cmd2 (limited simulation)
+    - Unknown commands produce did-you-mean suggestions
     """
 
     output_ready  = pyqtSignal(str)
     prompt_update = pyqtSignal(str, str)
     password_mode = pyqtSignal(str, bool)
 
-    def __init__(self, secure_api=None) -> None:
+    def __init__(self, secure_api=None, start_path: Path | None = None) -> None:
         super().__init__()
         from system.config import get_qvault_home
 
@@ -105,8 +87,8 @@ class TerminalEngine(QObject):
         self._auth_manager = AuthManager()
         self.sudo_manager  = SudoManager(self._auth_manager)
 
-        self.current_user = "guest"
-        self.current_role = "guest"
+        self.current_user = "user"
+        self.current_role = "user"
 
         self.state         = EngineState.NORMAL
         self._pending_pass = ""
@@ -119,14 +101,14 @@ class TerminalEngine(QObject):
         self._process_guard = ProcessGuard("Terminal", api=secure_api)
         self._fs_guard      = FileSystemGuard("Terminal", api=secure_api)
 
+        # Arrow-key history navigation cursor
+        self._hist_cursor: int = -1   # -1 = not navigating
+
         self._executor = self._build_executor()
+        if start_path:
+            self._executor.cwd = start_path
 
-        if not self.sudo_manager.is_setup_complete:
-            self.state = EngineState.SETUP_PASS
-
-    # ------------------------------------------------------------------
-    # Component wiring
-    # ------------------------------------------------------------------
+    # ── Component wiring ──────────────────────────────────────────────────────
 
     def _build_executor(self) -> CommandExecutor:
         executor = CommandExecutor(
@@ -139,18 +121,18 @@ class TerminalEngine(QObject):
             role_getter=lambda: self.current_role,
         )
 
-        # Hook: rm on protected path -> threat score
+        # Hook: rm on protected path → threat score
         def _rm_policy_violation(name: str) -> None:
             self._increase_threat(40, f"Attempted system deletion: {name}")
         executor._on_rm_policy_violation = _rm_policy_violation
 
-        # Hook: verify_audit -> SudoManager
+        # Hook: verify_audit → SudoManager
         def _verify_audit() -> None:
             valid, msg = self.sudo_manager.verify_audit_log()
             self.output_ready.emit(OutputFormatter.audit_result(valid, msg))
         executor._on_verify_audit = _verify_audit
 
-        # Hook: whoami needs current_user (executor only has role getter)
+        # Hook: whoami needs current_user
         def _handle_whoami(_parts) -> None:
             self.output_ready.emit(
                 OutputFormatter.whoami(self.current_user, self.current_role)
@@ -170,26 +152,29 @@ class TerminalEngine(QObject):
 
         return executor
 
-    # ------------------------------------------------------------------
-    # Public API  (called via IsolatedAppWidget.call_remote)
-    # ------------------------------------------------------------------
+    # ── Public API ────────────────────────────────────────────────────────────
 
     def boot_terminal(self) -> None:
-        if self.state == EngineState.SETUP_PASS:
-            self.output_ready.emit(OutputFormatter.setup_prompt_initial())
-            self.password_mode.emit("password_mode", True)
-        else:
-            self.output_ready.emit(OutputFormatter.boot_banner())
-            self._emit_prompt()
+        self.output_ready.emit(OutputFormatter.boot_banner())
+        self._emit_prompt()
 
     def execute_command(self, cmd_line: str) -> None:
+        if not hasattr(self, "_last_cmd_time"):
+            self._last_cmd_time = 0.0
+
+        now = time.time()
+        if now - self._last_cmd_time < 0.05:
+            return
+        self._last_cmd_time = now
+
         if self.state == EngineState.TERMINATED:
             self.output_ready.emit("[BLOCKED] Security integrity violation.\n")
             return
 
         cmd = cmd_line.strip()
 
-        if self.state != EngineState.NORMAL:
+        # Handle non-NORMAL states (password input, locked, etc.)
+        if self.state not in (EngineState.NORMAL, EngineState.ROOT):
             self._handle_state_input(cmd)
             return
 
@@ -197,70 +182,235 @@ class TerminalEngine(QObject):
             self.output_ready.emit("")
             return
 
+        # ── Store in history ──────────────────────────────────────────────
+        if cmd and (not CommandContext._history or CommandContext._history[-1] != cmd):
+            CommandContext._history.append(cmd)
+        self._hist_cursor = -1  # reset navigation cursor
+
         self._analyze_behavior(cmd)
         if self.state == EngineState.TERMINATED:
             return
 
-        parsed = CommandParser.parse(cmd)
-        if not parsed.parts:
+        # ── Pipe detection ────────────────────────────────────────────────
+        if "|" in cmd:
+            self._handle_pipe(cmd)
             return
 
-        if parsed.base == "sudo":
+        # ── Parse (with alias expansion) ──────────────────────────────────
+        parsed = CommandParser.parse(cmd, aliases=CommandContext._aliases)
+        if not parsed.parts:
+            self._emit_prompt()
+            return
+
+        # ── Route ─────────────────────────────────────────────────────────
+        if parsed.base == "qsu":
+            self._handle_qsu()
+        elif parsed.base == "sudo":
             self._handle_sudo(parsed.parts)
         elif parsed.base == "lock":
             self._handle_lock(parsed.parts)
-        elif self._executor.dispatch(parsed.base, parsed.parts):
-            pass
-        else:
+        elif self._executor.dispatch(parsed):
+            self._emit_prompt()
+        elif parsed.is_whitelisted:
             self._executor.run_subprocess(parsed.parts)
+        else:
+            # Unknown command — suggest alternatives
+            known = list(CommandParser.BUILTIN_COMMANDS) + list(CommandParser.SUBPROCESS_WHITELIST.keys())
+            self.output_ready.emit(OutputFormatter.unknown_command(parsed.base, known))
+            self._emit_prompt()
 
-    # ------------------------------------------------------------------
-    # State machine  (EngineState transitions — must stay in Facade)
-    # ------------------------------------------------------------------
+    # ── Right-click "Run as Administrator" ───────────────────────────────────
+
+    def run_as_administrator(self) -> None:
+        """
+        Called by the terminal's right-click context menu 'Run as Administrator'.
+        Elevates to ROOT state if the sudo password is already cached,
+        otherwise triggers the sudo authentication flow.
+        """
+        if self.state == EngineState.ROOT:
+            self.output_ready.emit("[Info] Already running as administrator.\n")
+            self._emit_prompt()
+            return
+
+        if self.sudo_manager.is_sudo_cached:
+            self._elevate_to_root()
+            return
+
+        if not self.sudo_manager.is_setup_complete:
+            self._pending_cmd = "__admin__"
+            self.state = EngineState.AUTH_REQUEST
+            self.output_ready.emit(
+                "[Administrator] Set up a master password to enable root access.\n"
+                + OutputFormatter.setup_prompt_initial()
+            )
+            self.password_mode.emit("password_mode", True)
+        else:
+            self._pending_cmd = "__admin__"
+            self.state = EngineState.AUTH_SUDO
+            self.password_mode.emit("password_mode", True)
+            self.output_ready.emit(
+                "[Administrator] Authentication required.\n"
+                + OutputFormatter.sudo_prompt()
+            )
+
+    def _elevate_to_root(self) -> None:
+        self.sudo_manager.grant()
+        self.state        = EngineState.ROOT
+        self.current_user = "root"
+        self.current_role = "admin"
+        self.output_ready.emit("\033[41m[ROOT]\033[0m Administrator session active.\n")
+        self._emit_prompt()
+
+    # ── Arrow-key history navigation ─────────────────────────────────────────
+
+    def history_prev(self) -> str:
+        """Return previous command (↑ arrow). Empty string if none."""
+        hist = CommandContext._history
+        if not hist:
+            return ""
+        if self._hist_cursor == -1:
+            self._hist_cursor = len(hist) - 1
+        elif self._hist_cursor > 0:
+            self._hist_cursor -= 1
+        return hist[self._hist_cursor]
+
+    def history_next(self) -> str:
+        """Return next command (↓ arrow). Empty string if at end."""
+        hist = CommandContext._history
+        if self._hist_cursor == -1:
+            return ""
+        self._hist_cursor += 1
+        if self._hist_cursor >= len(hist):
+            self._hist_cursor = -1
+            return ""
+        return hist[self._hist_cursor]
+
+    # ── Pipe handling ─────────────────────────────────────────────────────────
+
+    def _handle_pipe(self, cmd: str) -> None:
+        """
+        Simple single-level pipe simulation.
+        cmd1 | cmd2  →  run cmd1, collect output, pass as last arg to cmd2.
+        """
+        segments = [s.strip() for s in cmd.split("|", 1)]
+        if len(segments) != 2:
+            self.execute_command(cmd.replace("|", ""))
+            return
+
+        # Capture cmd1 output in a buffer
+        buffer: list[str] = []
+        orig_emit = self._executor._emit_output
+
+        def _capture(text: str) -> None:
+            buffer.append(text)
+
+        self._executor._emit_output = _capture
+        try:
+            parsed1 = CommandParser.parse(segments[0], aliases=CommandContext._aliases)
+            if parsed1.parts:
+                self._executor.dispatch(parsed1)
+        finally:
+            self._executor._emit_output = orig_emit
+
+        captured = "".join(buffer)
+
+        # Write captured output to a temp file so cmd2 can read it
+        import tempfile, os
+        tmp = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".pipe", delete=False,
+                dir=str(self._executor.cwd), encoding="utf-8"
+            ) as f:
+                f.write(captured)
+                tmp = f.name
+
+            pipe_arg = os.path.basename(tmp)
+            cmd2_raw = segments[1] + " " + pipe_arg
+            parsed2  = CommandParser.parse(cmd2_raw, aliases=CommandContext._aliases)
+            if parsed2.parts:
+                if self._executor.dispatch(parsed2):
+                    pass
+                elif parsed2.is_whitelisted:
+                    self._executor.run_subprocess(parsed2.parts)
+        finally:
+            if tmp and os.path.exists(tmp):
+                try:
+                    os.unlink(tmp)
+                except Exception:
+                    pass
+
+        self._emit_prompt()
+
+    # ── State machine ─────────────────────────────────────────────────────────
 
     def _handle_state_input(self, text: str) -> None:
-        if self.state == EngineState.SETUP_PASS:
+        if self.state == EngineState.AUTH_REQUEST:
             self._state_setup_pass(text)
-        elif self.state == EngineState.SETUP_CONFIRM:
+        elif self.state == EngineState.AUTH_CONFIRM:
             self._state_setup_confirm(text)
         elif self.state == EngineState.AUTH_SUDO:
             self._state_auth_sudo(text)
         elif self.state == EngineState.LOCKED:
             self._state_locked(text)
 
+    def _handle_qsu(self) -> None:
+        if not self.sudo_manager.is_setup_complete:
+            self.state = EngineState.AUTH_REQUEST
+            self.output_ready.emit(OutputFormatter.setup_prompt_initial())
+            self.password_mode.emit("password_mode", True)
+        else:
+            self._pending_cmd = "qsu"
+            self.state = EngineState.AUTH_SUDO
+            self.password_mode.emit("password_mode", True)
+            self.output_ready.emit(OutputFormatter.sudo_prompt())
+
     def _state_setup_pass(self, text: str) -> None:
         if len(text) < 8:
             self.output_ready.emit(OutputFormatter.setup_min_length_error())
             return
         self._pending_pass = text
-        self.state = EngineState.SETUP_CONFIRM
+        self.state = EngineState.AUTH_CONFIRM
         self.output_ready.emit(OutputFormatter.setup_confirm_prompt())
 
     def _state_setup_confirm(self, text: str) -> None:
         self.password_mode.emit("password_mode", False)
         if text == self._pending_pass:
             self.sudo_manager.set_password(text)
-            self.state        = EngineState.NORMAL
-            self.current_user = "admin"
-            self.current_role = "admin"
-            self.output_ready.emit(OutputFormatter.setup_success())
-            self._emit_prompt()
+            if self._pending_cmd == "__admin__":
+                self._elevate_to_root()
+            else:
+                self.state        = EngineState.ROOT
+                self.current_user = "root"
+                self.current_role = "admin"
+                self.output_ready.emit(OutputFormatter.setup_success())
+                self._emit_prompt()
         else:
-            self.state = EngineState.SETUP_PASS
+            self.state = EngineState.AUTH_REQUEST
             self.password_mode.emit("password_mode", True)
             self.output_ready.emit(OutputFormatter.setup_mismatch_error())
         self._pending_pass = ""
 
     def _state_auth_sudo(self, text: str) -> None:
         self.password_mode.emit("password_mode", False)
-        if self.sudo_manager.verify_password(text):
+        import logging
+        logger = logging.getLogger("terminal.sudo")
+        logger.info(f"[SUDO_AUTH] len={len(text)}, setup={self.sudo_manager.is_setup_complete}")
+
+        verified = self.sudo_manager.verify_password(text)
+        logger.info(f"[SUDO_AUTH] result={verified}")
+
+        if verified:
             self.sudo_manager.grant()
-            self.state = EngineState.NORMAL
-            self.output_ready.emit(OutputFormatter.sudo_granted())
-            saved_role        = self.current_role
-            self.current_role = "admin"
-            self.execute_command(self._pending_cmd)
-            self.current_role = saved_role
+            if self._pending_cmd in ("qsu", "__admin__"):
+                self._elevate_to_root()
+            else:
+                self.state = EngineState.NORMAL
+                self.output_ready.emit(OutputFormatter.sudo_granted())
+                saved_role        = self.current_role
+                self.current_role = "admin"
+                self.execute_command(self._pending_cmd)
+                self.current_role = saved_role
         else:
             pts = self.sudo_manager.threat_points_for_failed_sudo()
             self._increase_threat(pts, "Failed sudo auth attempt")
@@ -281,6 +431,8 @@ class TerminalEngine(QObject):
 
     def _handle_sudo(self, parts: list[str]) -> None:
         if len(parts) < 2:
+            self.output_ready.emit("usage: sudo command\n")
+            self._emit_prompt()
             return
         self._pending_cmd = " ".join(parts[1:])
         if self.sudo_manager.is_sudo_cached:
@@ -298,9 +450,7 @@ class TerminalEngine(QObject):
         self.password_mode.emit("password_mode", True)
         self.output_ready.emit(OutputFormatter.lock_screen())
 
-    # ------------------------------------------------------------------
-    # Behavioral analysis / IDS
-    # ------------------------------------------------------------------
+    # ── Behavioral analysis / IDS ─────────────────────────────────────────────
 
     def _analyze_behavior(self, cmd: str) -> None:
         now = time.time()
@@ -313,17 +463,6 @@ class TerminalEngine(QObject):
                 f"Command Burst Detected ({burst_count} in 2s)",
             )
 
-        # Pattern correlation branch — preserved from original.
-        # _last_event_type() was never implemented; branch is permanently
-        # unreachable. Documented here for future implementer.
-        last_evt = ""
-        if "Failed" in last_evt:
-            if any(p in cmd for p in ["system", "audit", "auth", "vault"]):
-                self._increase_threat(
-                    THREAT_PATTERN_CORRELATE,
-                    "Pattern Correlation: Access attempt after auth failure.",
-                )
-
     def _increase_threat(self, points: int, reason: str) -> None:
         self.threat_score += points
         self.sudo_manager.log_audit(
@@ -334,9 +473,7 @@ class TerminalEngine(QObject):
             self.state = EngineState.TERMINATED
             self.output_ready.emit(OutputFormatter.threat_lockdown())
 
-    # ------------------------------------------------------------------
-    # Prompt
-    # ------------------------------------------------------------------
+    # ── Prompt ────────────────────────────────────────────────────────────────
 
     def _emit_prompt(self) -> None:
         prompt_str = OutputFormatter.prompt(
@@ -349,5 +486,4 @@ class TerminalEngine(QObject):
 
     @property
     def cwd(self) -> Path:
-        """Forward executor.cwd — preserves any external read of engine.cwd."""
         return self._executor.cwd

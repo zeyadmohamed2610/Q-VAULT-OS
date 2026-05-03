@@ -1,15 +1,37 @@
-# =============================================================
-#  system/__init__.py — Q-VAULT OS  |  System Package Namespace
-#
-#  INTENTIONALLY MINIMAL.
-#
-#  The previous version attempted to import `system.secure_gateway`
-#  which does not exist, causing a silent ImportError on every
-#  `import system` call throughout the codebase.
-#
-#  Security initialization is performed exclusively by:
-#    - system.security_api  (Rust FFI boundary, fail-fast)
-#    - system.app_controller (calls security_api at boot)
-#
-#  DO NOT add import-time side effects to this file.
-# =============================================================
+try:
+    from .permissions import PermissionManager, PM_GUARD, ENFORCEMENT_LEVEL, PermissionViolation
+except ImportError:
+    pass
+try:
+    from .fs_guard import FileSystemGuard
+except ImportError:
+    pass
+try:
+    from .process_guard import ProcessGuard
+except ImportError:
+    pass
+try:
+    from .network_guard import NetworkGuard
+except ImportError:
+    pass
+try:
+    from .secure_api import SecureAPI
+except ImportError:
+    pass
+try:
+    from .base_app import BaseApp
+except ImportError:
+    pass
+
+__all__ = [
+    "PermissionManager",
+    "PM_GUARD",
+    "ENFORCEMENT_LEVEL",
+    "PermissionViolation",
+    "FileSystemGuard",
+    "ProcessGuard",
+    "NetworkGuard",
+    "SecureAPI",
+    "BaseApp",
+]
+

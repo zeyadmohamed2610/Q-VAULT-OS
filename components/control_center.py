@@ -130,9 +130,24 @@ class ControlCenter(QFrame):
                 border: 1px solid {color};
             }}
         """)
-        if label == "Shutdown": btn.clicked.connect(lambda: exit(0))
-        elif label == "Lock": btn.clicked.connect(self._lock_system)
+        if label == "Shutdown": 
+            btn.clicked.connect(self._shutdown_system)
+        elif label == "Restart":
+            btn.clicked.connect(self._restart_system)
+        elif label == "Lock": 
+            btn.clicked.connect(self._lock_system)
         return btn
+
+    def _shutdown_system(self):
+        from PyQt5.QtWidgets import QApplication
+        QApplication.quit()
+
+    def _restart_system(self):
+        import sys
+        import os
+        from PyQt5.QtWidgets import QApplication
+        QApplication.quit()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
     def _lock_system(self):
         from core.event_bus import EVENT_BUS, SystemEvent

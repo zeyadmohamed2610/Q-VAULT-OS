@@ -1,10 +1,3 @@
-# =============================================================
-#  system/ai/reasoning_engine.py — Q-Vault OS
-#
-#  AI Planning & Multi-step Reasoning.
-#  Converts complex intents into sequential action chains.
-# =============================================================
-
 import logging
 from typing import List, Dict, Any
 

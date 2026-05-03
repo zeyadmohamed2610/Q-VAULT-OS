@@ -52,4 +52,4 @@ codegen-units = 1
 
 # maturin metadata — used when building with `maturin build` or `maturin develop`
 [package.metadata.maturin]
-python-source = ".."
+python-source = "core/binaries"

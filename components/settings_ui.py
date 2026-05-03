@@ -1,10 +1,3 @@
-# =============================================================
-#  components/settings_ui.py — Q-Vault OS  |  Settings UI
-#
-#  Pure View component. No direct system calls.
-#  Communicates via EventBus.
-# =============================================================
-
 import logging
 from PyQt5.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,

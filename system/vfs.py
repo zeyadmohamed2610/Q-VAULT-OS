@@ -1,13 +1,3 @@
-# =============================================================
-#  system/vfs.py — Q-Vault OS  |  Virtual Filesystem
-#
-#  Virtual in-memory filesystem replacing all host OS calls.
-#  Features:
-#    - Strict isolated in-memory structure
-#    - Mounts Rust's Vault under /vault/
-#    - Fake proc/ ps / uptime
-# =============================================================
-
 import time
 import json
 from typing import Dict, Any, List, Optional

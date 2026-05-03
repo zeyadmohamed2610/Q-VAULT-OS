@@ -1,10 +1,3 @@
-# =============================================================
-#  system/marketplace/plugin_registry.py — Q-Vault OS
-#
-#  Ecosystem Management Layer.
-#  Handles dynamic loading, validation, and lifecycle of plugins.
-# =============================================================
-
 import os
 import json
 import logging

@@ -1,8 +1,14 @@
 from assets.theme import *
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QSlider, QLabel, QPushButton
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QPoint
 
 class SoundMenu(QWidget):
+    def popup_near(self, pos: QPoint):
+        self.adjustSize()
+        self.move(pos.x() - self.width() // 2,
+                  pos.y() - self.height() - 8)
+        self.show()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)

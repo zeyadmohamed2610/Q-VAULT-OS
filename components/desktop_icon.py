@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QLabel, QVBoxLayout
 from PyQt5.QtCore import Qt, QPoint
+from assets.theme import THEME
 
 class DesktopIcon(QWidget):
     def __init__(self, name, icon, parent=None):

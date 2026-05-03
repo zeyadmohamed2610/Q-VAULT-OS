@@ -1,10 +1,3 @@
-# =============================================================
-#  components/security_ui.py — Q-Vault OS  |  Security UI
-#
-#  Pure View component. No direct system calls.
-#  Communicates via EventBus.
-# =============================================================
-
 import logging
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, 
@@ -74,16 +67,27 @@ class SecurityPanel(QWidget):
         
         btn_clear = QPushButton("✓  Clear Risk")
         btn_clear.setObjectName("ClearBtn")
-        btn_clear.clicked.connect(lambda: EVENT_BUS.emit(SystemEvent.SETTING_CHANGED, {"action": "clear_risk"}, source="security_ui"))
+        btn_clear.clicked.connect(self._clear_risk_log)
         row.addWidget(btn_clear)
         
         row.addStretch()
         
         btn_test = QPushButton("🧪 Test Intrusion")
         btn_test.setObjectName("SecBtn")
-        btn_test.clicked.connect(lambda: EVENT_BUS.emit(SystemEvent.SECURITY_ALERT, {"type": "INTRUSION", "source": "test", "detail": "Test intrusion"}, source="security_ui"))
+        btn_test.clicked.connect(self._run_test_intrusion)
         row.addWidget(btn_test)
         return bar
+
+    def _clear_risk_log(self):
+        self._log.clear()
+        self._update_risk("LOW")
+        EVENT_BUS.emit(SystemEvent.SETTING_CHANGED, {"action": "clear_risk"}, source="security_ui")
+
+    def _run_test_intrusion(self):
+        # Simulate a test event for demo purposes
+        EVENT_BUS.emit(SystemEvent.SECURITY_ALERT, 
+                       {"type": "INTRUSION", "source": "test", "detail": "Manual security audit test triggered."}, 
+                       source="security_ui")
 
     def _on_sec_event(self, payload):
         self._log.append(f"<b>{payload.type.name}</b>: {payload.data.get('detail', '')}")

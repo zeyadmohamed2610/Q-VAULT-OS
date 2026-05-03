@@ -1,10 +1,3 @@
-# =============================================================
-#  system/automation/workflow_engine.py — Q-Vault OS
-#
-#  System Automation & Workflow Orchestrator.
-#  Executes complex action sequences triggered by system events.
-# =============================================================
-
 import logging
 import time
 from typing import Dict, Any, List

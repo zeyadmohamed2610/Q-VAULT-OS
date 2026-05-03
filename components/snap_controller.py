@@ -24,6 +24,8 @@ class SnapController:
             if self._prev_geometry and not self._prev_geometry.isEmpty():
                 w.setGeometry(self._prev_geometry)
             w.btn_max.setText("□")
+            if hasattr(w, "update_margins"):
+                w.update_margins()
             return
 
         if self.state == WindowState.NORMAL:
@@ -39,6 +41,9 @@ class SnapController:
 
         if rect:
             w.setGeometry(rect)
+            
+        if hasattr(w, "update_margins"):
+            w.update_margins()
 
     def toggle_maximize(self):
         """Toggle between maximized and normal states."""

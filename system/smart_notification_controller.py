@@ -1,16 +1,3 @@
-# =============================================================
-#  system/smart_notification_controller.py — Q-Vault OS
-#
-#  v3.0 Event-Driven Smart Notification Controller.
-#
-#  Rules:
-#    1. NO manager/service calls this directly.
-#    2. It subscribes to EventBus Facts and decides what to show.
-#    3. The EVENT_NOTIFICATION_MAP is the single source of truth
-#       for which events produce notifications.
-#    4. Extensible: plugins can register new mappings at runtime.
-# =============================================================
-
 import logging
 import time
 from typing import Dict, Callable, Optional

@@ -4,7 +4,9 @@ import logging
 import time
 import threading
 import queue
+import uuid
 from typing import Any
+from multiprocessing.connection import Connection
 
 # Add workspace to path
 sys.path.append(os.getcwd())
@@ -94,7 +96,6 @@ def run_isolated_app(conn: "Connection", app_id: str, instance_id: str, module_p
     try:
         # 1. ── Hardened Identity Handshake (Phase 16.7) ──
         # Provide proof of secret knowledge bound to this instance_id
-        from system.runtime.ipc import IPCProtocol
         auth_tag = IPCProtocol.sign(instance_id, secret_key)
         bridge.send(IPCProtocol.TYPE_EVENT, "0", {"event": "HANDSHAKE", "auth": auth_tag})
         
@@ -109,15 +110,15 @@ def run_isolated_app(conn: "Connection", app_id: str, instance_id: str, module_p
         # Connect known engine signals to IPC events
         if hasattr(engine, "output_ready"):
             engine.output_ready.connect(
-                lambda data: bridge.send(IPCProtocol.TYPE_EVENT, "0", {"event": "output_ready", "data": data})
+                lambda data: bridge.send(IPCProtocol.TYPE_EVENT, uuid.uuid4().hex[:8], {"event": "output_ready", "data": data})
             )
         if hasattr(engine, "prompt_update"):
             engine.prompt_update.connect(
-                lambda ev, data: bridge.send(IPCProtocol.TYPE_EVENT, "0", {"event": ev, "data": data})
+                lambda ev, data: bridge.send(IPCProtocol.TYPE_EVENT, uuid.uuid4().hex[:8], {"event": ev, "data": data})
             )
         if hasattr(engine, "password_mode"):
             engine.password_mode.connect(
-                lambda ev, data: bridge.send(IPCProtocol.TYPE_EVENT, "0", {"event": ev, "data": data})
+                lambda ev, data: bridge.send(IPCProtocol.TYPE_EVENT, uuid.uuid4().hex[:8], {"event": ev, "data": data})
             )
 
         def listener_drain():
@@ -160,7 +161,8 @@ def run_isolated_app(conn: "Connection", app_id: str, instance_id: str, module_p
         app.exec_()
     except Exception as e:
         logger.exception(f"Isolated Engine '{app_id}' Crashed during init/execution")
-        try: bridge.send(IPCProtocol.TYPE_EVENT, "0", {"event": "system_failure", "data": str(e)})
-        except: pass
+        try: bridge.send(IPCProtocol.TYPE_EVENT, uuid.uuid4().hex[:8], {"event": "system_failure", "data": str(e)})
+        except Exception:
+            pass
     finally:
         bridge.stop()

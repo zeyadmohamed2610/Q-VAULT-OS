@@ -1,4 +1,3 @@
-
 import logging
 from typing import Dict, Any
 from system.runtime_manager import RUNTIME_MANAGER

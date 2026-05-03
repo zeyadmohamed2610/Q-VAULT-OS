@@ -6,21 +6,23 @@ from assets.theme import *
 #  Explains shortcuts and system capabilities on first run.
 # =============================================================
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QFrame, QPushButton, QStackedWidget
-from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel, QFrame, QPushButton, QStackedWidget, QDialog
+from PyQt5.QtCore import Qt, QRect, pyqtSignal
 from core.event_bus import EVENT_BUS, SystemEvent
 
-class OnboardingFlow(QFrame):
+class OnboardingFlow(QDialog):
     """
     Step-by-step introduction to Q-Vault OS.
     """
+    finished = pyqtSignal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(500, 400)
         self.setObjectName("Onboarding")
         
         self.setStyleSheet(f"""
-            QFrame#Onboarding {{
+            QDialog {{
                 background: {THEME['surface_mid']};
                 border: 2px solid {THEME['primary_glow']};
                 border-radius: 20px;
@@ -132,8 +134,8 @@ class OnboardingFlow(QFrame):
     def _finish(self):
         # Trigger welcome workflow (Phase 7)
         EVENT_BUS.emit(SystemEvent.REQ_WORKFLOW_EXECUTE, {"name": "welcome_sequence"}, source="Onboarding")
-        self.hide()
-        self.deleteLater()
+        self.finished.emit()
+        self.accept()
 
     def show_centered(self, parent_rect: QRect):
         x = (parent_rect.width() - self.width()) // 2

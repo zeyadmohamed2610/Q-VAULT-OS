@@ -231,3 +231,131 @@ def ask_sudo(command: str = "", parent=None) -> bool:
         return True
     dlg = SudoDialog(command=command, parent=parent)
     return dlg.exec_() == QDialog.Accepted
+
+
+# ── Generic password dialog for "Run as Administrator" ───────────────────────
+
+class SudoPasswordDialog(QDialog):
+    """
+    Generic dark-themed password dialog.
+    Used for 'Run as Administrator' and any custom elevation prompts.
+    Exposes get_password() after accept().
+    """
+
+    def __init__(self, title: str = "Authentication Required",
+                 message: str = "Enter your password:",
+                 parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setFixedSize(380, 240)
+        self.setModal(True)
+        self._password = ""
+        self._build_ui(title, message)
+
+        # Center on screen
+        from PyQt5.QtWidgets import QApplication
+        screen = QApplication.primaryScreen().geometry()
+        self.move(
+            screen.center().x() - self.width() // 2,
+            screen.center().y() - self.height() // 2
+        )
+
+    def _build_ui(self, title: str, message: str):
+        from PyQt5.QtGui import QPainter, QColor, QPalette
+        container = QWidget(self)
+        container.setGeometry(0, 0, 380, 240)
+        container.setAutoFillBackground(True)
+
+        pal = container.palette()
+        pal.setColor(QPalette.Window, QColor(11, 25, 41))
+        container.setPalette(pal)
+
+        container.setStyleSheet("""
+            QWidget {
+                background-color: #0b1929;
+                color: #d4e8f0;
+            }
+            QLabel { background: transparent; border: none; color: #d4e8f0; }
+            QLineEdit {
+                background: rgba(0, 0, 0, 0.4);
+                border: 1px solid rgba(0, 200, 255, 0.3);
+                border-radius: 8px;
+                color: white;
+                padding: 8px 14px;
+                font-size: 13px;
+            }
+            QLineEdit:focus { border: 1px solid #00e6ff; }
+            QPushButton {
+                background: rgba(0,180,255,0.15);
+                border: 1px solid rgba(0,200,255,0.3);
+                border-radius: 8px;
+                color: #00e6ff;
+                padding: 7px 22px;
+                font-size: 12px;
+                font-weight: bold;
+            }
+            QPushButton:hover { background: rgba(0,180,255,0.3); }
+            QPushButton#BtnCancel {
+                background: transparent;
+                color: rgba(255,255,255,0.4);
+                border: 1px solid rgba(255,255,255,0.1);
+            }
+            QPushButton#BtnCancel:hover { background: rgba(255,255,255,0.07); color: white; }
+        """)
+
+        vl = QVBoxLayout(container)
+        vl.setContentsMargins(28, 24, 28, 20)
+        vl.setSpacing(10)
+
+        lbl_title = QLabel(title)
+        lbl_title.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        lbl_title.setStyleSheet("color: #00e6ff; background: transparent;")
+
+        lbl_msg = QLabel(message)
+        lbl_msg.setStyleSheet("color: rgba(255,255,255,0.6); font-size: 11px; background: transparent;")
+        lbl_msg.setWordWrap(True)
+
+        self._pw_field = QLineEdit()
+        self._pw_field.setEchoMode(QLineEdit.Password)
+        self._pw_field.setPlaceholderText("Password…")
+        self._pw_field.returnPressed.connect(self._on_ok)
+
+        btn_row = QHBoxLayout()
+        btn_cancel = QPushButton("Cancel")
+        btn_cancel.setObjectName("BtnCancel")
+        btn_cancel.setCursor(Qt.PointingHandCursor)
+        btn_cancel.clicked.connect(self.reject)
+        btn_ok = QPushButton("Authenticate")
+        btn_ok.setCursor(Qt.PointingHandCursor)
+        btn_ok.clicked.connect(self._on_ok)
+        btn_row.addWidget(btn_cancel)
+        btn_row.addStretch()
+        btn_row.addWidget(btn_ok)
+
+        vl.addWidget(lbl_title)
+        vl.addWidget(lbl_msg)
+        vl.addSpacing(4)
+        vl.addWidget(self._pw_field)
+        vl.addStretch()
+        vl.addLayout(btn_row)
+
+        self._pw_field.setFocus()
+
+    def _on_ok(self):
+        self._password = self._pw_field.text()
+        self.accept()
+
+    def get_password(self) -> str:
+        return self._password
+
+    def paintEvent(self, event):
+        from PyQt5.QtGui import QPainter, QPainterPath, QPen, QColor
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        path = QPainterPath()
+        path.addRoundedRect(1, 1, self.width() - 2, self.height() - 2, 12, 12)
+        painter.fillPath(path, QColor(11, 25, 41))
+        painter.setPen(QPen(QColor(0, 200, 255, 55), 1.0))
+        painter.drawPath(path)
+        painter.end()

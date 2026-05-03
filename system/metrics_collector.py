@@ -1,10 +1,3 @@
-# =============================================================
-#  system/metrics_collector.py — Q-Vault OS
-#
-#  Centralized Performance & Health Monitoring.
-#  Collects data from EventBus and system managers.
-# =============================================================
-
 import time
 import logging
 from typing import Dict, Any

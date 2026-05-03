@@ -1,10 +1,3 @@
-# =============================================================
-#  system/theme_manager.py — Q-Vault OS  |  Theme Manager
-#
-#  Centralized authority for applying and managing UI themes.
-#  Decouples the static asset layer from the dynamic UI engine.
-# =============================================================
-
 import logging
 from PyQt5.QtWidgets import QApplication
 from assets.theme import GLOBAL_STYLE

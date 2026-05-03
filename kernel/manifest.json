@@ -1,0 +1,23 @@
+{
+  "app_id": "kernel_monitor",
+  "name": "Kernel Monitor",
+  "version": "1.0.0",
+  "description": "Real-time visualization dashboard for all kernel subsystems: CPU scheduling, memory allocation, deadlock detection, multicore load balancing, and interrupt handling.",
+  "entry_point": "app.py",
+  "class_name": "KernelMonitorApp",
+  "author": "Q-Vault Developer",
+  "permissions": {
+    "file_access": "virtual_only",
+    "network_access": "DENIED",
+    "system_calls": "DENIED"
+  },
+  "ui": {
+    "min_width": 860,
+    "min_height": 620,
+    "resizable": true
+  },
+  "lifecycle": {
+    "on_start": true,
+    "on_stop": true
+  }
+}

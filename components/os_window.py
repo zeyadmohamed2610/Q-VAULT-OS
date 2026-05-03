@@ -35,6 +35,14 @@ class OSWindow(QWidget):
         from assets.theme import SPACE_MD, RADIUS_MD, MOTION_SNAPPY, SPACE_XS
         self.window_id = window_id
         self.is_minimized = False
+        self.window_title = title  # Used by taskbar
+
+        # Edge resize state
+        self._resizing = False
+        self._resize_dir: str | None = None
+        self._resize_start_pos = None
+        self._resize_start_geom = None
+        self.setMouseTracking(True)
 
         self.setObjectName("OSWindow")
         # FORCE: Treat as widget inside workspace, not floating OS window
@@ -108,9 +116,9 @@ class OSWindow(QWidget):
         # Margin and Layout using Design Tokens
         self._margin = SPACE_MD
         self.setMinimumSize(400, 300) # ── SYSTEMIC FIX: Prevent collapse ──
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(self._margin, self._margin, self._margin, self._margin)
-        main_layout.setSpacing(0)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(self._margin, self._margin, self._margin, self._margin)
+        self.main_layout.setSpacing(0)
 
         # ───── TITLE BAR ─────
         self.title_bar = OSTitleBar()
@@ -121,22 +129,23 @@ class OSWindow(QWidget):
         tb_layout = QHBoxLayout(self.title_bar)
         tb_layout.setContentsMargins(SPACE_XS, 0, SPACE_XS // 2, 0)
         
+        self._window_title = title
         self.lbl_title = QLabel(title)
         self.lbl_title.setObjectName("TitleLabel")
         self.lbl_title.setAttribute(Qt.WA_TransparentForMouseEvents)
         
         # ───── CONTROLS ─────
-        self.btn_min = QPushButton("‒")
+        self.btn_min = QPushButton("─")
         self.btn_min.setObjectName("BtnMinimize")
-        self.btn_min.setFixedSize(24, 24)
+        self.btn_min.setFixedSize(28, 28)
 
-        self.btn_max = QPushButton("□")
+        self.btn_max = QPushButton("▢")
         self.btn_max.setObjectName("BtnMaximize")
-        self.btn_max.setFixedSize(24, 24)
+        self.btn_max.setFixedSize(28, 28)
 
         self.btn_close = QPushButton("✕")
         self.btn_close.setObjectName("BtnClose")
-        self.btn_close.setFixedSize(24, 24)
+        self.btn_close.setFixedSize(28, 28)
 
         self.btn_min.clicked.connect(self.minimize_window)
         self.btn_max.clicked.connect(lambda: self._snap_ctrl.toggle_maximize())
@@ -147,13 +156,17 @@ class OSWindow(QWidget):
             QPushButton {{
                 background: transparent;
                 border: none;
-                border-radius: 4px;
+                border-radius: 14px; /* Circular hover effect */
                 color: {THEME['text_dim']};
                 font-family: 'Segoe UI';
                 font-weight: bold;
+                font-size: 13px;
+                margin: 2px;
             }}
-            QPushButton:hover {{ background: {THEME['hover_subtle']}; color: white; }}
-            #BtnClose:hover {{ background: {THEME['accent_error']}; color: white; }}
+            QPushButton:hover {{ background: rgba(255, 255, 255, 0.1); color: white; }}
+            #BtnClose:hover {{ background: #ff3333; color: white; }}
+            #BtnClose:pressed {{ background: #cc0000; }}
+            #BtnMinimize:pressed, #BtnMaximize:pressed {{ background: rgba(255, 255, 255, 0.05); }}
         """
         self.btn_min.setStyleSheet(btn_style)
         self.btn_max.setStyleSheet(btn_style)
@@ -175,8 +188,8 @@ class OSWindow(QWidget):
         if content_widget is not None:
             self.content_layout.addWidget(content_widget)
 
-        main_layout.addWidget(self.title_bar)
-        main_layout.addWidget(content_container, stretch=1)
+        self.main_layout.addWidget(self.title_bar)
+        self.main_layout.addWidget(content_container, stretch=1)
         
         # ── PHYSICS CONTROLLER (Temporarily Disabled for Stability) ──
         self.physics_controller = None
@@ -217,7 +230,62 @@ class OSWindow(QWidget):
         """Facade — delegates to FocusManager."""
         self._focus_mgr.set_active_state(is_active)
 
+    _RESIZE_M = 14  # px edge margin (easier to grab)
+    _MIN_W    = 300
+    _MIN_H    = 200
+
+    def _get_resize_dir(self, pos) -> str | None:
+        m = self._RESIZE_M
+        x, y, w, h = pos.x(), pos.y(), self.width(), self.height()
+        L = x < m; R = x > w - m; T = y < m; B = y > h - m
+        if T and L: return "top-left"
+        if T and R: return "top-right"
+        if B and L: return "bottom-left"
+        if B and R: return "bottom-right"
+        if L: return "left"
+        if R: return "right"
+        if T: return "top"
+        if B: return "bottom"
+        return None
+
+    _CURSOR_MAP = {
+        "left": Qt.SizeHorCursor,   "right": Qt.SizeHorCursor,
+        "top":  Qt.SizeVerCursor,   "bottom": Qt.SizeVerCursor,
+        "top-left": Qt.SizeFDiagCursor,  "bottom-right": Qt.SizeFDiagCursor,
+        "top-right": Qt.SizeBDiagCursor, "bottom-left": Qt.SizeBDiagCursor,
+    }
+
+    def _do_resize(self, global_pos):
+        delta = global_pos - self._resize_start_pos
+        g = self._resize_start_geom
+        dx, dy = delta.x(), delta.y()
+        d = self._resize_dir
+        MIN_W, MIN_H = 400, 300
+        new_x, new_y, new_w, new_h = g.x(), g.y(), g.width(), g.height()
+        if 'right' in d:
+            new_w = max(MIN_W, g.width() + dx)
+        if 'bottom' in d:
+            new_h = max(MIN_H, g.height() + dy)
+        if 'left' in d:
+            new_w = max(MIN_W, g.width() - dx)
+            new_x = g.x() + g.width() - new_w
+        if 'top' in d:
+            new_h = max(MIN_H, g.height() - dy)
+            new_y = g.y() + g.height() - new_h
+        self._is_applying_geometry = True
+        self._internal_set_geometry(new_x, new_y, new_w, new_h)
+        self._is_applying_geometry = False
+
     def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            direction = self._get_resize_dir(event.pos())
+            if direction:
+                self._resizing = True
+                self._resize_dir = direction
+                self._resize_start_pos = event.globalPos()
+                self._resize_start_geom = self.geometry()
+                event.accept()
+                return
         # ── v2.2 Focus Layer (stays in OSWindow — UI concern) ──
         self.raise_()
         self.activateWindow()
@@ -226,9 +294,23 @@ class OSWindow(QWidget):
         self._drag_handler.on_press(event)
 
     def mouseMoveEvent(self, event):
+        if self._resizing:
+            self._do_resize(event.globalPos())
+            event.accept()
+            return
+        # Update cursor on hover near edge
+        direction = self._get_resize_dir(event.pos())
+        self.setCursor(self._CURSOR_MAP.get(direction, Qt.ArrowCursor))
         self._drag_handler.on_move(event)
 
     def mouseReleaseEvent(self, event):
+        if self._resizing:
+            self._resizing = False
+            self._resize_dir = None
+            self.setCursor(Qt.ArrowCursor)
+            get_window_manager().request_geometry(self.window_id, self.x(), self.y(), self.width(), self.height())
+            event.accept()
+            return
         self._drag_handler.on_release(event)
 
     def keyPressEvent(self, event):
@@ -241,19 +323,35 @@ class OSWindow(QWidget):
 
         super().keyPressEvent(event)
 
+    def update_margins(self):
+        from system.window_manager import WindowState
+        is_flush = self._snap_ctrl.state in (WindowState.MAXIMIZED, WindowState.TILED)
+        margin = 0 if is_flush else self._margin
+        self.main_layout.setContentsMargins(margin, margin, margin, margin)
+        self.update()
+
     def paintEvent(self, event):
         super().paintEvent(event)
         from assets.theme import RADIUS_MD
+        from system.window_manager import WindowState
+        
+        is_flush = self._snap_ctrl.state in (WindowState.MAXIMIZED, WindowState.TILED)
+        margin = 0 if is_flush else self._margin
+        radius = 0 if is_flush else RADIUS_MD
+
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
-        rect = QRect(self._margin, self._margin, self.width() - 2*self._margin, self.height() - 2*self._margin)
+        
+        # Adjust rect to fit properly within bounds
+        rect = QRect(margin, margin, self.width() - 2*margin, self.height() - 2*margin)
+        
         if not self._is_active:
             painter.setPen(QColor(0, 230, 255, 40))
-            painter.drawRoundedRect(rect, RADIUS_MD, RADIUS_MD)
+            painter.drawRoundedRect(rect, radius, radius)
             painter.fillRect(rect, QColor(0, 0, 0, 100))
             return
         painter.setPen(QColor(THEME["primary_glow"]))
-        painter.drawRoundedRect(rect, RADIUS_MD, RADIUS_MD)
+        painter.drawRoundedRect(rect, radius, radius)
 
     def _final_close(self):
         if getattr(self, "_is_destroyed", False):
@@ -270,6 +368,14 @@ class OSWindow(QWidget):
         # Physically purge from registry to prevent memory leak
         RUNTIME_MANAGER.unregister(self.window_id)
         
+        # Unsubscribe snap controller from EVENT_BUS before deleting
+        if hasattr(self, "_snap_ctrl") and self._snap_ctrl:
+            try:
+                from core.event_bus import EVENT_BUS, SystemEvent
+                EVENT_BUS.unsubscribe(SystemEvent.EVT_WINDOW_SNAPPED, self._snap_ctrl.on_physics_snap)
+            except Exception:
+                pass
+
         # Break Circular References to ensure Python GC can reclaim
         if hasattr(self, "_drag_handler"): del self._drag_handler
         if hasattr(self, "_snap_ctrl"): del self._snap_ctrl
@@ -278,9 +384,9 @@ class OSWindow(QWidget):
         
         # Break signal cycles
         try: self.btn_max.clicked.disconnect()
-        except: pass
+        except Exception: pass
         try: self.title_bar.double_clicked.disconnect()
-        except: pass
+        except Exception: pass
         
         try:
             self.deleteLater()
@@ -292,6 +398,18 @@ class OSWindow(QWidget):
         EVENT_BUS.emit(SystemEvent.REQ_WINDOW_MINIMIZE, {"id": self.window_id}, source="OSWindow")
 
     def close_window(self):
+        # Stop QTimers only to prevent ghost callbacks during close sequence
+        from PyQt5.QtCore import QTimer
+        for attr in dir(self):
+            try:
+                obj = getattr(self, attr, None)
+                if isinstance(obj, QTimer):
+                    obj.stop()
+            except Exception:
+                pass
+        # NOTE: Do NOT call anim_controller.cleanup() here.
+        # The animation controller must remain subscribed to receive the
+        # WINDOW_CLOSED event and execute _final_close() properly.
         from core.event_bus import EVENT_BUS, SystemEvent
         EVENT_BUS.emit(SystemEvent.REQ_WINDOW_CLOSE, {"id": self.window_id}, source="OSWindow")
 

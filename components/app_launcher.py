@@ -1,22 +1,10 @@
-# =============================================================
-#  components/app_launcher.py — Q-VAULT OS  |  App Launcher
-#
-#  Registry-driven launcher menu.
-#  Zero hardcoded imports. Every app comes from REGISTRY.
-#
-#  Architecture:
-#    - Reads the session-filtered app list from REGISTRY
-#    - Delegates all instantiation to REGISTRY.instantiate()
-#    - Delegates window management to system.window_manager
-#    - Quarantined apps are shown as disabled (grayed out)
-# =============================================================
-
 import uuid
 import logging
 
 from PyQt5.QtWidgets import QMenu, QAction
 from PyQt5.QtCore import Qt
 from core.event_bus import EVENT_BUS, SystemEvent
+from assets.theme import THEME
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +46,6 @@ class AppLauncher(QMenu):
 
         from core.app_registry import REGISTRY
         from core.system_state import STATE
-        from assets.theme import THEME
 
         session = getattr(STATE, "session_type", "real") or "real"
         available = REGISTRY.apps_for_session(session)

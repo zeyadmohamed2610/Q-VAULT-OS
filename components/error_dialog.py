@@ -1,19 +1,3 @@
-# ⚠️ QUARANTINED MODULE ⚠️
-# ==============================
-# Module: error_dialog.py
-# Status: NOT PART OF RUNTIME
-# Warning: DO NOT IMPORT
-# Reason: Pending architectural verification
-# ==============================
-
-# =============================================================
-#  error_dialog.py — Q-Vault OS  |  Global Error Dialog
-#
-#  Shows user-friendly error messages without crashing
-# =============================================================
-# ⚠️ QUARANTINED: 2026-04-18
-# =============================================================
-
 from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,

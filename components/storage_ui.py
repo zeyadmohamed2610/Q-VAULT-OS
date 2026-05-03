@@ -1,10 +1,3 @@
-# =============================================================
-#  components/storage_ui.py — Q-Vault OS  |  Storage UI
-#
-#  Pure View component. No direct system calls.
-#  Communicates via EventBus.
-# =============================================================
-
 import logging
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
@@ -81,3 +74,42 @@ class StorageUI(QWidget):
         root_item = QTreeWidgetItem(["/", "drwxr-xr-x", "root", "—"])
         self._fs_tree.addTopLevelItem(root_item)
         self._fs_tree.expandAll()
+
+class StorageWidget(QWidget):
+    """Compact disk usage display for small panels."""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+
+        self._lbl = QLabel("STORAGE: Loading...")
+        self._lbl.setStyleSheet("color:#4a6880; font-size:9pt;")
+        layout.addWidget(self._lbl)
+
+        self._bar = QProgressBar()
+        self._bar.setFixedHeight(6)
+        self._bar.setTextVisible(False)
+        self._bar.setStyleSheet("""
+            QProgressBar { background: rgba(84,177,198,0.1); border-radius: 3px; border: none; }
+            QProgressBar::chunk { background: #54b1c6; border-radius: 3px; }
+        """)
+        layout.addWidget(self._bar)
+        
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._refresh)
+        self._timer.start(10000)
+        self._refresh()
+
+    def _refresh(self):
+        import shutil
+        from system.config import get_qvault_home
+        try:
+            total, used, free = shutil.disk_usage(get_qvault_home())
+            pct = int((used / total) * 100)
+            used_gb = used / (1024**3)
+            total_gb = total / (1024**3)
+            self._lbl.setText(f"STORAGE: {used_gb:.1f}GB / {total_gb:.1f}GB ({pct}%)")
+            self._bar.setValue(pct)
+        except Exception:
+            self._lbl.setText("STORAGE: Unavailable")

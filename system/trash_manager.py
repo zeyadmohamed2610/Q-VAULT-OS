@@ -1,21 +1,8 @@
-# =============================================================
-#  system/trash_manager.py — Q-VAULT OS  |  Trash Manager
-#
-#  Moves files to the sandbox trash directory.
-#  Trash is rooted inside the secure qvault_home to prevent
-#  path escapes to the host filesystem.
-#
-#  CRITICAL FIX: Path resolution is now lazy (inside functions).
-#  Previously used `Path("qvault_home/.trash")` at module import
-#  time — that hardcoded relative path would silently create trash
-#  in the wrong location if CWD != project root (e.g. packaged).
-# =============================================================
-
 import os
 import shutil
+import json
 from pathlib import Path
 from system.config import get_qvault_home
-
 
 def _get_trash_dir() -> Path:
     """Returns the trash directory path, creating it if needed."""
@@ -44,32 +31,63 @@ def move_to_trash(path: str) -> bool:
     name = src.name
     dest = trash_dir / name
 
-    # Avoid overwrite collision by appending counter
+    # Avoid overwrite collision by appending uuid
     if dest.exists():
-        counter = 1
-        while dest.exists():
-            dest = trash_dir / f"{src.stem}_{counter}{src.suffix}"
-            counter += 1
+        import uuid
+        dest = trash_dir / f"{src.stem}_{uuid.uuid4().hex[:6]}{src.suffix}"
 
     shutil.move(str(src), str(dest))
+    
+    # Save metadata
+    meta_path = trash_dir / f"{dest.name}.meta"
+    with open(meta_path, "w") as f:
+        json.dump({"original_path": str(src)}, f)
+        
     return True
 
 
 def restore_from_trash(name: str) -> bool:
     """
-    Restore a named file from trash back to qvault_home root.
+    Restore a named file from trash back to its original path or qvault_home root.
     Returns True on success, False if not found in trash.
     """
     trash_dir = _get_trash_dir()
     src = trash_dir / name
     if not src.exists():
         return False
-    dest = Path(get_qvault_home()) / name
-    shutil.move(str(src), str(dest))
+        
+    meta_path = trash_dir / f"{name}.meta"
+    dest_path = None
+    if meta_path.exists():
+        try:
+            with open(meta_path, "r") as f:
+                meta = json.load(f)
+            dest_path = Path(meta.get("original_path"))
+        except Exception:
+            pass
+            
+    if not dest_path:
+        dest_path = Path(get_qvault_home()) / name
+        
+    # Prevent collision on restore
+    if dest_path.exists():
+        counter = 1
+        while dest_path.exists():
+            dest_path = dest_path.with_name(f"{dest_path.stem}_{counter}{dest_path.suffix}")
+            counter += 1
+
+    # Ensure parent dir exists
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    shutil.move(str(src), str(dest_path))
+    
+    if meta_path.exists():
+        meta_path.unlink()
+        
     return True
 
 
 def list_trash() -> list[str]:
-    """Return a list of filenames currently in trash."""
+    """Return a list of filenames currently in trash (ignoring meta files)."""
     trash_dir = _get_trash_dir()
-    return [item.name for item in trash_dir.iterdir()]
+    return [item.name for item in trash_dir.iterdir() if not item.name.endswith(".meta")]

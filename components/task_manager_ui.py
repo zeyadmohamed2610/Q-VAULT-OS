@@ -1,10 +1,3 @@
-# =============================================================
-#  components/task_manager_ui.py — Q-Vault OS  |  Task Manager UI
-#
-#  Pure View component. No direct system calls.
-#  Communicates via EventBus.
-# =============================================================
-
 import logging
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, 

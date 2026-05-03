@@ -142,7 +142,8 @@ class StatusOverlay(QFrame):
                 self.anim.setStartValue(self.opacity_effect.opacity())
                 self.anim.setEndValue(1.0)
                 try: self.anim.finished.disconnect()
-                except: pass
+                except Exception:
+                    pass
                 self.anim.start()
 
     def resizeEvent(self, event):
@@ -209,6 +210,9 @@ class MetricsBadge(QFrame):
         self.fade_anim.setEndValue(0.1 if active else 1.0)
         self.fade_anim.start()
 
+    def setOpacity(self, value):
+        self.opacity_effect.setOpacity(value)
+
 class IsolatedAppWidget(QWidget):
     """
     Top-Tier UX Layer for isolated applications (v1.2.1 Stable).
@@ -217,6 +221,7 @@ class IsolatedAppWidget(QWidget):
     def __init__(self, app_id, module_path, class_name, secure_api=None, parent=None, boot_timeout=5.0):
         super().__init__(parent)
         self.app_id = app_id
+        self.secure_api = secure_api  # RC-2 fix: store for proxy subclass access
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumSize(400, 300) # ── SYSTEMIC FIX: Prevent collapse ──
         
@@ -230,7 +235,7 @@ class IsolatedAppWidget(QWidget):
         
         self.container = QFrame(self)
         self.container.setObjectName("AppContainerFrame")
-        self.container.setStyleSheet(f"background-color: {THEME['bg_black']};")
+        self.container.setStyleSheet(f"QFrame#AppContainerFrame {{ background-color: rgba(11, 22, 45, 0.95); border-radius: 8px; }}")
         
         # ── FIXED: Container must have its own layout to host app UI ──
         self.container_layout = QVBoxLayout(self.container)
@@ -242,7 +247,7 @@ class IsolatedAppWidget(QWidget):
         # Status Overlays
         self.overlay = StatusOverlay(self.container)
         self.badge = MetricsBadge(self)
-        self.badge.move(10, 10)
+        self.badge.hide() # Hidden globally per user request
         
         # 3. Connect Logic
         self.controller.state_changed.connect(self._on_state_changed)
@@ -257,14 +262,16 @@ class IsolatedAppWidget(QWidget):
         # 4. Launch
         self.controller.start(module_path, class_name)
 
+    def set_content(self, widget):
+        """RC-1 fix: Embed a UI widget inside the isolated container frame."""
+        self.container_layout.addWidget(widget)
+        widget.show()
+
     def _on_state_changed(self, state: RuntimeState):
         self.overlay.show_state(state)
         
         # ── Phase 3.6.3: Visual Hygiene ──
-        if state in [RuntimeState.TERMINATED, RuntimeState.BOOT_FAILED]:
-            self.badge.hide()
-        else:
-            self.badge.show()
+        self.badge.hide() # Hidden globally per user request
 
         # Update badge border color
         colors = {
@@ -284,17 +291,24 @@ class IsolatedAppWidget(QWidget):
         # but reason is explicitly sent here.
         pass
 
+    def setOpacity(self, value):
+        self.opacity_effect.setOpacity(value)
+
     def focusInEvent(self, event):
+        self.badge.setOpacity(1.0) # Full opacity when active
         self.badge.set_focus_mode(True)
         super().focusInEvent(event)
 
     def focusOutEvent(self, event):
+        self.badge.setOpacity(0.4) # Dim when inactive
         self.badge.set_focus_mode(False)
         super().focusOutEvent(event)
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.overlay.resize(self.container.size())
+        # Move badge to bottom-right
+        self.badge.move(self.width() - self.badge.width() - 10, self.height() - self.badge.height() - 10)
         self.badge.raise_()
 
     def call_remote(self, method, *args, callback=None, **kwargs):

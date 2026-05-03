@@ -1,10 +1,3 @@
-# =============================================================
-#  system/wallpaper_manager.py — Q-Vault OS  |  Wallpaper Manager
-#
-#  Handles wallpaper logic, persistence, and theme transitions.
-#  Relocated from assets/wallpaper_system.py.
-# =============================================================
-
 import json
 import logging
 from pathlib import Path

@@ -1,861 +1,1160 @@
-from assets.theme import *
 import uuid
-import os
-import json
+import logging
 from pathlib import Path
-from PyQt5.QtCore import Qt, QRect, QPropertyAnimation, pyqtProperty, QTimer
-from PyQt5.QtGui import QPainter, QColor, QPalette, QBrush, QPixmap, QIcon
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QAction, QMenu, QMessageBox
-from components.modern_launcher import ModernLauncher
+
+from PyQt5.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMenu, QAction,
+    QGraphicsDropShadowEffect, QSizePolicy, QInputDialog, QMessageBox, QShortcut
+)
+from PyQt5.QtCore import Qt, QRect, QTimer, QPoint, QSize, QRectF, QFileSystemWatcher, QMimeData, pyqtSignal
+from PyQt5.QtGui import (
+    QPainter, QColor, QLinearGradient, QRadialGradient,
+    QFont, QPixmap, QPen, QBrush, QPainterPath, QDrag, QKeySequence
+)
+from PyQt5.QtSvg import QSvgRenderer
+
 from components.taskbar_ui import TaskbarUI
-from system.taskbar_controller import TaskbarController
 from core.event_bus import EVENT_BUS, SystemEvent
 from system.window_manager import get_window_manager
-import time
-import logging
+from assets.design_tokens import COLORS
 
 logger = logging.getLogger(__name__)
 
-class _SystemOverlay(QWidget):
+# ── Standardized dark menu style ─────────────────────────────
+DARK_MENU_STYLE = (
+    "QMenu {"
+    "  background: #0b1929;"
+    "  border: 1px solid rgba(0, 200, 255, 0.2);"
+    "  border-radius: 10px;"
+    "  padding: 6px 0;"
+    "  color: #d4e8f0;"
+    "  font-family: 'Segoe UI';"
+    "  font-size: 10pt;"
+    "}"
+    "QMenu::item {"
+    "  padding: 7px 28px 7px 16px;"
+    "  border-radius: 6px;"
+    "  margin: 1px 4px;"
+    "}"
+    "QMenu::item:selected {"
+    "  background: rgba(0, 200, 255, 0.15);"
+    "  color: #00e6ff;"
+    "}"
+    "QMenu::item:hover {"
+    "  background: rgba(0, 200, 255, 0.08);"
+    "}"
+    "QMenu::separator {"
+    "  height: 1px;"
+    "  background: rgba(255, 255, 255, 0.08);"
+    "  margin: 4px 12px;"
+    "}"
+    "QMenu::item:disabled { color: #3a5568; }"
+)
+
+DARK_DIALOG_STYLE = """
+    QDialog, QMessageBox {
+        background-color: #0b162d;
+        color: #d4e8f0;
+    }
+    QLabel {
+        color: #d4e8f0;
+        background: transparent;
+    }
+    QPushButton {
+        background: #0f2842;
+        color: #54b1c6;
+        border: 1px solid rgba(84,177,198,0.35);
+        border-radius: 6px;
+        padding: 6px 18px;
+        font-family: 'Segoe UI';
+    }
+    QPushButton:hover {
+        background: rgba(84,177,198,0.18);
+        border-color: rgba(84,177,198,0.6);
+        color: #7dd3e8;
+    }
+    QPushButton:default {
+        border-color: #54b1c6;
+    }
+    QLineEdit {
+        background: #0b162d;
+        border: 1px solid rgba(84,177,198,0.3);
+        border-radius: 6px;
+        color: #d4e8f0;
+        padding: 6px;
+    }
+"""
+
+# ── Icon definitions ──────────────────────────────────────────
+_APPS = [
+    {"name": "Terminal",        "icon": "assets/icons/terminal.svg"},
+    {"name": "File Manager",    "icon": "assets/icons/files.svg"},
+    {"name": "Trash",           "icon": "assets/icons/trash.svg"},
+    {"name": "Q-Vault Browser", "icon": "assets/icons/browser.svg"},
+    {"name": "Q-Vault Security","icon": "assets/icons/icon-vault.svg"},
+    {"name": "Kernel Monitor",  "icon": "assets/icons/kernel_monitor.svg"},
+]
+
+
+# ── Grid constants ────────────────────────────────────────────
+GRID_CELL_W  = 110
+GRID_CELL_H  = 120
+GRID_START_X = 20
+GRID_START_Y = 20
+
+# ── Icon map for desktop files ────────────────────────────────
+_FILE_ICON_MAP = {
+    "folder":   "assets/icons/folder.svg",
+    ".txt":     "assets/icons/file_text.svg",
+    ".md":      "assets/icons/file_text.svg",
+    ".py":      "assets/icons/file_text.svg",
+    ".json":    "assets/icons/file_text.svg",
+    ".log":     "assets/icons/file_text.svg",
+    "_default": "assets/icons/file_generic.svg",
+}
+
+def _icon_for_path(path: Path) -> str:
+    if path.is_dir():
+        return _FILE_ICON_MAP["folder"]
+    return _FILE_ICON_MAP.get(path.suffix.lower(), _FILE_ICON_MAP["_default"])
+
+
+# ── Desktop File Icon Widget ──────────────────────────────────
+
+class DesktopFileIcon(QWidget):
     """
-    v1.4 High-Fidelity Snap Preview Engine.
-    Rendered on top of all workspace elements with zero-lag path rendering.
+    90×100 icon representing a file or folder on the Desktop.
+    • Single-click: select (cyan border)
+    • Double-click: open (emit signal)
+    • Drag: move to new grid cell
+    • Right-click: Open / Rename / Trash context menu
     """
-    def __init__(self, parent=None):
+    double_clicked = pyqtSignal(object)   # emits Path
+    moved          = pyqtSignal(object, object)  # Path, QPoint
+
+    def __init__(self, path: Path, grid_pos: QPoint, parent=None):
         super().__init__(parent)
-        self.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.snap_info = None # (SlotType, Rect)
-        self._alpha = 0
-        from assets.theme import MOTION_SNAPPY
-        self.anim = QPropertyAnimation(self, b"overlay_alpha")
-        self.anim.setDuration(MOTION_SNAPPY)
+        self.path      = path
+        self.grid_pos  = grid_pos
+        self._selected = False
+        self._drag_start = None
 
-    @pyqtProperty(int)
-    def overlay_alpha(self): return self._alpha
+        self.setFixedSize(90, 100)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setMouseTracking(True)
 
-    @overlay_alpha.setter
-    def overlay_alpha(self, val):
-        self._alpha = val
+        vl = QVBoxLayout(self)
+        vl.setContentsMargins(5, 6, 5, 4)
+        vl.setSpacing(4)
+        vl.setAlignment(Qt.AlignCenter)
+
+        # SVG icon (52×52)
+        ico_lbl = QLabel()
+        pix = _load_svg(_icon_for_path(path), 52)
+        ico_lbl.setPixmap(pix)
+        ico_lbl.setAlignment(Qt.AlignCenter)
+        ico_lbl.setAttribute(Qt.WA_TransparentForMouseEvents)
+        vl.addWidget(ico_lbl)
+
+        # Name label
+        name = path.name
+        display = (name[:11] + "…") if len(name) > 12 else name
+        self._lbl = QLabel(display)
+        self._lbl.setFont(QFont("Segoe UI", 9, QFont.Bold))
+        self._lbl.setAlignment(Qt.AlignCenter)
+        self._lbl.setWordWrap(True)
+        # Drop shadow for readability on any wallpaper
+        from PyQt5.QtWidgets import QGraphicsDropShadowEffect
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(4)
+        shadow.setColor(QColor(0, 0, 0, 200))
+        shadow.setOffset(0, 1)
+        self._lbl.setGraphicsEffect(shadow)
+        self._lbl.setStyleSheet("color: white; background:transparent; padding:1px 3px; border-radius:3px;")
+        self._lbl.setAttribute(Qt.WA_TransparentForMouseEvents)
+        vl.addWidget(self._lbl)
+
+    # ── Selection ─────────────────────────────────────────────
+
+    def set_selected(self, v: bool):
+        from assets.theme import THEME
+        self._selected = v
+        if v:
+            glow = THEME['primary_glow']
+            self.setStyleSheet(
+                f"DesktopFileIcon{{background: rgba(0, 230, 255, 0.15);"
+                f"border: 1px solid {glow}; border-radius: 8px;}}"
+            )
+            self._lbl.setStyleSheet(
+                f"color: white; background: {glow};"
+                "padding: 1px 3px; border-radius: 3px;"
+            )
+        else:
+            self.setStyleSheet("")
+            self._lbl.setStyleSheet("color: white; background:transparent; padding:1px 3px; border-radius:3px;")
         self.update()
 
-    def set_snap_guide(self, info):
-        """info: (SlotType, Rect) or None"""
-        if info == self.snap_info: return
-        
-        was_none = (self.snap_info is None)
-        self.snap_info = info
-        
-        target = 100 if info else 0
-        self.anim.stop()
-        self.anim.setStartValue(self._alpha)
-        self.anim.setEndValue(target)
-        self.anim.start()
+    # ── Mouse events ──────────────────────────────────────────
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self._drag_start = event.pos()
+            # Deselect siblings
+            parent = self.parent()
+            if parent:
+                for sib in parent.findChildren(DesktopFileIcon):
+                    if sib is not self:
+                        sib.set_selected(False)
+            self.set_selected(True)
+        elif event.button() == Qt.RightButton:
+            self._context_menu(event.globalPos())
+        event.accept()
+
+    def mouseMoveEvent(self, event):
+        if (self._drag_start is not None and
+                (event.pos() - self._drag_start).manhattanLength() > 8):
+            drag = QDrag(self)
+            mime = QMimeData()
+            mime.setText(str(self.path))
+            drag.setMimeData(mime)
+            pix = QPixmap(self.size())
+            pix.fill(Qt.transparent)
+            self.render(pix)
+            drag.setPixmap(pix)
+            drag.setHotSpot(event.pos())
+            drag.exec_(Qt.MoveAction)
+            self._drag_start = None
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            self.double_clicked.emit(self.path)
+
+    # ── Context menu ──────────────────────────────────────────
+
+    def _context_menu(self, global_pos):
+        menu = QMenu(self)
+        menu.setStyleSheet(DARK_MENU_STYLE)
+        menu.addAction("📂 Open" if self.path.is_dir() else "📄 Open",
+                       lambda: self.double_clicked.emit(self.path))
+        menu.addSeparator()
+        menu.addAction("✏️  Rename", self._rename)
+        menu.addAction("🗑️  Move to Trash", self._move_to_trash)
+        menu.exec_(global_pos)
+
+    def _rename(self):
+        from PyQt5.QtWidgets import QInputDialog
+        dlg = QInputDialog(self)
+        dlg.setWindowTitle("Rename")
+        dlg.setLabelText("New name:")
+        dlg.setTextValue(self.path.name)
+        dlg.setStyleSheet(DARK_DIALOG_STYLE)
+        if dlg.exec_():
+            name = dlg.textValue().strip()
+            if name and name != self.path.name:
+                try:
+                    new_path = self.path.parent / name
+                    self.path.rename(new_path)
+                    self.path = new_path
+                    display = (name[:11] + "…") if len(name) > 12 else name
+                    self._lbl.setText(display)
+                except Exception as exc:
+                    from PyQt5.QtWidgets import QMessageBox
+                    msg = QMessageBox(self)
+                    msg.setWindowTitle("Rename Failed")
+                    msg.setText(str(exc))
+                    msg.setStyleSheet(DARK_DIALOG_STYLE)
+                    msg.exec_()
+
+    def _move_to_trash(self):
+        try:
+            from system.trash_manager import move_to_trash
+            move_to_trash(str(self.path))
+            self.deleteLater()
+        except Exception as exc:
+            from PyQt5.QtWidgets import QMessageBox
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Error")
+            msg.setText(str(exc))
+            msg.setStyleSheet(DARK_DIALOG_STYLE)
+            msg.exec_()
+
+# Pre-render SVG → QPixmap cache
+_ICON_CACHE: dict[str, QPixmap] = {}
+
+def _load_svg(rel_path: str, size: int = 56) -> QPixmap:
+    """Load SVG from path relative to project root, cache the result."""
+    if rel_path in _ICON_CACHE:
+        return _ICON_CACHE[rel_path]
+    base = Path(__file__).parent.parent
+    full = base / rel_path
+    pix = QPixmap(size, size)
+    pix.fill(Qt.transparent)
+    if full.exists():
+        renderer = QSvgRenderer(str(full))
+        p = QPainter(pix)
+        p.setRenderHint(QPainter.Antialiasing)
+        renderer.render(p, QRectF(0, 0, size, size))
+        p.end()
+    _ICON_CACHE[rel_path] = pix
+    return pix
+
+
+# ── Desktop Icon Widget ───────────────────────────────────────
+
+class DesktopIcon(QWidget):
+    """
+    90×100 px desktop icon.
+    • SVG icon 56×56 rendered in a rounded rect
+    • Label 11pt Segoe UI below, with drop-shadow for readability
+    • Single-click: cyan selection ring
+    • Hover: subtle cyan glow
+    • Double-click: launch app
+    """
+
+    _ICO_SIZE   = 56   # px  — icon render size
+    _W, _H      = 90, 100
+    _C_BG_SEL   = QColor(84, 177, 198, 38)   # rgba(84,177,198,0.15)
+    _C_BG_HOV   = QColor(84, 177, 198, 20)   # rgba(84,177,198,0.08)
+    _C_RING     = QColor(84, 177, 198, 200)   # 2 px cyan ring
+    _RADIUS     = 12
+
+    def __init__(self, name: str, icon_path: str, parent=None):
+        super().__init__(parent)
+        self.name = name
+        self._icon_path = icon_path
+        self._selected  = False
+        self._hovered   = False
+        self._pixmap: QPixmap | None = None
+
+        self.setFixedSize(self._W, self._H)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip(f"Double-click to open {name}")
+        self.setMouseTracking(True)
+
+        # Load SVG
+        self._pixmap = _load_svg(icon_path, self._ICO_SIZE)
+
+    # ── State helpers ─────────────────────────────────────────
+
+    def set_selected(self, v: bool):
+        if self._selected != v:
+            self._selected = v
+            self.update()
+
+    def set_hovered(self, v: bool):
+        if self._hovered != v:
+            self._hovered = v
+            self.update()
+
+    # ── Painting ──────────────────────────────────────────────
 
     def paintEvent(self, event):
-        if self.snap_info and self._alpha > 0:
-            slot_type, rect = self.snap_info
-            painter = QPainter(self)
-            painter.setRenderHint(QPainter.Antialiasing)
-            
-            # Semantic Alpha Scaling
-            o_border = int((self._alpha / 100.0) * 120)
-            o_brush  = int((self._alpha / 100.0) * 40)
-            
-            from assets.theme import RADIUS_LG
-            # Draw preview outline
-            painter.setPen(QColor(0, 230, 255, o_border))
-            painter.setBrush(QColor(0, 230, 255, o_brush))
-            painter.drawRoundedRect(rect, RADIUS_LG, RADIUS_LG)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+
+        iw = self._W
+        icon_area_h = 68    # pixels for icon zone
+        icon_y0 = 4
+        icon_x0 = (iw - self._ICO_SIZE) // 2
+        icon_y_center = icon_y0 + (icon_area_h - self._ICO_SIZE) // 2
+
+        # ── Background highlight ──
+        if self._selected:
+            p.setBrush(self._C_BG_SEL)
+            pen = QPen(self._C_RING, 2)
+            p.setPen(pen)
+            p.drawRoundedRect(2, 2, iw - 4, icon_area_h + 4, self._RADIUS, self._RADIUS)
+        elif self._hovered:
+            p.setBrush(self._C_BG_HOV)
+            p.setPen(Qt.NoPen)
+            p.drawRoundedRect(2, 2, iw - 4, icon_area_h + 4, self._RADIUS, self._RADIUS)
+
+        # ── SVG icon ──
+        if self._pixmap and not self._pixmap.isNull():
+            p.drawPixmap(icon_x0, icon_y_center, self._pixmap)
+
+        # ── Label ──
+        font = QFont("Segoe UI", 9)
+        font.setWeight(QFont.Medium)
+        p.setFont(font)
+
+        label_rect = QRect(0, icon_y0 + icon_area_h + 2, iw, 28)
+
+        # Drop shadow for wallpaper readability
+        p.setPen(QColor(0, 0, 0, 140))
+        for dx, dy in ((1, 1), (-1, 1), (1, -1), (0, 1)):
+            p.drawText(label_rect.adjusted(dx, dy, dx, dy),
+                       Qt.AlignHCenter | Qt.AlignTop | Qt.TextWordWrap,
+                       self.name)
+
+        # Actual label (vault text_primary)
+        p.setPen(QColor(COLORS["text_primary"]))
+        p.drawText(label_rect, Qt.AlignHCenter | Qt.AlignTop | Qt.TextWordWrap, self.name)
+
+        p.end()
+
+    # ── Mouse events ──────────────────────────────────────────
+
+    def enterEvent(self, event):
+        self.set_hovered(True)
+
+    def leaveEvent(self, event):
+        self.set_hovered(False)
+
+    def update_icon(self, svg_path: str):
+        """Hot-swap the SVG icon (e.g. trash empty ↔ full)."""
+        self._pixmap = _load_svg(svg_path, self._ICO_SIZE)
+        self._icon_path = svg_path
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            # Deselect siblings
+            parent = self.parent()
+            if parent:
+                for sib in parent.findChildren(DesktopIcon):
+                    if sib is not self:
+                        sib.set_selected(False)
+            self.set_selected(True)
+        elif event.button() == Qt.RightButton:
+            self._context_menu(event.globalPos())
+
+    def _context_menu(self, global_pos):
+        from PyQt5.QtWidgets import QMenu, QAction
+        menu = QMenu(self)
+        menu.setStyleSheet(DARK_MENU_STYLE)
+
+        act_open = QAction(f"Open {self.name}", self)
+        act_open.triggered.connect(self.mouseDoubleClickEvent.__func__ and
+                                   (lambda: self._launch()))
+        act_open.triggered.connect(self._launch)
+        menu.addAction(act_open)
+
+        if self.name.lower() in ("terminal",):
+            menu.addSeparator()
+            act_admin = QAction("🔑  Run as Administrator", self)
+            act_admin.triggered.connect(self._launch_as_admin)
+            menu.addAction(act_admin)
+
+        menu.exec_(global_pos)
+
+    def _launch(self):
+        p = self.parent()
+        while p:
+            if isinstance(p, Desktop):
+                p.launch_app(self.name)
+                return
+            p = p.parent() if callable(p.parent) else None
+
+    def _launch_as_admin(self):
+        from components.sudo_dialog import SudoPasswordDialog
+        dlg = SudoPasswordDialog(
+            title="Administrator Access",
+            message="Enter your password to open Terminal as administrator:",
+            parent=self
+        )
+        if dlg.exec_() != dlg.Accepted:
+            return
+        password = dlg.get_password()
+
+        verified = False
+        try:
+            from system.security_api import get_security_api
+            security = get_security_api()
+            if security:
+                verified = security.verify_password("admin", password)
+        except Exception:
+            pass
+
+        if not verified:
+            try:
+                from system.auth_manager import AUTH_MANAGER
+                verified = AUTH_MANAGER.verify_admin_password(password)
+            except Exception:
+                pass
+
+        if verified:
+            p = self.parent()
+            while p:
+                if isinstance(p, Desktop):
+                    p.launch_app(self.name, role_override="admin")
+                    return
+                p = p.parent() if callable(p.parent) else None
+        else:
+            from PyQt5.QtWidgets import QMessageBox
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Authentication Failed")
+            msg.setText("❌  Incorrect administrator password.")
+            msg.setStyleSheet(
+                "QMessageBox{background:#0b1929;color:#d4e8f0;}"
+                "QLabel{color:#d4e8f0;} QPushButton{background:#1a2f4a;"
+                "color:#7dd3e8;border:1px solid rgba(0,200,255,0.3);"
+                "border-radius:6px;padding:6px 18px;}"
+            )
+            msg.exec_()
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            # Find Desktop ancestor
+            p = self.parent()
+            while p:
+                if isinstance(p, Desktop):
+                    p.launch_app(self.name)
+                    return
+                p = p.parent() if callable(p.parent) else None
+
+
+# ── Desktop ───────────────────────────────────────────────────
 
 class Desktop(QWidget):
+    """
+    Full OS desktop:
+    • Wallpaper from assets/qvault_vault.jpg (fill + vignette)
+    • Fallback gradient if image absent
+    • 3 SVG icons (vertical stack, top-left)
+    • Bottom taskbar (live clock, open windows)
+    • Right-click context menu: Refresh Desktop
+    """
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.icons = [] # FOUNDATIONAL: Must exist before ANY other init logic
+        self.setCursor(Qt.CrossCursor)
+        self.icons: list[DesktopIcon] = []
+        self._file_icons: dict[str, DesktopFileIcon] = {}
+        self._grid_cells: dict[tuple, str] = {}
         self.setObjectName("Desktop")
-        self._launcher_active = False
-        self._dim_alpha = 0
-        
-        # ── Runtime Governance: Setup Notification Parent ──
+        self.setAcceptDrops(True)
+
+        # Try to connect runtime manager
         try:
             from system.runtime_manager import RUNTIME_MANAGER
             RUNTIME_MANAGER.set_desktop_parent(self)
         except Exception:
             pass
 
-        # Build Background Overlay (First Layer)
-        self.overlay = QWidget(self)
-        self.overlay.setObjectName("Overlay")
-        self.overlay.setAttribute(Qt.WA_TransparentForMouseEvents)
+        # ── Layout ──
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        self.selection_rect = None
-        self.start_pos = None
+        self._workspace = QWidget(self)
+        self._workspace.setObjectName("Workspace")
+        self._workspace.setStyleSheet("background: transparent;")
+        layout.addWidget(self._workspace, 1)
 
-        self.layout_layer = QVBoxLayout(self)
-        self.layout_layer.setContentsMargins(0, 0, 0, 0)
-        self.layout_layer.setSpacing(0)
-
-        # ───── SYSTEM OVERLAY (Top Layer for effects) ─────
-        self.sys_overlay = _SystemOverlay(self)
-
-        # ───── UI COMPONENTS (Initialize early to avoid AttributeErrors) ─────
-        from components.modern_launcher import ModernLauncher
-        from components.command_palette import CommandPalette
-        from components.ai_inspector import AIInspectorPanel
-        from components.settings_hub import SettingsHub
-        from components.marketplace import Marketplace
-        from components.control_center import ControlCenter
-
-        self.launcher = ModernLauncher(self)
-        self.palette = CommandPalette(self)
-        self.inspector = AIInspectorPanel(self)
-        self.settings_hub = SettingsHub(self)
-        self.marketplace = Marketplace(self)
-        self.control_center = ControlCenter(self)
-        
-        # UI Policy: Hidden by default
-        self.launcher.hide()
-        self.palette.hide()
-        self.inspector.hide()
-        self.settings_hub.hide()
-        self.marketplace.hide()
-        self.control_center.hide()
-
-        # ───── TASKBAR (V2.0 Decoupled Architecture) ─────
-        self.taskbar_controller = TaskbarController()
-        self.taskbar_ui = TaskbarUI(parent=self)
-        self.taskbar_ui.setObjectName("Taskbar")
-        
-        # Connect BEFORE initializing state to catch the first tick (fixes 00:00 AM delay)
-        self.taskbar_controller.state_updated.connect(self.taskbar_ui.update_state)
-        
-        # Wire UI -> Actions
-        self.taskbar_ui.start_clicked.connect(self.launcher.toggle)
-        self.taskbar_ui.app_clicked.connect(self.taskbar_controller.request_focus)
-        self.taskbar_ui.shortcut_clicked.connect(self._on_shortcut_clicked)
-        self.taskbar_ui.shortcut_clicked.connect(self.taskbar_controller.handle_shortcut)
-        
-        top_wrapper = QHBoxLayout()
-        top_wrapper.setContentsMargins(15, 10, 15, 15) # Increased bottom margin for Taskbar
-        top_wrapper.addWidget(self.taskbar_ui)
-        self.layout_layer.addLayout(top_wrapper)
-
-        # ───── MIDDLE LAYER (Sidebar + Workspace) ─────
-        self.mid_layout = QHBoxLayout()
-        self.mid_layout.setContentsMargins(0, 0, 0, 0)
-        self.mid_layout.setSpacing(0)
-
-        # Sidebar (System Navigation)
-        self.sidebar = QWidget()
-        self.sidebar.setObjectName("Sidebar")
-        self.sidebar.setFixedWidth(60) 
-        self.sidebar.setStyleSheet("background: transparent;")
-        self.mid_layout.addWidget(self.sidebar)
-
-        # DESKTOP SPACE (Workspace)
-        self.workspace = QWidget()
-        self.workspace.setObjectName("Workspace")
-        self.workspace.setStyleSheet("background: transparent;")
-        self.mid_layout.addWidget(self.workspace, stretch=1)
-        
-        self.layout_layer.addLayout(self.mid_layout, stretch=1)
-        
-        # ───── SYSTEM OVERLAY (Top Layer for effects) ─────
-        self.sys_overlay = _SystemOverlay(self)
-
-        # ───── BACKGROUND CACHE ─────
-        from core.resources import get_asset_path
-        from PyQt5.QtGui import QPixmap
-        img_path = get_asset_path("qvault_vault.jpg")
-        self._bg_pixmap = QPixmap(img_path)
-        
-        self.launcher.app_launched.connect(self.toggle_launcher)
-        
-        
-        self.marketplace = Marketplace(self)
-        self.marketplace.hide()
-
-
-        # ───── STABILITY MONITOR (Diagnostic Layer) ─────
-        from components.diagnostic_overlay import DiagnosticOverlay
-        self.diagnostic = DiagnosticOverlay(self)
-        self.diagnostic.hide() 
-        
-        # ───── SNAP PREVIEW ─────
+        # ── Snap Preview Overlay (wired to WindowDragHandler) ──
         from components.snap_preview_overlay import SnapPreviewOverlay
-        self.snap_preview = SnapPreviewOverlay(self.workspace)
+        self.snap_preview = SnapPreviewOverlay(parent=self._workspace)
         self.snap_preview.hide()
 
-        # ── Event Reactor ──
-        EVENT_BUS.subscribe(SystemEvent.SETTING_CHANGED, self._on_setting_changed)
-        self._init_system_services()
+        self._taskbar = TaskbarUI(parent=self)
+        self._taskbar.setObjectName("Taskbar")
+        layout.addWidget(self._taskbar)
+        self._taskbar.app_clicked.connect(self._on_taskbar_app_clicked)
+        self._taskbar.close_app.connect(self._close_app_by_id)
+        self._taskbar.new_instance_requested.connect(self.launch_app)
+        self._taskbar.open_launcher.connect(self._show_launcher_stub)
 
-    def _on_setting_changed(self, payload):
-        setting = payload.data.get("setting")
-        value = payload.data.get("value")
-        
-        if setting == "diagnostic":
-            if value == "toggle":
-                if self.diagnostic.isVisible():
-                    self.diagnostic.hide()
-                else:
-                    self.diagnostic.show_in_corner(self.rect())
+        # ── Timers ──
+        self._clock_timer = QTimer(self)
+        self._clock_timer.timeout.connect(self._update_clock)
+        self._clock_timer.start(1000)
+        self._update_clock()
 
-    def _init_system_services(self):
-        # ───── EVENT SUBSCRIPTIONS ─────
-        EVENT_BUS.subscribe(SystemEvent.REQ_COMMAND_PALETTE_TOGGLE, self._on_toggle_palette)
-        EVENT_BUS.subscribe(SystemEvent.REQ_AI_INSPECTOR_TOGGLE, self._on_toggle_inspector)
-        EVENT_BUS.subscribe(SystemEvent.REQ_SETTINGS_TOGGLE, self._on_toggle_settings)
-        EVENT_BUS.subscribe(SystemEvent.REQ_MARKETPLACE_TOGGLE, self._on_toggle_marketplace)
-        
-        # ───── BETA: USER JOURNEY LOGGER ─────
-        EVENT_BUS.subscribe("*", self._log_user_journey)
+        self._taskbar_timer = QTimer(self)
+        self._taskbar_timer.timeout.connect(self._update_taskbar_apps)
+        self._taskbar_timer.start(500)
 
+        # ── Wallpaper cache ──
+        self._wallpaper: QPixmap | None = None
+        self._wallpaper_loaded = False
+        self._wallpaper_path: str = ""
+
+        # ── Event bus subscriptions ──
+        try:
+            EVENT_BUS.subscribe(SystemEvent.REQ_TERMINAL_OPEN_HERE, self._on_open_terminal_here)
+            EVENT_BUS.subscribe(SystemEvent.EVT_TRASH_STATE_CHANGED, self._on_trash_state_changed)
+            EVENT_BUS.subscribe(SystemEvent.STATE_CHANGED, self._on_state_changed)
+        except Exception:
+            pass
+
+        # ── Stress Testing ──
+        from PyQt5.QtWidgets import QShortcut
+        from PyQt5.QtGui import QKeySequence
+        self._stress_shortcut = QShortcut(QKeySequence("Ctrl+Shift+S"), self)
+        self._stress_shortcut.activated.connect(self._run_stress_test)
+
+        # ── Context menu ──
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self._desktop_menu)
-        
-        from system.window_manager import get_window_manager
-        # Physics & Snap are now handled via EventBus reactions in _on_event_bus
 
-        # ───── v2.0 IDLE MONITORING (via AuthManager) ─────
-        # Timeout logic is owned by AuthManager.
-        # Desktop only: (1) reports activity, (2) handles visual dimming via EventBus.
-        EVENT_BUS.event_emitted.connect(self._on_event_bus)
-        self._last_activity = time.time()
-        self._is_dimming = False
-        
-        from PyQt5.QtWidgets import QApplication
-        QApplication.instance().installEventFilter(self)
-
-        # ── v2.2 Metrics & Debug ──
-        from system.metrics_collector import get_metrics_collector
-        self._metrics = get_metrics_collector() 
-        
-        self.setFocusPolicy(Qt.StrongFocus)
-        self.setFocus()
-
-        # ───── v1.5 QUICK PANEL ─────
-        from components.quick_panel import QuickPanel
-        self.quick_panel = QuickPanel(self)
-        self.quick_panel.hide()
-        
-        from components.volume_osd import VolumeOSD
-        self.volume_osd = VolumeOSD(self)
-        self.quick_panel.volume_changed.connect(self.volume_osd.show_volume)
-
-        # ───── v1.7 VERIFICATION OVERLAY ─────
-        from components.debug_event_overlay import DebugEventOverlay
-        self.debug_overlay = DebugEventOverlay(self)
-
-        # ───── DESKTOP ICONS ─────
+        # ── Icons ──
         self._create_icons()
-        self.load_layout()
 
-    def toggle_quick_panel(self):
-        """Toggle the v2.7 Control Center overlay."""
-        self.control_center.toggle()
+        # ── Desktop file watcher ──
+        self._setup_desktop_watcher()
+        self._load_desktop_files()
 
-    def init_notification_container(self):
-        """Initialize the notification container. Called by system layer."""
-        from components.notification_container import NotificationContainer
-        if not hasattr(self, 'notification_container'):
-            self.notification_container = NotificationContainer(self)
-            self.notification_container.setup_position(self.rect())
+    def _run_stress_test(self):
+        from components.stress_tester import AutomatedStressTester
+        if not hasattr(self, "_stress_tester"):
+            self._stress_tester = AutomatedStressTester(self)
+        self._stress_tester.start()
 
-    def _on_shortcut_clicked(self, name):
-        """Handles taskbar shortcut clicks."""
-        if name == "terminal":
-            self.launch_app("Terminal")
-        elif name == "files":
-            self.launch_app("Files")
-        elif name == "ai":
-            self.toggle_inspector()
-        elif name == "flows":
-            self.palette.input.setText("workflow:")
-            self.palette.show_centered()
-        elif name == "control":
-            self.quick_panel.toggle()
-        elif name == "start":
-            self.toggle_launcher()
+        # Command Palette removed
 
-    def toggle_inspector(self):
-        if self.inspector.isVisible():
-            self.inspector.hide()
-        else:
-            self.inspector.show_side(self.rect())
-            self.inspector.raise_()
+    # ── Settings persistence ──────────────────────────────────
 
-    def eventFilter(self, obj, event):
-        """Global activity detector + v1.5 Hot Corners."""
-        from PyQt5.QtCore import QEvent
-        if event.type() == QEvent.MouseMove:
-            self._reset_idle()
-            # Hot Corner: Top-Right (50px square)
-            if event.globalPos().x() >= self.width() - 50 and event.globalPos().y() <= 50:
-                if hasattr(self, "quick_panel") and not self.quick_panel.isVisible():
-                    # Defensive: Ensure we don't spam show if it's already animating
-                    if not getattr(self.quick_panel, "_is_visible", False):
-                        self.toggle_quick_panel()
+    def _settings(self):
+        from PyQt5.QtCore import QSettings
+        return QSettings("QVault", "Desktop")
 
-        elif event.type() in [QEvent.MouseButtonPress, QEvent.KeyPress]:
-            self._reset_idle()
-        return super().eventFilter(obj, event)
+    def _save_settings(self):
+        s = self._settings()
+        if self._wallpaper is not None:
+            # Save the wallpaper path if we know it
+            wp_path = getattr(self, "_wallpaper_path", "")
+            if wp_path:
+                s.setValue("wallpaper_path", str(wp_path))
+        s.sync()
 
-    def _reset_idle(self):
-        self._last_activity = time.time()
-        # Report activity to AuthManager (it owns the timeout)
-        from system.auth_manager import get_auth_manager
-        get_auth_manager().report_activity()
-        if self._is_dimming:
-            self._stop_dimming()
+    def _load_settings(self):
+        s = self._settings()
+        saved_wp = s.value("wallpaper_path", "")
+        if saved_wp and Path(saved_wp).exists():
+            pix = QPixmap(saved_wp)
+            if not pix.isNull():
+                self._wallpaper = pix
+                self._wallpaper_loaded = True
+                self._wallpaper_path = saved_wp
+                logger.info("[Desktop] Loaded wallpaper from settings: %s", saved_wp)
 
-    def _start_dimming(self):
-        """Begin idle dim animation."""
-        self._is_dimming = True
+    # ── Wallpaper ─────────────────────────────────────────────
 
-    def _stop_dimming(self):
-        """End idle dim animation."""
-        self._is_dimming = False
-        self._dim_alpha = 0
-        self.update()
-
-    def _on_event_bus(self, payload):
-        """Handle USER_IDLE events from AuthManager for visual dimming."""
-        if payload.type == SystemEvent.USER_IDLE:
-            progress = payload.data.get("dim_progress", 0)
-            if not self._is_dimming:
-                self._start_dimming()
-            self._dim_alpha = int(progress * 150)
-            self.update()
-        
-        elif payload.type == SystemEvent.STATE_CHANGED and payload.data.get("type") == "snap_preview":
-            slot = payload.data.get("slot")
-            # Calculate rect for preview
-            rect = None
-            if slot:
-                w, h = self.width(), self.height()
-                if slot == WindowSlot.MAXIMIZED: rect = self.rect()
-                elif slot == WindowSlot.HALF_LEFT: rect = QRect(0, 0, w//2, h)
-                elif slot == WindowSlot.HALF_RIGHT: rect = QRect(w//2, 0, w//2, h)
-                elif slot == WindowSlot.QUARTER_TL: rect = QRect(0, 0, w//2, h//2)
-                elif slot == WindowSlot.QUARTER_TR: rect = QRect(w//2, 0, w//2, h//2)
-                elif slot == WindowSlot.QUARTER_BL: rect = QRect(0, h//2, w//2, h//2)
-                elif slot == WindowSlot.QUARTER_BR: rect = QRect(w//2, h//2, w//2, h//2)
-            
-            self._on_snap_guide(rect)
-
-    def _on_toggle_palette(self, payload=None):
-        if self.command_palette.isVisible():
-            self.command_palette.hide()
-        else:
-            self.command_palette.show_centered(self.rect())
-            self.command_palette.raise_()
-
-    def _on_toggle_inspector(self, payload=None):
-        if self.ai_inspector.isVisible():
-            self.ai_inspector.hide()
-        else:
-            self.ai_inspector.show_side(self.rect())
-            self.ai_inspector.raise_()
-
-    def _on_toggle_settings(self, payload=None):
-        if self.settings_hub.isVisible():
-            self.settings_hub.hide()
-        else:
-            self.settings_hub.show_centered(self.rect())
-            self.settings_hub.raise_()
-
-    def _on_toggle_marketplace(self, payload=None):
-        if self.marketplace.isVisible():
-            self.marketplace.hide()
-        else:
-            self.marketplace.show_centered(self.rect())
-            self.marketplace.raise_()
-
-    def _log_user_journey(self, payload):
-        """Records critical user interactions for Beta analysis."""
-        from system.config import get_qvault_home
-        import os, time
-        
-        # Filter for user-centric events
-        user_events = [
-            SystemEvent.REQ_USER_INPUT, 
-            SystemEvent.REQ_APP_LAUNCH,
-            SystemEvent.REQ_WORKFLOW_EXECUTE,
-            SystemEvent.ACTION_CLICKED
-        ]
-        
-        if payload.type in user_events or payload.type.name.startswith("REQ_"):
-            log_path = os.path.join(get_qvault_home(), "logs", "user_journey.log")
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            
-            with open(log_path, "a") as f:
-                ts = time.strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"[{ts}] {payload.type.name} | Data: {payload.data} | Source: {payload.source}\n")
-
-    def toggle_launcher(self):
-        """Toggle the Modern Launcher with dimming effect."""
-        self._launcher_active = not self._launcher_active
-        if self._launcher_active:
-            self.launcher.toggle()
-        else:
-            self.launcher.hide()
-        self.update() # Trigger dimming repaint
-
-    def _on_taskbar_search(self, text):
-        """Unified search bridge between Taskbar and Palette."""
-        if not text:
-            self.palette.hide()
-            return
-        
-        # Position palette below taskbar search
-        search_geom = self.taskbar.search_bar.geometry()
-        global_pos = self.taskbar.mapToGlobal(search_geom.bottomLeft())
-        local_pos = self.mapFromGlobal(global_pos)
-        
-        self.palette.move(local_pos.x(), local_pos.y() + 5)
-        self.palette.input.setText(text)
-        self.palette.input.hide() # USER: Hide duplicate search
-        self.palette.btn_close.hide() # User handles it via taskbar clearing
-        self.palette.show()
-        self.palette.raise_()
-
-
-    def _on_snap_guide(self, rect):
-        self.sys_overlay.set_snap_guide(rect)
-
-    def resizeEvent(self, event):
-        """Handle background scaling and overlay size."""
-        super().resizeEvent(event)
-        self.overlay.setGeometry(self.rect())
-        self.sys_overlay.setGeometry(self.rect())
-        self.sys_overlay.raise_()
-        
-        if hasattr(self, "debug_overlay") and self.debug_overlay:
-            self.debug_overlay.show_in_corner(self.rect())
-            self.debug_overlay.raise_()
-            
-        if hasattr(self, "palette") and self.palette and self.palette.isVisible():
-            self.palette.show_centered(self.rect())
-            self.palette.raise_()
-            
-        if hasattr(self, "settings_hub") and self.settings_hub and self.settings_hub.isVisible():
-            self.settings_hub.show_centered(self.rect())
-            
-        if hasattr(self, "inspector") and self.inspector and self.inspector.isVisible():
-            self.inspector.show_side(self.rect())
-            self.inspector.raise_()
-
-        if hasattr(self, "marketplace") and self.marketplace and self.marketplace.isVisible():
-            self.marketplace.show_centered(self.rect())
-
-        if hasattr(self, "onboarding") and self.onboarding:
-            self.onboarding.show_centered(self.rect())
-            
-        self._update_background()
-
-    def _update_background(self):
-        """Triggers a repaint for the high-fidelity center-cropped wallpaper."""
-        self.update()
-
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_F12:
-            EVENT_BUS.emit(SystemEvent.REQ_DEBUG_TOGGLE, source="Desktop_Hotkey")
-        elif event.key() == Qt.Key_S and event.modifiers() & Qt.ControlModifier and event.modifiers() & Qt.AltModifier:
-            EVENT_BUS.emit(SystemEvent.REQ_SETTINGS_TOGGLE, source="Desktop_Hotkey")
-        elif event.key() == Qt.Key_Space and event.modifiers() & Qt.ControlModifier:
-            EVENT_BUS.emit(SystemEvent.REQ_COMMAND_PALETTE_TOGGLE, source="Desktop_Hotkey")
-        elif event.key() == Qt.Key_F10:
-            EVENT_BUS.emit(SystemEvent.REQ_AI_INSPECTOR_TOGGLE, source="Desktop_Hotkey")
-        elif event.key() == Qt.Key_M and event.modifiers() & Qt.ControlModifier:
-            EVENT_BUS.emit(SystemEvent.REQ_MARKETPLACE_TOGGLE, source="Desktop_Hotkey")
-        super().keyPressEvent(event)
+    def _load_wallpaper(self) -> QPixmap | None:
+        if self._wallpaper_loaded:
+            return self._wallpaper
+        self._wallpaper_loaded = True
+        # Check persisted custom wallpaper first
+        self._load_settings()
+        if self._wallpaper:
+            return self._wallpaper
+        wp_path = Path(__file__).parent.parent / "assets" / "qvault_vault.jpg"
+        if wp_path.exists():
+            pix = QPixmap(str(wp_path))
+            if not pix.isNull():
+                self._wallpaper = pix
+                self._wallpaper_path = str(wp_path)
+                return pix
+        return None
 
     def paintEvent(self, event):
-        """Draws the wallpaper identically to login_screen (Center-Crop) for a seamless transition."""
-        from PyQt5.QtGui import QPainter
-        from PyQt5.QtCore import Qt
-
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.SmoothPixmapTransform)
+        painter.setRenderHint(QPainter.Antialiasing)
 
-        # ───── 1. Wallpaper Layer ─────
-        if not self._bg_pixmap.isNull():
-            painter.setRenderHint(QPainter.SmoothPixmapTransform)
-            scaled = self._bg_pixmap.scaled(
-                self.size(),
+        wp = self._load_wallpaper()
+        if wp:
+            # Scale to fill, crop center
+            scaled = wp.scaled(
+                self.width(), self.height(),
                 Qt.KeepAspectRatioByExpanding,
                 Qt.SmoothTransformation
             )
-            # Center-crop math
             x = (scaled.width()  - self.width())  // 2
             y = (scaled.height() - self.height()) // 2
             painter.drawPixmap(0, 0, scaled, x, y, self.width(), self.height())
         else:
-            # Fallback to black instead of white/default
-            painter.fillRect(self.rect(), Qt.black)
+            # Fallback gradient
+            grad = QLinearGradient(0, 0, self.width(), self.height())
+            grad.setColorAt(0.0, QColor(COLORS["bg_void"]))
+            grad.setColorAt(0.5, QColor(COLORS["bg_surface"]))
+            grad.setColorAt(1.0, QColor(COLORS["bg_base"]))
+            painter.fillRect(self.rect(), grad)
 
-        # ───── 1.5. Dashboard / Idle Dimmer (v1.5) ─────
-        if self._launcher_active or self._dim_alpha > 0:
-            alpha = 150 if self._launcher_active else self._dim_alpha
-            painter.fillRect(self.rect(), QColor(0, 0, 0, alpha))
+        # Vignette overlay (bottom darker, top slightly dark)
+        vignette = QLinearGradient(0, self.height(), 0, 0)
+        vignette.setColorAt(0.0, QColor(1, 2, 14, 180))   # bottom
+        vignette.setColorAt(0.3, QColor(1, 2, 14, 60))
+        vignette.setColorAt(1.0, QColor(1, 2, 14, 100))   # top
+        painter.fillRect(self.rect(), vignette)
 
-        # ───── 2. Selection Overlay Layer ─────
-        if self.selection_rect:
-            painter.setBrush(QColor(200, 155, 60, 50)) # Gold tint
-            painter.setPen(QColor(200, 155, 60))       # Solid Gold
-            
-            start, end = self.selection_rect
-            rect = QRect(start, end).normalized()
-            painter.drawRect(rect)
+        # Subtle cyan radial glow at center (brand accent)
+        cx, cy = self.width() // 2, self.height() // 2
+        radial = QRadialGradient(cx, cy, max(self.width(), self.height()) // 2)
+        radial.setColorAt(0.0, QColor(84, 177, 198, 18))
+        radial.setColorAt(1.0, QColor(0, 0, 0, 0))
+        painter.fillRect(self.rect(), radial)
 
-    def save_layout(self):
-        from system.config import get_qvault_home
-        import os, json
-        config_dir = os.path.join(get_qvault_home(), ".config")
-        os.makedirs(config_dir, exist_ok=True)
-        state_path = os.path.join(config_dir, "desktop_state.json")
-        data = {icon.name: {"x": icon.x(), "y": icon.y()} for icon in self.icons}
-        with open(state_path, "w") as f:
-            json.dump(data, f)
+        painter.end()
 
-    def load_layout(self):
-        from system.config import get_qvault_home
-        import os, json
-        state_path = os.path.join(get_qvault_home(), ".config", "desktop_state.json")
-        if not os.path.exists(state_path):
-            return
-        try:
-            with open(state_path, "r") as f:
-                data = json.load(f)
-            
-            if not hasattr(self, "icons"): self.icons = []
-            
-            for icon in self.icons:
-                if icon.name in data:
-                    pos = data[icon.name]
-                    icon.move(pos["x"], pos["y"])
-        except Exception:
-            pass
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # Keep workspace fills area above taskbar
+        tb_h = self._taskbar.height()
+        self._workspace.setGeometry(0, 0, self.width(), self.height() - tb_h)
+
+    # ── Icons ─────────────────────────────────────────────────
 
     def _create_icons(self):
-        from components.desktop_icon import DesktopIcon
-        from system.config import get_qvault_home
-        from core.resources import get_asset_path
-        from PyQt5.QtGui import QIcon
-        home = get_qvault_home()
+        for icon in self.icons:
+            icon.deleteLater()
+        self.icons = []
+        self._named_icons: dict[str, DesktopIcon] = {}
 
-        from core.app_registry import REGISTRY
-        items = []
-        # Add system defaults (USER: Restore Home and Trash)
-        items.append(("Home", home, "icons/files.svg"))
-        items.append(("Trash", os.path.join(home, ".trash"), "icons/trash.svg"))
-        
-        # Add all registered apps (USER: system apps = neon, others = professional)
-        for app in REGISTRY.all_apps:
-            if app.show_on_desktop:
-                items.append((app.name, app.module, app.icon_asset or "icons/prediction.svg"))
+        x, y = 28, 28
+        for app in _APPS:
+            icon = DesktopIcon(app["name"], app["icon"], parent=self._workspace)
+            icon.move(x, y)
+            icon.show()
+            self.icons.append(icon)
+            self._named_icons[app["name"]] = icon
+            y += 116  # vertical stack spacing
 
-        # Grid Configuration (Horizontal First, shifted for sidebar)
-        x, y = 80, 80 # Padding from edges (sidebar is 60px)
-        col_width = 110
-        row_height = 110
-        max_cols = (self.width() - 150) // col_width
-        
-        for i, (name, path, icon_asset) in enumerate(items):
-            icon = QIcon(get_asset_path(icon_asset))
-            widget = DesktopIcon(name, icon, parent=self.workspace)
-            widget.lower() # Keep icons behind windows
-            
-            # Grid Calculation (Fill rows first)
-            col = i % max_cols
-            row = i // max_cols
-            
-            widget.setFixedSize(100, 100) # Uniform size
-            widget.move(x + (col * col_width), y + (row * row_height))
-            widget.show()
-            self.icons.append(widget)
+    # ── App launching ─────────────────────────────────────────
 
-    def set_user(self, username):
-        """Sets the user and triggers onboarding if needed."""
-        # v2.0: Taskbar/System Hubs handle user display via Controller
-        logger.info(f"[Desktop] Session active for user: {username}")
-        
-        # Trigger Onboarding (v2.6) ONLY on first run
-        from system.config import is_first_run, mark_first_run_complete
-        if is_first_run():
-            from components.onboarding_flow import OnboardingFlow
-            self.onboarding = OnboardingFlow(self)
-            self.onboarding.show_centered(self.rect())
-            mark_first_run_complete()
-
-    def contextMenuEvent(self, event):
-        """Right-click menu for Desktop."""
-        from PyQt5.QtWidgets import QMenu, QAction
-        from PyQt5.QtGui import QCursor
-        
-        menu = QMenu(self)
-        menu.setStyleSheet(f"""
-            QMenu {{
-                background: rgba(10, 15, 25, 0.95);
-                border: 1px solid rgba(0, 230, 255, 0.3);
-                border-radius: 8px;
-                padding: 5px;
-                color: white;
-            }}
-            QMenu::item {{
-                padding: 8px 25px 8px 10px;
-                border-radius: 4px;
-            }}
-            QMenu::item:selected {{
-                background: rgba(0, 230, 255, 0.15);
-                color: {THEME['primary_glow']};
-            }}
-        """)
-        
-        refresh_act = QAction("Refresh Desktop", self)
-        refresh_act.triggered.connect(self._create_icons)
-        
-        wallpaper_act = QAction("Change Wallpaper", self)
-        wallpaper_act.triggered.connect(lambda: self.launch_app("Settings"))
-        
-        monitor_act = QAction("System Monitor", self)
-        monitor_act.triggered.connect(lambda: self.launch_app("System Monitor"))
-        
-        settings_act = QAction("Global Settings", self)
-        settings_act.triggered.connect(lambda: self.launch_app("Settings"))
-        
-        menu.addAction(refresh_act)
-        menu.addSeparator()
-        menu.addAction(wallpaper_act)
-        menu.addAction(monitor_act)
-        menu.addAction(settings_act)
-        
-        menu.exec_(QCursor.pos())
-
-    def launch_app(self, name: str):
-        """Unified entry point for launching any registered application as a window."""
+    def launch_app(self, name: str, start_path: str = None, role_override: str = None):
         from components.os_window import OSWindow
-        from core.app_registry import REGISTRY
         from system.app_factory import create_app_by_name
 
         wm = get_window_manager()
-        workspace = self.workspace
 
-        # Check if already open (Singleton-ish behavior for core apps)
+        # Focus if already open
         existing = wm.find_by_title(name)
         if existing:
             wm.focus_window(existing.window_id)
-            return
+            if start_path and hasattr(existing.content_widget, "change_directory"):
+                existing.content_widget.change_directory(start_path)
+            return existing
 
-        # Instantiate from factory
-        widget = create_app_by_name(name, parent=workspace)
+        kwargs = {}
+        if start_path:
+            kwargs["start_path"] = start_path
+        if role_override:
+            kwargs["role_override"] = role_override
+        try:
+            widget = create_app_by_name(name, parent=self._workspace, **kwargs)
+        except Exception as exc:
+            logger.exception("[Desktop] Error boundary caught crash launching '%s': %s", name, exc)
+            widget = None
         if widget is None:
-            return
+            logger.error("Failed to create app: %s", name)
+            self._show_launch_error(name)
+            return None
 
-        # Create window frame
         win_id = str(uuid.uuid4())
-        window = OSWindow(win_id, name, widget, parent=workspace)
-        
-        # ── Smart Sizing & Placement ──
-        window.resize(720, 480) 
-        
-        # Staggered Placement: Prevent perfect stacking
-        count = len(wm._windows)
-        offset_x = 40 + (count % 6) * 40
-        offset_y = 40 + (count % 6) * 40
-        window.move(offset_x, offset_y)
-        
-        # Sync SecureAPI instance_id if available
-        if hasattr(widget, "secure_api") and widget.secure_api is not None:
-            widget.secure_api.instance_id = win_id
-
+        window = OSWindow(win_id, name, widget, parent=self._workspace)
+        window.window_title = name
         wm.register_window(window)
-        window.show() # Safe to show now that registration is complete
+
+        window.resize(860, 560)
+        count = max(0, len(getattr(wm, "_windows", {})) - 1)
+        offset = 60 + (count % 6) * 38
+        window.move(offset, offset)
+        window.show()
+
+        # Register in Suspended Dock
+        _icon_map = {
+            "Terminal":         "assets/icons/terminal.svg",
+            "File Manager":     "assets/icons/files.svg",
+            "Trash":            "assets/icons/trash.svg",
+            "Q-Vault Security": "assets/icons/icon-vault.svg",
+            "Q-Vault Browser":  "assets/icons/browser.svg",
+            "Kernel Monitor":   "assets/icons/kernel_monitor.svg",
+        }
+        self._taskbar.register_app(win_id, name, _icon_map.get(name))
+
+        # Wire window close → unregister from dock
+        _orig_close = window.closeEvent
+        def _patched_close(ev, _wid=win_id, _oc=_orig_close):
+            self._taskbar.unregister_app(_wid)
+            _oc(ev)
+        window.closeEvent = _patched_close
+
+        self._update_taskbar_apps()
         return window
 
-    def _open_file_manager(self):
-        self.launch_app("Files")
+    def _on_state_changed(self, payload):
+        """Handle STATE_CHANGED events — drives the snap preview overlay."""
+        evt = payload.data.get("type", "")
+        if evt == "snap_preview":
+            from components.snap_controller import WindowSlot
+            from PyQt5.QtCore import QRect
+            slot = payload.data.get("slot")
+            ws = self._workspace.rect()
+            pw, ph = ws.width(), ws.height()
+            rect_map = {
+                WindowSlot.MAXIMIZED:     QRect(0, 0, pw, ph),
+                WindowSlot.HALF_LEFT:     QRect(0, 0, pw // 2, ph),
+                WindowSlot.HALF_RIGHT:    QRect(pw // 2, 0, pw // 2, ph),
+                WindowSlot.QUARTER_TL:    QRect(0, 0, pw // 2, ph // 2),
+                WindowSlot.QUARTER_TR:    QRect(pw // 2, 0, pw // 2, ph // 2),
+                WindowSlot.QUARTER_BL:    QRect(0, ph // 2, pw // 2, ph // 2),
+                WindowSlot.QUARTER_BR:    QRect(pw // 2, ph // 2, pw // 2, ph // 2),
+            }
+            target = rect_map.get(slot)
+            if target:
+                self.snap_preview.show_preview(target)
+        elif evt == "snap_preview_hide":
+            self.snap_preview.hide_preview()
 
-    def _open_trash(self):
-        from system.config import get_qvault_home
-        trash_dir = os.path.join(get_qvault_home(), ".trash")
-        os.makedirs(trash_dir, exist_ok=True)
+    def _show_launch_error(self, app_name: str):
+        """Show a non-blocking dark error toast when an app fails to launch."""
+        from PyQt5.QtWidgets import QLabel
+        from PyQt5.QtCore import QTimer
+        toast = QLabel(f"⚠  Could not open '{app_name}' — check logs for details.", self)
+        toast.setStyleSheet(
+            "QLabel { background: #1a0a0a; color: #ff6b6b;"
+            "border: 1px solid rgba(255,80,80,0.4); border-radius: 8px;"
+            "padding: 10px 18px; font-size: 11pt; }"
+        )
+        toast.adjustSize()
+        toast.move(self.width() // 2 - toast.width() // 2, self.height() - 100)
+        toast.show()
+        QTimer.singleShot(4000, toast.deleteLater)
 
-        win = self.launch_app("Files")
-        if win:
-            win.setWindowTitle("Trash")
-            # The widget inside is RealFileExplorer
-            try:
-                win.content_widget._navigate_to(trash_dir)
-            except Exception:
-                pass
+    # ── Taskbar helpers ───────────────────────────────────────
 
-    def _launch_terminal(self):
-        from system.config import get_qvault_home
-        self._launch_terminal_at(get_qvault_home())
+    def _update_clock(self):
+        from PyQt5.QtCore import QTime
+        self._taskbar.update_clock(QTime.currentTime().toString("hh:mm:ss"))
 
-    def _launch_terminal_at(self, path):
-        win = self.launch_app("Terminal")
-        if win:
-            term = win.content_widget
-            try:
-                term.engine.cwd = Path(path).resolve()
-                term.output.clear()
-                term.output.insertPlainText("Q-Vault OS Terminal v1.0\nSecure Sandbox Enabled.\n")
-                term._write_prompt()
-            except Exception:
-                pass
+    def _update_taskbar_apps(self):
+        wm = get_window_manager()
+        apps = []
+        active_id = None
+        for win_id, win in list(getattr(wm, "_windows", {}).items()):
+            # Include visible OR minimized windows
+            if win.isVisible() or getattr(win, "is_minimized", False):
+                title = getattr(win, "window_title", win_id)
+                apps.append({"id": win_id, "title": title})
+                if win.hasFocus():
+                    active_id = win_id
+        self._taskbar.update_state({"apps": apps, "active_id": active_id})
 
-    def _on_taskbar_shortcut(self, name: str):
-        """Handle quick-launch shortcuts from the taskbar."""
-        if name == "terminal":
-            self._launch_terminal()
-        elif name == "files":
-            self._open_file_manager()
+    def _on_taskbar_app_clicked(self, win_id: str):
+        from core.event_bus import EVENT_BUS, SystemEvent
+        wm = get_window_manager()
+        if wm._active == win_id and not getattr(wm._windows.get(win_id), "is_minimized", False):
+            # Already active? Minimize it!
+            EVENT_BUS.emit(SystemEvent.REQ_WINDOW_MINIMIZE, {"id": win_id}, source="Taskbar")
+        else:
+            # Not active or minimized? Focus/Restore it!
+            EVENT_BUS.emit(SystemEvent.REQ_WINDOW_FOCUS, {"id": win_id}, source="Taskbar")
+
+    # ── Context menu ──────────────────────────────────────────
+
+    _MENU_STYLE = DARK_MENU_STYLE
 
     def _desktop_menu(self, pos):
-        from PyQt5.QtWidgets import QMenu, QAction
-        from PyQt5.QtGui import QIcon
-        from system.config import get_qvault_home
-        from core.resources import get_asset_path
-
         menu = QMenu(self)
+        menu.setStyleSheet(self._MENU_STYLE)
 
-        ac_refresh = QAction(QIcon(get_asset_path("icons/menu-refresh.svg")), "Refresh", self)
-        menu.addAction(ac_refresh)
+        # ── Appearance ──────────────────────────────────────────
+        act_wp = QAction("🎨  Change Wallpaper…", self)
+        act_wp.setEnabled(False)
+        menu.addAction(act_wp)
         menu.addSeparator()
 
-        ac_folder = QAction(QIcon(get_asset_path("icons/menu-new-folder.svg")), "New Folder", self)
-        ac_file = QAction(QIcon(get_asset_path("icons/menu-new-file.svg")), "New Document", self)
-        menu.addAction(ac_folder)
-        menu.addAction(ac_file)
+        # ── New ─────────────────────────────────────────────────
+        act_nf = QAction("📄  New File", self)
+        act_nf.triggered.connect(self._desktop_new_file)
+        menu.addAction(act_nf)
+
+        act_nd = QAction("📁  New Folder", self)
+        act_nd.triggered.connect(self._desktop_new_folder)
+        menu.addAction(act_nd)
+        menu.addSeparator()
+
+        # ── View ─────────────────────────────────────────────────
+        act_ref = QAction("⟳  Refresh Desktop", self)
+        act_ref.triggered.connect(self._create_icons)
+        menu.addAction(act_ref)
+
+        act_sort = QAction("⇅  Sort Icons", self)
+        act_sort.setEnabled(False)
+        menu.addAction(act_sort)
+        menu.addSeparator()
+
+        # ── Apps ─────────────────────────────────────────────────
+        act_term = QAction("🖥️  Open Terminal Here", self)
+        act_term.triggered.connect(self._open_terminal_at_desktop)
+        menu.addAction(act_term)
+        menu.addSeparator()
+
+        # ── System ───────────────────────────────────────────────
+        act_about = QAction("ℹ️  About Q-Vault OS", self)
+        act_about.triggered.connect(self._show_about)
+        menu.addAction(act_about)
 
         menu.addSeparator()
-        ac_paste = QAction(QIcon(get_asset_path("icons/menu-paste.svg")), "Paste", self)
-        menu.addAction(ac_paste)
+        act_account = QAction("👤  Account Settings…", self)
+        act_account.triggered.connect(self._show_account_settings)
+        menu.addAction(act_account)
 
-        menu.addSeparator()
-        ac_term = QAction(QIcon(get_asset_path("icons/menu-terminal.svg")), "Open Terminal Here", self)
-        menu.addAction(ac_term)
+        menu.exec_(self.mapToGlobal(pos))
 
-        menu.addSeparator()
-        ac_props = QAction(QIcon(get_asset_path("icons/menu-properties.svg")), "Properties", self)
-        menu.addAction(ac_props)
-
-        action = menu.exec_(self.mapToGlobal(pos))
-        if not action:
-            return
-
-        base = os.path.join(get_qvault_home(), "Desktop")
-        os.makedirs(base, exist_ok=True)
-
-        if action == ac_folder:
-            os.makedirs(os.path.join(base, "New Folder"), exist_ok=True)
-            self.update()
-        elif action == ac_file:
-            open(os.path.join(base, "new_file.txt"), "w").close()
-            self.update()
-        elif action == ac_term:
-            self._launch_terminal_at(base)
-        elif action == ac_refresh:
-            self.update()
-        elif action == ac_paste:
-            # Paste the system clipboard text as a .txt file on the Desktop.
-            from PyQt5.QtWidgets import QApplication
-            clipboard = QApplication.clipboard()
-            text = clipboard.text()
-            if text:
-                import time as _t
-                fname = f"pasted_{int(_t.time())}.txt"
-                dest = os.path.join(base, fname)
+    def _desktop_new_file(self):
+        from PyQt5.QtWidgets import QInputDialog
+        from system.config import get_qvault_home
+        dlg = QInputDialog(self)
+        dlg.setWindowTitle("New File")
+        dlg.setLabelText("File name:")
+        dlg.setStyleSheet(DARK_DIALOG_STYLE)
+        if dlg.exec_():
+            name = dlg.textValue().strip()
+            if name:
+                target = Path(get_qvault_home()) / "Desktop" / name
                 try:
-                    with open(dest, "w", encoding="utf-8") as fh:
-                        fh.write(text)
-                    self.update()
-                except OSError as exc:
-                    import logging
-                    logging.getLogger(__name__).warning(
-                        "Desktop: paste failed — %s", exc
-                    )
-        elif action == ac_props:
-            # Show a simple properties dialog for the Desktop folder.
-            from PyQt5.QtWidgets import QMessageBox
-            try:
-                stat = os.stat(base)
-                size_mb = sum(
-                    os.path.getsize(os.path.join(r, f))
-                    for r, _, files in os.walk(base)
-                    for f in files
-                ) / (1024 * 1024)
-                msg = (
-                    f"<b>Desktop</b><br>"
-                    f"Path: <code>{base}</code><br>"
-                    f"Size: {size_mb:.2f} MB<br>"
-                    f"Items: {len(os.listdir(base))}"
-                )
-            except OSError:
-                msg = f"<b>Desktop</b><br>Path: <code>{base}</code>"
+                    target.touch()
+                    self._refresh_desktop_icons()
+                except Exception as exc:
+                    logger.error("Desktop new file failed: %s", exc)
 
-            dlg = QMessageBox(self)
-            dlg.setWindowTitle("Properties")
-            dlg.setTextFormat(1)   # RichText
-            dlg.setText(msg)
-            dlg.exec_()
-
-
-    # ───── MOUSE SELECTION BOX ─────
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.start_pos = event.pos()
-            self.selection_rect = None
-            self.update()
-
-    def mouseMoveEvent(self, event):
-        if self.start_pos:
-            self.selection_rect = (self.start_pos, event.pos())
-            self.update()
-
-    def mouseReleaseEvent(self, event):
-        if self.selection_rect:
-            start, end = self.selection_rect
-            rect = QRect(start, end).normalized()
-
-            for icon in self.icons:
-                icon_rect = icon.geometry()
-                mapped_top_left = icon.parent().mapTo(self, icon_rect.topLeft())
-                mapped_rect = QRect(mapped_top_left, icon_rect.size())
-                
-                if rect.intersects(mapped_rect):
-                    icon.set_selected(True)
-                else:
-                    icon.set_selected(False)
-
-        self.start_pos = None
-        self.selection_rect = None
-        self.update()
+    def _desktop_new_folder(self):
+        from PyQt5.QtWidgets import QInputDialog
+        from system.config import get_qvault_home
+        dlg = QInputDialog(self)
+        dlg.setWindowTitle("New Folder")
+        dlg.setLabelText("Folder name:")
+        dlg.setStyleSheet(DARK_DIALOG_STYLE)
+        if dlg.exec_():
+            name = dlg.textValue().strip()
+            if name:
+                target = Path(get_qvault_home()) / "Desktop" / name
+                try:
+                    target.mkdir(parents=True, exist_ok=True)
+                    self._refresh_desktop_icons()
+                except Exception as exc:
+                    logger.error("Desktop new folder failed: %s", exc)
 
 
 
-    # ───── GLOBAL KEY EVENTS ─────
-    def keyPressEvent(self, event):
-        # v1.3.2 Interaction Consistency: Launcher takes priority
-        if self.launcher.isVisible():
-            super().keyPressEvent(event)
+    def _show_account_settings(self):
+        from components.account_settings_dialog import AccountSettingsDialog
+        dlg = AccountSettingsDialog(parent=self)
+        dlg.exec_()
+
+    def _show_about(self):
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QHBoxLayout
+        dlg = QDialog(self)
+        dlg.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        dlg.setAttribute(Qt.WA_TranslucentBackground)
+        dlg.setFixedSize(360, 220)
+
+        container = QWidget(dlg)
+        container.setGeometry(0, 0, 360, 220)
+        container.setStyleSheet("""
+            QWidget {
+                background: #0b1929;
+                border: 1px solid rgba(0, 200, 255, 0.25);
+                border-radius: 12px;
+            }
+            QLabel { background: transparent; color: white; }
+            QPushButton {
+                background: rgba(0,180,255,0.15);
+                border: 1px solid rgba(0,200,255,0.3);
+                border-radius: 8px;
+                color: #00e6ff;
+                padding: 6px 24px;
+                font-size: 12px;
+            }
+            QPushButton:hover { background: rgba(0,180,255,0.3); }
+        """)
+
+        vl = QVBoxLayout(container)
+        vl.setContentsMargins(28, 24, 28, 20)
+        vl.setSpacing(8)
+
+        title = QLabel("Q-Vault OS")
+        title.setFont(QFont("Segoe UI", 18, QFont.Bold))
+        title.setStyleSheet("color: #00e6ff; background: transparent;")
+
+        ver = QLabel("Version 1.0.0  —  Secure Desktop Environment")
+        ver.setStyleSheet("color: rgba(255,255,255,0.7); font-size: 12px; background: transparent;")
+
+        copy = QLabel("© 2025 Q-Vault Project. All rights reserved.")
+        copy.setStyleSheet("color: rgba(255,255,255,0.35); font-size: 11px; background: transparent;")
+
+        btn = QPushButton("Close")
+        btn.clicked.connect(dlg.accept)
+        btn.setCursor(Qt.PointingHandCursor)
+
+        vl.addWidget(title)
+        vl.addWidget(ver)
+        vl.addSpacing(8)
+        vl.addWidget(copy)
+        vl.addStretch()
+        hl = QHBoxLayout()
+        hl.addStretch()
+        hl.addWidget(btn)
+        vl.addLayout(hl)
+
+        # Center on parent
+        parent_center = self.rect().center()
+        dlg.move(self.mapToGlobal(parent_center) - QPoint(180, 110))
+        dlg.exec_()
+
+
+
+    # ── Desktop file system ─────────────────────────────────
+
+    def _setup_desktop_watcher(self):
+        from system.config import get_qvault_home
+        desktop_path = str(Path(get_qvault_home()) / "Desktop")
+        Path(desktop_path).mkdir(parents=True, exist_ok=True)
+        self._watcher = QFileSystemWatcher([desktop_path])
+        self._watcher.directoryChanged.connect(self._on_desktop_changed)
+
+    def _on_desktop_changed(self, _path: str):
+        QTimer.singleShot(100, self._load_desktop_files)
+
+    def _load_desktop_files(self):
+        from system.config import get_qvault_home
+        desktop = Path(get_qvault_home()) / "Desktop"
+        desktop.mkdir(exist_ok=True)
+
+        # Remove icons for deleted files
+        existing = {str(p) for p in desktop.iterdir()}
+        for path_str in list(self._file_icons.keys()):
+            if path_str not in existing:
+                try:
+                    self._file_icons[path_str].deleteLater()
+                except Exception:
+                    pass
+                del self._file_icons[path_str]
+                # Remove from grid
+                cell_key = next((k for k,v in self._grid_cells.items() if v == path_str), None)
+                if cell_key:
+                    del self._grid_cells[cell_key]
+
+        # Add icons for new files (folders first, then files)
+        entries = sorted(desktop.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+        col, row = 0, 0
+        for item in entries:
+            path_str = str(item)
+            if path_str in self._file_icons:
+                continue
+            # Find next free cell (column fills left side vertically)
+            while (col, row) in self._grid_cells:
+                row += 1
+                if self._grid_to_pixel(col, row).y() + GRID_CELL_H > self._workspace.height() - 100:
+                    col += 1
+                    row = 0
+            pixel = self._grid_to_pixel(col, row)
+            icon_w = DesktopFileIcon(item, QPoint(col, row), self._workspace)
+            icon_w.move(pixel)
+            icon_w.double_clicked.connect(self._on_file_icon_dblclick)
+            icon_w.show()
+            self._file_icons[path_str] = icon_w
+            self._grid_cells[(col, row)] = path_str
+            row += 1
+
+    def _grid_to_pixel(self, col: int, row: int) -> QPoint:
+        # Left column: app icons. Desktop files start at col=1 to avoid overlap
+        x = GRID_START_X + (col + 1) * GRID_CELL_W
+        y = GRID_START_Y + row * GRID_CELL_H
+        return QPoint(x, y)
+
+    def _pixel_to_grid(self, px: QPoint) -> tuple:
+        col = max(0, (px.x() - GRID_START_X - GRID_CELL_W) // GRID_CELL_W)
+        row = max(0, (px.y() - GRID_START_Y) // GRID_CELL_H)
+        return (col, row)
+
+    def _on_file_icon_dblclick(self, path):
+        if path.is_dir():
+            self.launch_app("File Manager", start_path=str(path))
+        else:
+            self.launch_app("Terminal")
+
+    # ── Drag & Drop ──────────────────────────────────────────
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasText():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        path_str = event.mimeData().text()
+        drop_pos = event.pos()
+        grid_cell = self._pixel_to_grid(drop_pos)
+        icon = self._file_icons.get(path_str)
+        if not icon:
             return
+        # Remove old cell
+        old_key = next((k for k,v in self._grid_cells.items() if v == path_str), None)
+        if old_key:
+            del self._grid_cells[old_key]
+        # Find free cell near drop point
+        col, row = grid_cell
+        while (col, row) in self._grid_cells:
+            col += 1
+        pixel = self._grid_to_pixel(col, row)
+        icon.move(pixel)
+        icon.grid_pos = QPoint(col, row)
+        self._grid_cells[(col, row)] = path_str
+        event.acceptProposedAction()
 
-        from system.window_manager import get_window_manager
+    # ── Terminal context helpers ──────────────────────────────
+
+    def _open_terminal_at_desktop(self):
+        from system.config import get_qvault_home
+        desktop_path = str(Path(get_qvault_home()) / "Desktop")
+        self.launch_app("Terminal", start_path=desktop_path)
+
+    def _on_open_terminal_here(self, payload):
+        try:
+            data = payload.data if hasattr(payload, "data") else payload
+            path = data.get("path", "") if isinstance(data, dict) else ""
+            if path:
+                self.launch_app("Terminal", start_path=path)
+        except Exception as exc:
+            logger.warning("_on_open_terminal_here error: %s", exc)
+
+    def _on_trash_state_changed(self, payload):
+        """Swap Trash desktop icon between empty/full state."""
+        try:
+            data = payload.data if hasattr(payload, "data") else payload
+            has_items = data.get("has_items", False) if isinstance(data, dict) else False
+            icon_path = "assets/icons/trash_full.svg" if has_items else "assets/icons/trash.svg"
+            widget = getattr(self, "_named_icons", {}).get("Trash")
+            if widget:
+                widget.update_icon(icon_path)
+        except Exception as exc:
+            logger.warning("_on_trash_state_changed error: %s", exc)
+
+    def _refresh_desktop_icons(self):
+        for icon in list(self._file_icons.values()):
+            try:
+                icon.deleteLater()
+            except Exception:
+                pass
+        self._file_icons.clear()
+        self._grid_cells.clear()
+        self._load_desktop_files()
+        self._create_icons()
+
+    # ── Dock helpers (wired to taskbar signals) ───────────────
+
+    def _close_app_by_id(self, win_id: str):
+        """Close a window from the taskbar × button."""
         wm = get_window_manager()
+        win = getattr(wm, "_windows", {}).get(win_id)
+        if win:
+            win.close()
+        self._taskbar.unregister_app(win_id)
 
-        if event.key() == Qt.Key_Tab and event.modifiers() & Qt.AltModifier:
-            wm.cycle_windows()
-            
-        elif event.key() == Qt.Key_Space and event.modifiers() & Qt.ControlModifier:
-            self.toggle_launcher()
+    def _show_launcher_stub(self):
+        from PyQt5.QtWidgets import QToolTip
+        pos = self._taskbar.mapToGlobal(QPoint(40, 0))
+        QToolTip.showText(pos, "Q-Vault OS  |  3 Apps Active")
 
-        elif event.key() == Qt.Key_1 and event.modifiers() & Qt.ControlModifier:
-            wm.switch_workspace(0)
+    # ── Session ───────────────────────────────────────────────
 
-        elif event.key() == Qt.Key_2 and event.modifiers() & Qt.ControlModifier:
-            wm.switch_workspace(1)
-            
-        super().keyPressEvent(event)
+    def set_user(self, username: str):
+        logger.info("Desktop: session active for '%s'", username)
+        try:
+            from system.config import is_first_run, mark_first_run_complete
+            if is_first_run():
+                mark_first_run_complete()
+        except Exception:
+            pass

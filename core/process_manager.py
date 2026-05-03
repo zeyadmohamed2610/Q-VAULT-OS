@@ -1,18 +1,3 @@
-# =============================================================
-#  process_manager.py — Q-Vault OS  |  Process Manager v2
-#
-#  Changes vs v1:
-#    • Full status lifecycle:  running -> stopped -> completed
-#    • Every process stores full argv (name + args string)
-#    • Observer callbacks: any subscriber is notified on every
-#      state change so the terminal can print "[PID] Done"
-#      and the Task Manager (Phase 3) can auto-refresh
-#    • Background jobs get a QTimer that fires after a
-#      simulated runtime and marks them "completed", then
-#      fires the "done" observer so the terminal sees it
-#    • kill() transitions status to "stopped" before removal
-# =============================================================
-
 import time
 import itertools
 import threading

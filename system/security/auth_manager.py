@@ -46,7 +46,9 @@ class AuthManager:
         try:
             raw = bytes([enc_data[i] ^ self._root_key[i % len(self._root_key)] for i in range(len(enc_data))])
             return json.loads(raw.decode('utf-8'))
-        except: return {}
+        except Exception as exc:
+            logger.debug("Decryption failed: %s", exc)
+            return {}
 
     def _init_security_file(self):
         if not self.auth_file.exists():
@@ -54,17 +56,26 @@ class AuthManager:
 
     def _save_auth_data(self, data):
         enc = self._encrypt_data(data)
+        if os.name == "nt" and self.auth_file.exists():
+            try:
+                import ctypes
+                ctypes.windll.kernel32.SetFileAttributesW(str(self.auth_file), 0x80)
+            except Exception:
+                pass
+            
         with open(self.auth_file, "wb") as f: f.write(enc)
         if os.name == "nt":
             try:
                 import ctypes
                 ctypes.windll.kernel32.SetFileAttributesW(str(self.auth_file), 0x02)
-            except: pass
+            except Exception:
+                pass
 
     def _load_auth_data(self):
         try:
             with open(self.auth_file, "rb") as f: return self._decrypt_data(f.read())
-        except: return {}
+        except Exception:
+            return {}
 
     def verify_password(self, password: str) -> bool:
         if time.time() < self.lock_until: return False
@@ -91,7 +102,8 @@ class AuthManager:
                     if lines:
                         last = lines[-1].decode()
                         if "::" in last: prev_sig = last.split("::")[-1].strip()
-            except: pass
+            except Exception:
+                pass
 
         msg = f"{timestamp} [{event.upper()}] {details}"
         sig = hmac.new(self._log_hmac_key, f"{prev_sig}{msg}".encode(), hashlib.sha256).hexdigest()
@@ -100,7 +112,8 @@ class AuthManager:
         for p in [self.audit_file, self.backup_audit]:
             try:
                 with open(p, "a", encoding="utf-8") as f: f.write(entry)
-            except: pass
+            except Exception:
+                pass
 
     def verify_audit_log(self) -> tuple[bool, str]:
         """Verify the integrity of the audit log by recalculating signatures."""

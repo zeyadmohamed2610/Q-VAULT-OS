@@ -76,13 +76,8 @@ class LoginScreen(QWidget):
         self.error_lbl.setFixedHeight(16)
         card_layout.addWidget(self.error_lbl)
 
-        # LOGIN button
-        self.btn = QPushButton("LOGIN")
-        self.btn.setObjectName("PrimaryBtn")
-        self.btn.setFixedHeight(38)
-        self.btn.setCursor(Qt.PointingHandCursor)
-        self.btn.clicked.connect(self._do_login)
-        card_layout.addWidget(self.btn)
+        # No LOGIN button — Windows Hello style
+        self.btn = None
 
         # ── Wire to AuthManager (NOT SecurityController) ─────────
         from system.auth_manager import get_auth_manager
@@ -141,9 +136,11 @@ class LoginScreen(QWidget):
     def set_busy(self, busy: bool):
         self.user_field.setEnabled(not busy)
         self.pass_field.setEnabled(not busy)
-        self.btn.setEnabled(not busy)
-        self.btn.setText("VERIFYING..." if busy else "LOGIN")
-        if not busy:
+        if busy:
+            self.error_lbl.setStyleSheet("color: #00ffcc; font-size: 11px; padding: 0px;")
+            self.error_lbl.setText("VERIFYING...")
+        else:
+            self.error_lbl.setStyleSheet("color: #ff3366; font-size: 11px; padding: 0px;")
             self.error_lbl.setText("")
 
     def showEvent(self, event):

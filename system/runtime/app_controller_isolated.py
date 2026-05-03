@@ -171,7 +171,10 @@ class IsolatedAppController(QObject):
                 self._update_governance()
 
                 if not packet:
-                    time.sleep(0.001) # Yield to prevent 100% CPU on idle
+                    if self.bridge.queue.empty():
+                        time.sleep(0.02)
+                    else:
+                        time.sleep(0.005)
                     continue
 
                 self._process_packet(packet)
@@ -300,6 +303,10 @@ class IsolatedAppController(QObject):
 
     def call_remote(self, method: str, *args, callback=None, **kwargs):
         """Thread-safe entry point for UI calls to the child process."""
+        if self.bridge and self.bridge.queue.qsize() > 80:
+            logger.warning(f"[Controller] Dropping call {method} due to IPC congestion")
+            return
+
         msg_id = uuid.uuid4().hex[:8]
         with self._ipc_lock:
             if callback: self._pending_calls[msg_id] = callback
@@ -309,5 +316,9 @@ class IsolatedAppController(QObject):
     def _handle_shutdown(self, reason: str, state=RuntimeState.TERMINATED):
         self.stop()
         self.state = state
-        self.state_changed.emit(self.state)
-        self.crashed.emit(reason)
+        try:
+            self.state_changed.emit(self.state)
+            self.crashed.emit(reason)
+        except RuntimeError:
+            pass # QObject has been deleted by Qt
+

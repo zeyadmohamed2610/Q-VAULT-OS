@@ -1,109 +1,53 @@
-"""
-assets/design_tokens.py — Q-Vault OS Design System
-Strict, semantic tokenization of all visual properties.
-"""
-
-from typing import Dict, Any
-
-# 1. SEMANTIC COLORS
 COLORS = {
-    "background": {
-        "deep": "#06080d",
-        "mid": "#0d1117",
-        "surface": "#0a0f19",
-        "surface_dark": "#111827",
-        "surface_mid": "#1a1a2e",
-        "surface_raised": "#1e293b",
-        "surface_overlay": "#2a2a3e",
-    },
-    "text": {
-        "primary": "#ffffff",
-        "dim": "#9ec0d5",
-        "muted": "#888888",
-        "disabled": "#555555",
-    },
-    "border": {
-        "muted": "#333333",
-        "subtle": "#1a3a5c",
-        "glow": "#00e6ff",
-    },
-    "intent": {
-        "primary_glow": "#00e6ff",
-        "primary_soft": "#00bcd4",
-        "success": "#00ff88",
-        "warning": "#ffaa00",
-        "error": "#ff3366",
-        "error_bright": "#ff0000",
-        "error_soft": "#ff6666",
-    }
+    # Backgrounds (darkest → lightest)
+    "bg_void":        "#01020e",   # absolute black-navy (window backdrop)
+    "bg_base":        "#040f22",   # base surface
+    "bg_surface":     "#0b162d",   # cards, panels
+    "bg_elevated":    "#0f2842",   # raised elements, headers
+    "bg_overlay":     "#243558",   # tooltips, dropdowns
+
+    # Brand / Interactive
+    "steel":          "#2f6183",   # secondary accent, borders
+    "cyan":           "#54b1c6",   # PRIMARY accent — highlights, focus rings, icons
+    "cyan_bright":    "#7dd3e8",   # hover states, glow
+    "cyan_dim":       "#3a8fa8",   # disabled accent
+
+    # Text
+    "text_primary":   "#d4e8f0",   # main text (slightly cyan-tinted white)
+    "text_secondary": "#8ab0c4",   # subtext, labels
+    "text_muted":     "#4a6880",   # placeholders, timestamps
+    "text_inverse":   "#01020e",   # text on bright backgrounds
+
+    # Semantic
+    "success":        "#3fb950",
+    "warning":        "#d29922",
+    "danger":         "#f85149",
+    "info":           "#54b1c6",   # same as cyan
+
+    # Special
+    "glow_cyan":      "rgba(84,177,198,0.18)",
+    "glow_steel":     "rgba(47,97,131,0.25)",
+    "border_subtle":  "rgba(84,177,198,0.12)",
+    "border_active":  "rgba(84,177,198,0.5)",
 }
 
-# 2. SPACING SCALE (8-point grid)
-SPACING = {
-    "xs": 4,
-    "sm": 8,
-    "md": 12,
-    "lg": 16,
-    "xl": 24,
-    "2xl": 32,
-    "3xl": 48,
-    "4xl": 64
+FONTS = {
+    "ui":      "Segoe UI",
+    "mono":    "Cascadia Code",
+    "display": "Segoe UI Semibold",
 }
 
-# 3. RADIUS (Rounding)
 RADIUS = {
-    "none": 0,
-    "sm": 4,
-    "md": 8,
-    "lg": 12,
-    "xl": 16,
-    "pill": 9999
+    "sm":   "4px",
+    "md":   "8px",
+    "lg":   "14px",
+    "xl":   "22px",
+    "pill": "999px",
 }
 
-# 4. TYPOGRAPHY
-TYPOGRAPHY = {
-    "font_family": "Inter, Roboto, sans-serif",
-    "sizes": {
-        "xs": "10px",
-        "sm": "12px",
-        "md": "14px",
-        "lg": "16px",
-        "xl": "20px",
-        "display": "24px",
-    },
-    "weights": {
-        "regular": "400",
-        "medium": "500",
-        "bold": "700"
-    }
-}
-
-# 5. SHADOWS
-SHADOWS = {
-    "sm": "0px 2px 4px rgba(0,0,0,0.2)",
-    "md": "0px 4px 8px rgba(0,0,0,0.3)",
-    "lg": "0px 8px 16px rgba(0,0,0,0.4)",
-    "glow": "0px 0px 12px rgba(0, 230, 255, 0.4)",
-}
-
-# 6. ANIMATIONS
-ANIMATIONS = {
-    "duration": {
-        "fast": "150ms",
-        "normal": "300ms",
-        "slow": "500ms"
-    },
-    "easing": {
-        "default": "ease-in-out",
-        "bounce": "cubic-bezier(0.68, -0.55, 0.265, 1.55)"
-    }
-}
-
-DESIGN_TOKENS = {
-    "COLORS": COLORS,
-    "SPACING": SPACING,
-    "RADIUS": RADIUS,
-    "TYPOGRAPHY": TYPOGRAPHY,
-    "SHADOWS": SHADOWS,
-    "ANIMATIONS": ANIMATIONS
+MOTION = {
+    "fast":   "120ms",
+    "normal": "220ms",
+    "slow":   "380ms",
+    "ease":   "cubic-bezier(0.4, 0, 0.2, 1)",
 }

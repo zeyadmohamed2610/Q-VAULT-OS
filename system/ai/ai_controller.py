@@ -1,10 +1,3 @@
-# =============================================================
-#  system/ai/ai_controller.py — Q-Vault OS
-#
-#  The AI Intelligence Engine (Advanced v3.0).
-#  Multi-step Reasoning | Memory-Aware | Pluggable LLM.
-# =============================================================
-
 import logging
 import time
 from typing import Dict, Any, List, Optional

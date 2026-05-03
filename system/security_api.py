@@ -1,13 +1,3 @@
-# =============================================================
-#  system/security_api.py — Q-VAULT OS  |  Security API Wrapper
-#
-#  This is a thin wrapper that delegates ALL security
-#  logic, session management, and RBAC to the Rust Core.
-#
-#  If the Rust Core `qvault_core` is missing, the system
-#  FAILS HARD and exits. There are NO fallbacks.
-# =============================================================
-
 import os
 import sys
 import logging

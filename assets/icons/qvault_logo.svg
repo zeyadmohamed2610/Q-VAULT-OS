@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Outer hexagon frame — vault door shape -->
+  <polygon points="24,3 42,13.5 42,34.5 24,45 6,34.5 6,13.5"
+           fill="none" stroke="#54b1c6" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Inner ring -->
+  <circle cx="24" cy="24" r="10" fill="none" stroke="#54b1c6" stroke-width="1.8" opacity="0.7"/>
+  <!-- Q letter -->
+  <text x="24" y="29" text-anchor="middle" font-family="Segoe UI Semibold, Arial"
+        font-size="13" font-weight="700" fill="#54b1c6">Q</text>
+  <!-- Vault lock bolt (bottom-right of circle) -->
+  <line x1="31" y1="31" x2="35" y2="35" stroke="#54b1c6" stroke-width="2.5"
+        stroke-linecap="round" opacity="0.8"/>
+  <!-- Corner ticks (vault dial) -->
+  <line x1="24" y1="3"  x2="24" y2="7"  stroke="#2f6183" stroke-width="1.5"/>
+  <line x1="24" y1="41" x2="24" y2="45" stroke="#2f6183" stroke-width="1.5"/>
+  <line x1="6"  y1="13.5" x2="9.5" y2="15.5" stroke="#2f6183" stroke-width="1.5"/>
+  <line x1="42" y1="32.5" x2="38.5" y2="34.5" stroke="#2f6183" stroke-width="1.5"/>
+</svg>

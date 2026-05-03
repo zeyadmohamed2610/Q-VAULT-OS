@@ -1,9 +1,3 @@
-# =============================================================
-#  memory_security.py — Q-VAULT OS  |  Secure Memory Management
-#
-#  Secure memory wiping and sensitive data protection
-# =============================================================
-
 import os
 import ctypes
 import hashlib

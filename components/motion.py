@@ -111,7 +111,13 @@ class MotionController:
         """Scale down + fade out towards the bottom (simulating taskbar direction)."""
         if hasattr(window, "_min_anim") and window._min_anim.state() == QPropertyAnimation.Running:
             return
-            
+        
+        # Save geometry for restore
+        window._pre_minimize_geom = window.geometry()
+        
+        # Bypass WM constraint layer during animation
+        window._is_applying_geometry = True
+        
         group = QParallelAnimationGroup(window)
         
         # Scale down to 0.7
@@ -137,7 +143,17 @@ class MotionController:
         
         group.addAnimation(geom_anim)
         group.addAnimation(op_anim)
-        group.finished.connect(window.hide) # Hide after animation
+        
+        def _on_minimize_done():
+            window._is_applying_geometry = False
+            window.hide()
+            # Restore original geometry while hidden so it's ready for restore
+            if hasattr(window, "_pre_minimize_geom"):
+                window._is_applying_geometry = True
+                window._internal_set_geometry(window._pre_minimize_geom)
+                window._is_applying_geometry = False
+        
+        group.finished.connect(_on_minimize_done)
         
         window._min_anim = group
         group.start()
@@ -146,6 +162,9 @@ class MotionController:
     @staticmethod
     def restore_window(window, target_geometry: QRect):
         """Smooth re-entry from minimized state."""
+        # Bypass WM constraint layer during animation
+        window._is_applying_geometry = True
+        
         window.show()
         window.setWindowOpacity(0.0)
         
@@ -156,7 +175,7 @@ class MotionController:
             int(target_geometry.width() * 0.9),
             int(target_geometry.height() * 0.9)
         )
-        window.setGeometry(start_geom)
+        window._internal_set_geometry(start_geom)
         
         group = QParallelAnimationGroup(window)
         
@@ -174,6 +193,11 @@ class MotionController:
         
         group.addAnimation(op_anim)
         group.addAnimation(geom_anim)
+        
+        def _on_restore_done():
+            window._is_applying_geometry = False
+        
+        group.finished.connect(_on_restore_done)
         
         window._restore_anim = group
         group.start()

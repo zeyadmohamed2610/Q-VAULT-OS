@@ -51,7 +51,7 @@ class SnapPreviewOverlay(QWidget):
         
         # Disconnect previous finished signals to prevent multiple hides
         try: self.anim.finished.disconnect()
-        except: pass
+        except Exception: pass
             
         self.anim.finished.connect(self.hide)
         self.anim.start()

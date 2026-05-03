@@ -1,23 +1,3 @@
-# ⚠️ QUARANTINED MODULE ⚠️
-# ==============================
-# Module: security_dashboard.py
-# Status: NOT PART OF RUNTIME
-# Warning: DO NOT IMPORT
-# Reason: No call sites found in codebase
-# ==============================
-
-# =============================================================
-#  components/security_dashboard.py — Q-VAULT OS
-#
-#  Real-time security dashboard — wired to ACTUAL data only.
-#
-# ⚠️ QUARANTINED: 2026-04-18
-# Reason: No import references found in codebase
-#
-#  HARD RULE: If data is not available, we display "N/A" or hide
-#  the field. Zero placeholders. Zero fabricated values.
-# =============================================================
-
 import logging
 import os
 from pathlib import Path

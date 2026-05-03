@@ -1,10 +1,3 @@
-# =============================================================
-#  system/ai/context_builder.py — Q-Vault OS
-#
-#  Enhanced situational awareness for AI.
-#  Tracks active state, history, and error telemetry.
-# =============================================================
-
 import time
 from collections import deque
 from core.event_bus import EVENT_BUS, SystemEvent

@@ -1,10 +1,3 @@
-# =============================================================
-#  components/core_monitor_ui.py — Q-Vault OS  |  Core Monitor UI
-#
-#  Pure View component. No direct system calls.
-#  Communicates via EventBus.
-# =============================================================
-
 import logging
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame
@@ -14,6 +7,13 @@ from PyQt5.QtCore import Qt, QTimer
 from core.event_bus import EVENT_BUS, SystemEvent
 from core.system_state import STATE
 from assets import theme
+from assets.theme import THEME
+
+# ── Theme alias shim: map legacy attribute names to real tokens ──
+theme.ACCENT_CYAN  = THEME["primary_glow"]   # #00e6ff
+theme.BG_PANEL     = THEME["surface_dark"]   # #0a0f19
+theme.BORDER_DIM   = THEME["border_subtle"]  # rgba(0,230,255,0.08)
+theme.ACCENT_GREEN = THEME["success"]        # #00ff88
 
 logger = logging.getLogger(__name__)
 

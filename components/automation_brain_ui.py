@@ -1,10 +1,3 @@
-# =============================================================
-#  components/automation_brain_ui.py — Q-Vault OS  |  Automation Brain UI
-#
-#  Pure View component. No direct system calls.
-#  Communicates via EventBus.
-# =============================================================
-
 import time
 import logging
 from PyQt5.QtWidgets import (

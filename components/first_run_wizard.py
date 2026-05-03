@@ -1,11 +1,3 @@
-# ⚠️ QUARANTINED MODULE ⚠️
-# ==============================
-# Module: first_run_wizard.py
-# Status: NOT PART OF RUNTIME
-# Warning: DO NOT IMPORT
-# Reason: Pending architectural verification
-# ==============================
-
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,6 +12,7 @@ logger = logging.getLogger(__name__)
 import os
 import json
 from pathlib import Path
+from assets.theme import THEME
 from PyQt5.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -386,7 +379,7 @@ class FirstRunWizard(QDialog):
                 "gid": 0,
                 "home": "/root",
                 "password_hash": hash_password(self._data["password"]),
-                "created": "2024-01-01T00:00:00",
+                "created": "2026-01-01T00:00:00",
             }
         }
 
@@ -399,7 +392,7 @@ class FirstRunWizard(QDialog):
                 "gid": 1000,
                 "home": "/home/demo",
                 "password_hash": hash_password("demo"),
-                "created": "2024-01-01T00:00:00",
+                "created": "2026-01-01T00:00:00",
             }
 
         try:

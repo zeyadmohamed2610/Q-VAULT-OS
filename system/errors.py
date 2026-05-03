@@ -1,21 +1,3 @@
-# =============================================================
-#  system/errors.py — Q-VAULT OS  |  Centralized Error System
-#
-#  SINGLE SOURCE OF TRUTH for:
-#    - All exception classes
-#    - All standardized error message strings
-#
-#  Every module in the system MUST import from here.
-#  No local SecurityError definitions are permitted.
-#
-#  Usage:
-#    from system.errors import SecurityError, PermissionDenied
-#    from system.errors import MSG_NOT_PERMITTED, MSG_AUTH_FAILURE
-# =============================================================
-
-
-# ── Exception hierarchy ───────────────────────────────────────
-
 class QVaultError(Exception):
     """Base class for all Q-Vault OS errors."""
 

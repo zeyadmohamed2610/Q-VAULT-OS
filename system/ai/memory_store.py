@@ -1,10 +1,3 @@
-# =============================================================
-#  system/ai/memory_store.py — Q-Vault OS
-#
-#  Long-term Behavior Memory.
-#  Tracks user patterns to provide personalized assistance.
-# =============================================================
-
 import json
 import os
 import logging

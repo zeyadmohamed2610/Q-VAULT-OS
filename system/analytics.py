@@ -1,15 +1,3 @@
-# =============================================================
-
-#  analytics.py — Q-VAULT OS  |  Analytics Engine
-
-#
-#  Features:
-#    - Track daily active users
-#    - Session duration tracking
-#    - Feature usage analytics
-#    - Smart insights
-# =============================================================
-
 import os
 import json
 import time

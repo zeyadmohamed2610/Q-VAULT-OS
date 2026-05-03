@@ -1,16 +1,3 @@
-# =============================================================
-#  system/auth_manager.py — Q-Vault OS  |  Authentication State Machine
-#
-#  THE single source of truth for auth state in the entire OS.
-#
-#  Rules:
-#    1. No UI component may touch SecurityController directly.
-#    2. All auth transitions go through AuthManager's public API.
-#    3. state_changed signal is the ONLY way to learn about state.
-#    4. Guards prevent double requests (e.g. login while AUTHENTICATING).
-#    5. Session timeout is owned here, not in desktop.
-# =============================================================
-
 import logging
 import time
 from enum import Enum

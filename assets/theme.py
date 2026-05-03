@@ -1,8 +1,22 @@
-# =============================================================
-#  theme.py — Q-Vault OS  |  Cyber Neon Design System (Static)
-#
-#  Passive asset layer. No logic.
-# =============================================================
+from assets.design_tokens import COLORS as VAULT, FONTS as VAULT_FONTS
+from assets.design_tokens import RADIUS as VAULT_RADIUS, MOTION as VAULT_MOTION
+
+# Expose vault colors as module-level shortcuts
+BG_VOID      = VAULT["bg_void"]
+BG_BASE      = VAULT["bg_base"]
+BG_SURFACE   = VAULT["bg_surface"]
+BG_ELEVATED  = VAULT["bg_elevated"]
+CYAN         = VAULT["cyan"]
+CYAN_BRIGHT  = VAULT["cyan_bright"]
+CYAN_DIM     = VAULT["cyan_dim"]
+STEEL        = VAULT["steel"]
+TEXT_PRIMARY = VAULT["text_primary"]
+TEXT_SEC     = VAULT["text_secondary"]
+TEXT_MUTED_V = VAULT["text_muted"]
+BORDER_SUB   = VAULT["border_subtle"]
+BORDER_ACT   = VAULT["border_active"]
+GLOW_CYAN    = VAULT["glow_cyan"]
+
 
 # ── Spacing Tokens ──
 SPACE_XXS = 4
@@ -39,11 +53,11 @@ THEME = {
     "bg_mid":          "#101a2b",
 
     # ── Surfaces (panels, cards, overlays) ──
-    "surface_dark":    "#0a0f19",   # was rogue #0a0f19 in taskbar menus
-    "surface_mid":     "#10101a",   # was rogue #10101a in settings_hub
-    "surface_raised":  "#1a1a2e",   # was rogue #1a1a2e in onboarding/control_panel
-    "surface_overlay":  "rgba(10, 15, 25, 0.75)",
-    "surface_inactive": "#080a10",  # was rogue #080a10 in TitleBar[active=false]
+    "surface_dark":    "#0a0f19",
+    "surface_mid":     "#10101a",
+    "surface_raised":  "#1a1a2e",
+    "surface_overlay":  "rgba(10, 15, 25, 0.88)",
+    "surface_inactive": "#080a10",
 
     # ── Blue Neon — Primary ──
     "primary_glow":    "#00e6ff",
@@ -79,10 +93,10 @@ THEME = {
     "border_surface":  "#1e293b",  # was rogue #1e293b in launcher cards
 
     # ── Interactive Overlays ──
-    "hover_glow":      "rgba(0, 230, 255, 0.15)",
-    "hover_subtle":    "rgba(255, 255, 255, 0.1)",
-    "active_glow":     "rgba(0, 230, 255, 0.25)",
-    "inactive_surface": "rgba(255, 255, 255, 0.05)",
+    "hover_glow":      "rgba(0, 230, 255, 0.25)",
+    "hover_subtle":    "rgba(255, 255, 255, 0.20)",
+    "active_glow":     "rgba(0, 230, 255, 0.35)",
+    "inactive_surface": "rgba(255, 255, 255, 0.10)",
 }
 
 # ── Top-level Constants (API) ──
@@ -129,12 +143,12 @@ GLOBAL_STYLE = f"""
 
     /* ── Overlay ── */
     QWidget#Overlay {{
-        background: rgba(0, 0, 0, 0.45);
+        background: rgba(0, 0, 0, 0.65);
     }}
 
     /* ── Login ── */
     QFrame#LoginCard {{
-        background: rgba(10, 15, 25, 0.75);
+        background: rgba(10, 15, 25, 0.88);
         border: 1px solid {THEME["primary_glow"]};
         border-radius: {RADIUS["lg"]}px;
         /* Subtle depth glow — signals active security layer */
@@ -198,8 +212,8 @@ GLOBAL_STYLE = f"""
     }}
 
     QWidget#OSWindow[active="false"] {{
-        background-color: rgba(6, 8, 13, 240);
-        border: 1px solid rgba(0, 230, 255, 0.07);
+        background-color: rgba(6, 8, 13, 245);
+        border: 1px solid rgba(0, 230, 255, 0.15);
     }}
 
     QWidget#TitleBar {{
@@ -223,6 +237,12 @@ GLOBAL_STYLE = f"""
         background-color: {THEME["bg_dark"]};
         border: 1px solid {THEME["border_color"]};
         border-radius: {RADIUS["md"]}px;
+    }}
+
+    QWidget#WindowContent {{
+        background-color: {THEME["bg_black"]};
+        border-bottom-left-radius: {RADIUS["md"]}px;
+        border-bottom-right-radius: {RADIUS["md"]}px;
     }}
 
     QWidget#AppToolbar {{
@@ -272,8 +292,8 @@ GLOBAL_STYLE = f"""
 
     /* ── QMenu (Context & App Menus) ── */
     QMenu {{
-        background-color: rgba(11, 19, 32, 0.90);
-        border: 1px solid rgba(0, 230, 255, 0.2);
+        background-color: rgba(11, 19, 32, 0.96);
+        border: 1px solid rgba(0, 230, 255, 0.3);
         border-radius: 8px;
         padding: 5px;
     }}
@@ -340,6 +360,24 @@ GLOBAL_STYLE = f"""
     }}
 
     QLabel#ClockLabel {{
+        color: {THEME["text_main"]};
+    }}
+
+    /* ── Tooltips — dark themed ── */
+    QToolTip {{
+        background: #0b1929;
+        color: #cce8f4;
+        border: 1px solid rgba(0, 200, 255, 0.35);
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-family: {FONT["family"]};
+        font-size: {FONT["size_small"]}px;
+        opacity: 230;
+    }}
+
+    /* ── Dialogs — force dark background, never white ── */
+    QDialog {{
+        background: #07111f;
         color: {THEME["text_main"]};
     }}
 """

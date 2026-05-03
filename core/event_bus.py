@@ -1,16 +1,3 @@
-# =============================================================
-#  core/event_bus.py — Q-Vault OS  |  Event Bus v2.0
-#
-#  The Central Nervous System. Level 0 Foundation.
-#
-#  Rules:
-#    1. This file has ZERO imports from other system/ modules.
-#    2. All cross-system communication flows through here.
-#    3. Bound methods use WeakMethod (auto-cleanup on widget death).
-#    4. Plain functions use strong references (they outlive the bus).
-#    5. RLock permits callbacks to re-subscribe during emission.
-# =============================================================
-
 import logging
 import time
 import weakref
@@ -75,8 +62,17 @@ class SystemEvent(Enum):
     ACTION_CLICKED = "ui.action_clicked"
     COMMAND_EXECUTED = "sys.command_executed"
     
-    # Security / Health
+    # Security / Health / Hardware Token
     SECURITY_ALERT = "sec.alert"
+    EVENT_USB_DEVICE_CONNECTED = "hardware.usb_connected"
+    EVENT_USB_DEVICE_DISCONNECTED = "hardware.usb_disconnected"
+    EVENT_QVAULT_STARTED = "qvault.started"
+    EVENT_QVAULT_STOPPED = "qvault.stopped"
+    EVENT_QVAULT_CONNECTED = "qvault.connected"
+    EVENT_QVAULT_DISCONNECTED = "qvault.disconnected"
+    EVENT_QVAULT_LOCKED = "qvault.locked"
+    EVENT_QVAULT_UNLOCKED = "qvault.unlocked"
+    EVENT_QVAULT_ERROR = "qvault.error"
     
     # Intelligence Lifecycle
     UNDO_REQUESTED = "ai.undo_requested"
@@ -135,6 +131,32 @@ class SystemEvent(Enum):
     REQ_COMMAND_PALETTE_TOGGLE = "ui.command_palette.toggle"
     REQ_SETTINGS_TOGGLE = "ui.settings.toggle"
     REQ_AI_INSPECTOR_TOGGLE = "ui.ai_inspector.toggle"
+    
+    # ── Final Polishing Bindings (Phase 24.5) ──
+    REQ_TERMINAL_OPEN_HERE = "ui.open_terminal_here"
+    EVT_TRASH_STATE_CHANGED = "ui.trash_state_changed"
+    EVT_WELCOME = "sys.welcome"
+
+    # ── Kernel Simulation (kernel/*) ──
+    CLOCK_TICK    = "kernel.clock_tick"
+    CLOCK_PAUSED  = "kernel.clock_paused"
+    CLOCK_RESUMED = "kernel.clock_resumed"
+    PROC_SCHEDULED       = "kernel.proc_scheduled"
+    PROC_PREEMPTED       = "kernel.proc_preempted"
+    PROC_QUANTUM_EXPIRED = "kernel.proc_quantum_expired"
+    PROC_CONTEXT_SWITCHED = "kernel.proc_context_switched"
+    MEMORY_ALLOCATED = "kernel.memory_allocated"
+    MEMORY_FREED     = "kernel.memory_freed"
+    MEMORY_FULL      = "kernel.memory_full"
+    INTERRUPT_RAISED  = "kernel.interrupt_raised"
+    INTERRUPT_HANDLED = "kernel.interrupt_handled"
+    DEADLOCK_DETECTED = "kernel.deadlock_detected"
+    DEADLOCK_RESOLVED = "kernel.deadlock_resolved"
+    CORE_ASSIGNED     = "kernel.core_assigned"
+    PROCESS_MIGRATED  = "kernel.process_migrated"
+    SCHEDULER_ALGORITHM_CHANGED = "kernel.scheduler_algo_changed"
+    STARVATION_DETECTED         = "kernel.starvation_detected"
+    AGING_APPLIED               = "kernel.aging_applied"
 
 
 # ── Payload ──────────────────────────────────────────────────────
@@ -229,17 +251,22 @@ class EventBus(QObject):
     """
     event_emitted = pyqtSignal(object)  # Emits EventPayload
 
+    MAX_QUEUE_SIZE = 1000  # History overflow protection
+
     def __init__(self):
         super().__init__()
         self._history: List[EventPayload] = []
         self._subscribers: Dict[SystemEvent, List[_Subscriber]] = {}
         self._lock = threading.RLock()
+        # Dedup cache for high-frequency drag events: (event_type, window_id) -> index
+        self._drag_dedup: Dict[tuple, int] = {}
 
         # Observability & Debug (Phase 3)
         self._debug_enabled = os.environ.get("QVAULT_ENV", "").lower() != "production"
         self._emit_count: int = 0
         self._error_count: int = 0
-        self._slow_threshold_ms = 10.0 # Handlers slower than this are flagged
+        self._slow_threshold_ms = 50.0  # Raised from 10ms — animation handlers need headroom
+        self._last_emit_time: Dict[str, float] = {}  # For rate limiting high-freq events
 
     # ── Core API ─────────────────────────────────────────────────
 
@@ -270,7 +297,23 @@ class EventBus(QObject):
             
         return True
 
+    # Rate limiting config: event_type_value -> min_interval_seconds
+    _RATE_LIMITED_EVENTS = {
+        "ui.window.drag_update":  0.016,   # ~60fps max
+        "kernel.clock_tick":      0.050,   # max 20Hz from bus perspective
+    }
+
     def emit(self, event_type: Any, data: Dict[str, Any] = None, source: str = "unknown"):
+        # ── Rate limiting for high-frequency events ──────────────
+        event_key = getattr(event_type, 'value', str(event_type))
+        min_interval = self._RATE_LIMITED_EVENTS.get(event_key)
+        if min_interval is not None:
+            now = time.perf_counter()
+            last = self._last_emit_time.get(event_key, 0.0)
+            if now - last < min_interval:
+                return   # drop — too frequent
+            self._last_emit_time[event_key] = now
+
         # ── 0. Normalize & Validate ─────────────────────────────
         event_type = self._normalize_event(event_type)
         data = data or {}
@@ -291,12 +334,27 @@ class EventBus(QObject):
 
         # ── 1. Thread-safe state update ──────────────────────────
         with self._lock:
-            self._history.append(payload)
-            if len(self._history) > 50:
-                self._history.pop(0)
+            # Queue overflow protection: drop oldest if over limit
+            if len(self._history) > self.MAX_QUEUE_SIZE:
+                self._history = self._history[-900:]  # Keep last 900
+
+            # Deduplication for high-frequency drag_update events
+            event_name_check = getattr(event_type, 'value', str(event_type))
+            if "drag_update" in event_name_check:
+                win_id = data.get("id", "")
+                dedup_key = (event_type, win_id)
+                existing_idx = self._drag_dedup.get(dedup_key)
+                if existing_idx is not None and existing_idx < len(self._history):
+                    # Replace the existing payload with the newer one
+                    self._history[existing_idx] = payload
+                else:
+                    self._history.append(payload)
+                    self._drag_dedup[dedup_key] = len(self._history) - 1
+            else:
+                self._history.append(payload)
 
             self._emit_count += 1
-            
+
             # Snapshot for safe iteration
             subs_list = self._subscribers.get(event_type, [])
             snapshot = list(subs_list)
@@ -307,7 +365,9 @@ class EventBus(QObject):
         logger.debug(f"[EVENT_BUS] {event_name} from {source}: {data}")
         
         is_debug_event = event_name.startswith("dbg.")
-        if self._debug_enabled and not is_debug_event:
+        is_high_freq = "drag_update" in event_name
+        
+        if self._debug_enabled and not is_debug_event and not is_high_freq:
             # Emit a fact ABOUT the emission (Metadata)
             # We use a separate thread or just careful timing to avoid recursion
             # Actually, we can just call emit recursively but it will be caught 

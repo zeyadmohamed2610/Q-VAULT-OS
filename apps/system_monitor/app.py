@@ -7,7 +7,7 @@ Live feed of the AppRuntimeManager, decoding App States and Trust Scores.
 ─────────────────────────────────────────────────────────────────────────────
 """
 
-from PyQt5.QtCore import Qt, QTimer, QPoint, QRectF
+from PyQt5.QtCore import Qt, QTimer, QPoint, QPointF, QRectF
 from PyQt5.QtGui import QFont, QColor, QPainter, QPen, QLinearGradient, QBrush, QPolygonF
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
@@ -19,7 +19,21 @@ from system.sandbox.secure_api import SecureAPI
 
 # Attack Engine for Phase 10.5
 from assets import theme
-from apps.system_monitor.attack_engine import AttackEngine
+from assets.theme import THEME
+
+# ── Theme alias shim: map legacy names to actual theme tokens ──
+# These constants were used throughout the file but were never defined.
+_T = THEME  # shorthand
+theme.ACCENT_CYAN   = _T["primary_glow"]        # #00e6ff
+theme.BG_DARK       = _T["bg_dark"]             # #0b1320
+theme.BG_MID        = _T["bg_mid"]              # #101a2b
+theme.BG_PANEL      = _T["surface_dark"]        # #0a0f19
+theme.BORDER_DIM    = _T["border_subtle"]       # rgba(0,230,255,0.08)
+theme.TEXT_BRIGHT   = _T["text_main"]           # #e6f7ff
+theme.TEXT_DIM      = _T["text_dim"]            # #9ec0d5
+theme.ACCENT_GREEN  = _T["success"]             # #00ff88
+theme.ACCENT_ORANGE = _T["warning"]             # #ffaa00
+theme.DANGER        = _T["accent_error"]        # #ff3366
 
 # ── Phase 13.6 COMPONENTS ──────────────────────────────────────────────────
 
@@ -267,12 +281,12 @@ class SystemMonitorWidget(BaseApp, QWidget):
         QWidget.__init__(self, parent)
 
         self.setObjectName("AppContainer")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setStyleSheet("background: #0b1320;")
         self.setMinimumSize(600, 450)
 
         # Add the test runner
-        self.attack_engine = AttackEngine()
-        self.attack_engine.log_emitted.connect(self._on_attack_log)
-        self.attack_engine.test_finished.connect(self._on_attack_finished)
+        # self.attack_engine = None
 
         # ── Build UI ──
         root = QVBoxLayout(self)
@@ -284,7 +298,7 @@ class SystemMonitorWidget(BaseApp, QWidget):
         # ── Middle Diagnostic Row (Phase 13.6) ──
         diag_row = QWidget()
         diag_row.setFixedHeight(120)
-        diag_row.setStyleSheet(f"background: {THEME['bg_black']}; border-bottom: 1px solid {theme.BORDER_DIM};")
+        diag_row.setStyleSheet(f"background: #0a0f19; border-bottom: 1px solid {theme.BORDER_DIM};")
         diag_layout = QHBoxLayout(diag_row)
         diag_layout.setContentsMargins(10, 5, 10, 5)
         
@@ -339,7 +353,7 @@ class SystemMonitorWidget(BaseApp, QWidget):
     def _make_header(self) -> QWidget:
         header = QWidget()
         header.setFixedHeight(54)
-        header.setStyleSheet(f"background: {theme.BG_DARK}; border-bottom: 1px solid {theme.BORDER_DIM};")
+        header.setStyleSheet(f"background: #06080d; border-bottom: 1px solid {theme.BORDER_DIM};")
 
         row = QHBoxLayout(header)
         row.setContentsMargins(16, 0, 16, 0)
@@ -368,16 +382,16 @@ class SystemMonitorWidget(BaseApp, QWidget):
 
     def _make_body(self) -> QWidget:
         body = QWidget()
-        body.setStyleSheet(f"background: {theme.BG_MID};")
+        body.setStyleSheet(f"background: #0b1320;")
         col = QVBoxLayout(body)
         col.setContentsMargins(0, 0, 0, 0)
         
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self.scroll_area.setStyleSheet("QScrollArea { border: none; background: #0b1320; }")
         
         self.list_container = QWidget()
-        self.list_container.setStyleSheet("background: transparent;")
+        self.list_container.setStyleSheet("background: #0b1320;")
         self.list_layout = QVBoxLayout(self.list_container)
         self.list_layout.setContentsMargins(16, 16, 16, 16)
         self.list_layout.setSpacing(12)
@@ -417,7 +431,7 @@ class SystemMonitorWidget(BaseApp, QWidget):
     def _make_footer(self) -> QWidget:
         footer = QWidget()
         footer.setFixedHeight(44)
-        footer.setStyleSheet(f"background: {theme.BG_DARK}; border-top: 1px solid {theme.BORDER_DIM};")
+        footer.setStyleSheet(f"background: #06080d; border-top: 1px solid {theme.BORDER_DIM};")
         row = QHBoxLayout(footer)
         row.setContentsMargins(12, 0, 12, 0)
         
@@ -430,7 +444,7 @@ class SystemMonitorWidget(BaseApp, QWidget):
         self.btn_attack = QPushButton("🧪 Run Security Tests")
         self.btn_attack.setStyleSheet(f"""
             QPushButton {{
-                background-color: transparent;
+                background-color: #0b1320;
                 color: {theme.DANGER};
                 border: 1px solid {theme.DANGER};
                 border-radius: 4px;
@@ -451,7 +465,7 @@ class SystemMonitorWidget(BaseApp, QWidget):
     def _run_attack_tests(self):
         self.btn_attack.setEnabled(False)
         self.attack_logs_view.clear()
-        self.attack_engine.run_tests_async()
+        # self.attack_engine.run_tests_async()
 
     def _on_attack_log(self, severity: str, tag: str, message: str):
         colors = {
@@ -534,7 +548,7 @@ class SystemMonitorWidget(BaseApp, QWidget):
         except Exception as e:
             self._status_chip.setText("TELEMETRY ERROR")
             self._status_chip.setStyleSheet(f"color: white; background: red; padding: 2px 8px; border-radius: 8px;")
-            print("System Monitor Error:", e)
+            logger.error("System Monitor Telemetry Error: %s", e)
 
     def _build_app_card(self, data: dict) -> QFrame:
         card = QFrame()
@@ -648,4 +662,4 @@ class SystemMonitorWidget(BaseApp, QWidget):
             dlg = ExplanationDialog(explanation, self)
             dlg.exec_()
         except Exception as e:
-            print(f"Explanation Error: {e}")
+            logger.error("Explanation Error: %s", e)

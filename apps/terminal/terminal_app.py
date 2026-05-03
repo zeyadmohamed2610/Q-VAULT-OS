@@ -1,258 +1,389 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QCompleter
-from PyQt5.QtGui import QFont, QColor, QTextCursor, QSyntaxHighlighter, QTextCharFormat
-from PyQt5.QtCore import Qt, QRegExp, QStringListModel
+import logging
+import os
+from pathlib import Path
+from collections import deque
 
-from system.runtime.isolated_widget import IsolatedAppWidget
-from assets.theme import THEME
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPlainTextEdit, QScrollBar
+from PyQt5.QtGui import QFont, QColor, QTextCharFormat, QSyntaxHighlighter, QTextCursor
+from PyQt5.QtCore import Qt, pyqtSignal, QEvent, QTimer
 
-class TerminalHighlighter(QSyntaxHighlighter):
-    """Syntax Highlighter for Kali-level visual feedback."""
-    def __init__(self, document):
-        super().__init__(document)
-        self.rules = []
+from system.config import get_qvault_home
+from core.event_bus import EVENT_BUS, SystemEvent
+from .nano_editor import NanoEditor
 
-        # 1. Prompt (Green username, Blue path)
-        prompt_user_fmt = QTextCharFormat()
-        prompt_user_fmt.setForeground(QColor("#50fa7b"))
-        prompt_user_fmt.setFontWeight(QFont.Bold)
-        self.rules.append((QRegExp(r"^vault@node"), prompt_user_fmt))
+logger = logging.getLogger(__name__)
 
-        # 2. Commands (Cyan)
-        cmd_fmt = QTextCharFormat()
-        cmd_fmt.setForeground(QColor("#8be9fd"))
-        self.rules.append((QRegExp(r"\b(ls|cd|pwd|analyze|shadow|audit|help|clear|cat|echo|rm|mkdir|touch|ping|qsu)\b"), cmd_fmt))
+# Design Tokens (Legacy compat)
+C_BG = "#0d1117"; C_TEXT = "#c9d1d9"; C_PROMPT = "#3fb950"
+C_ERROR = "#f85149"; C_PATH = "#e3b341"; C_CMD = "#58a6ff"; C_MUTED = "#8b949e"
 
-        # 3. Success / OK (Green)
-        success_fmt = QTextCharFormat()
-        success_fmt.setForeground(QColor("#50fa7b"))
-        self.rules.append((QRegExp(r"\b(Success|OK|Done|Ready|Verified|Authenticated)\b"), success_fmt))
 
-        # 4. Errors / Failures (Red)
-        error_fmt = QTextCharFormat()
-        error_fmt.setForeground(QColor("#ff5555"))
-        self.rules.append((QRegExp(r"\b(Error|Failed|Exception|Blocked|Denied|Critical|Risk)\b"), error_fmt))
+def _best_mono_font(size: int = 11) -> QFont:
+    """
+    Find the best monospace font that renders box-drawing characters correctly.
+    Priority: Cascadia Code (best) → Fira Code → JetBrains Mono → Courier New.
+    Falls back to system monospace if none of the preferred fonts are installed.
+    """
+    from PyQt5.QtGui import QFontDatabase
+    preferred = [
+        "Cascadia Code", "Cascadia Mono",
+        "Fira Code", "JetBrains Mono",
+        "Lucida Console", "Courier New",
+    ]
+    available = set(QFontDatabase().families())
+    for name in preferred:
+        if name in available:
+            f = QFont(name, size)
+            f.setStyleHint(QFont.Monospace)
+            return f
+    # Ultimate fallback — let Qt pick the best monospace
+    f = QFont()
+    f.setStyleHint(QFont.Monospace)
+    f.setFixedPitch(True)
+    f.setPointSize(size)
+    return f
 
-        # 5. Paths (Yellow/Orange)
-        path_fmt = QTextCharFormat()
-        path_fmt.setForeground(QColor("#f1fa8c"))
-        self.rules.append((QRegExp(r"/[a-zA-Z0-9\._\-/]+"), path_fmt))
+class _Highlighter(QSyntaxHighlighter):
+    def __init__(self, doc):
+        super().__init__(doc)
+        from PyQt5.QtCore import QRegExp
+        self._rules = []
+        
+        # Rules: (Pattern, Color, Bold?)
+        
+        # 1. Prompt Structure
+        self._add(r"┌──", "#58a6ff", True)
+        self._add(r"──", "#58a6ff", True)
+        self._add(r"└─", "#3fb950", True)
+        
+        # 2. User & Machine
+        self._add(r"\(.*㉿.*\)", "#3fb950", True) # (user㉿qvault)
+        
+        # 3. Path
+        self._add(r"\[.*\]", "#58a6ff", False) # [path]
+        
+        # 4. Prompt Symbols
+        self._add(r"\$", "#3fb950", True)
+        self._add(r"\#", "#f85149", True)
 
-        # 6. AI Impact Tags (Purple)
-        impact_fmt = QTextCharFormat()
-        impact_fmt.setForeground(QColor("#bd93f9"))
-        self.rules.append((QRegExp(r"\[(Impact|AI Analysis|Sandbox)\]"), impact_fmt))
+        # 5. Known Commands (Vibrant Green - only when typed as commands)
+        cmds = "|".join([
+            "ls", "cd", "pwd", "mkdir", "touch", "cat", "echo", "rm", "rmdir", 
+            "stat", "whoami", "clear", "help", "history", "qsu", "sudo", 
+            "lock", "ask", "status", "verify_audit", "nano", "chmod", "bash"
+        ])
+        # Match command at the start of the line after $ or #
+        self._add(rf"(?<=[$#] )\b({cmds})\b", "#55ff55", True) 
+        # Fallback for any instance of these commands (less bold)
+        self._add(rf"\b({cmds})\b", "#3fb950", False)
+        
+        # 6. Status/Security Messages
+        self._add(r"\[SECURITY\].*", "#f85149")
+        self._add(r"\[ERROR\].*", "#f85149")
+        self._add(r"\[Success\].*", "#3fb950")
+        self._add(r"\[cd\].*", "#8b949e")
+        
+        # 7. File Paths (Cyan for Dirs, Amber for Files)
+        self._add(r"/[a-zA-Z0-9_./-]+", "#58a6ff", True) # Directories (Cyan)
+        self._add(r"\b[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+\b", "#c9d1d9") # Files (White/Grey)
+        
+        # 8. Flags & Arguments
+        self._add(r" -[a-zA-Z]+", "#58a6ff") # Flags
+        self._add(r" --[a-zA-Z-]+", "#58a6ff") # Long flags
+        self._add(r"\".*\"", "#e3b341") # Strings (Amber)
+        self._add(r"'.*'", "#e3b341")
+        
+        # 9. ASCII Art Logo Gradient (Q-VAULT banner)
+        self._add(r"[@!]{2,}", "#00e6ff", False)   # Main blocks (Cyan)
+        self._add(r"[:!]{2,}", "#00b3cc", False)   # Accent blocks (Teal)
+        self._add(r"[:.]{2,}", "#008099", False)   # Dim blocks (Dark Cyan)
+
+    def _add(self, pat, col, bold=False):
+        from PyQt5.QtCore import QRegExp
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(col))
+        # Ensure we use the exact same font metrics as the base document
+        fmt.setFont(self.document().defaultFont())
+        if bold: fmt.setFontWeight(QFont.Bold)
+        self._rules.append((QRegExp(pat), fmt))
 
     def highlightBlock(self, text):
-        for pattern, fmt in self.rules:
-            index = pattern.indexIn(text)
-            while index >= 0:
-                length = pattern.matchedLength()
-                self.setFormat(index, length, fmt)
-                index = pattern.indexIn(text, index + length)
+        for rx, fmt in self._rules:
+            i = rx.indexIn(text)
+            while i >= 0:
+                self.setFormat(i, rx.matchedLength(), fmt)
+                i = rx.indexIn(text, i + rx.matchedLength())
 
-class TerminalWidget(QPlainTextEdit):
-    """Integrated Interactive Emulator with Bash-style Autocomplete and Highlighting."""
+class TerminalBuffer(QPlainTextEdit):
+    """
+    The heart of the 'integrated' experience. 
+    Intercepts keys to simulate a real TTY.
+    """
+    command_entered = pyqtSignal(str)
+    tab_pressed = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.parent_app = parent
-        self.setObjectName("TerminalEmulator")
-        self.setFont(QFont("Consolas", 11))
+        self._prompt_pos = 0
+        self._history = []
+        self._hist_idx = -1
+        self._is_password_mode = False
+        
+        # Terminal styling — use best available font for box-drawing char support
+        self.setFont(_best_mono_font(11))
+        # Override global stylesheet that might force variable-width fonts
         self.setStyleSheet(f"""
-            background-color: {THEME['bg_dark']}; 
-            color: {THEME['text_main']}; 
+            background: #0d1117; 
+            color: {C_TEXT}; 
+            font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
             border: none; 
-            selection-background-color: {THEME['border_muted']};
+            padding: 10px;
         """)
-        
-        self.prompt = "vault@node:~$ "
-        self.history = []
-        self.history_idx = -1
-        self.password_mode = False
-        self._pass_buffer = ""
-        
-        # 1. Highlighter
-        self.highlighter = TerminalHighlighter(self.document())
-        
-        # 2. Completer (Bash-style)
-        self.commands = [
-            "ls", "cd", "pwd", "analyze", "shadow", "audit", 
-            "help", "clear", "cat", "echo", "rm", "mkdir", "touch", "ping", "qsu"
-        ]
-        self.completer = QCompleter(self.commands, self)
-        self.completer.setWidget(self)
-        self.completer.setCompletionMode(QCompleter.PopupCompletion)
-        self.completer.setCaseSensitivity(Qt.CaseInsensitive)
-        self.completer.activated.connect(self._insert_completion)
+        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+        self.document().setMaximumBlockCount(2000)
 
-        self._write_prompt()
-        self._set_command_start()
+    def set_password_mode(self, enabled: bool):
+        self._is_password_mode = enabled
+        if enabled:
+            self._pass_buffer = ""
 
-    def _write_prompt(self):
+    def set_prompt_text(self, text):
+        """Called when engine emits a prompt update."""
+        self.append_output(text, newline=False)
+        self._prompt_pos = self.textCursor().position()
+        self.ensureCursorVisible()
+
+    def append_output(self, text, newline=True):
         cursor = self.textCursor()
         cursor.movePosition(QTextCursor.End)
         self.setTextCursor(cursor)
-        self.insertPlainText(self.prompt)
-        self._set_command_start()
+        
+        # If we are in password mode, we don't want to show the text? 
+        # Actually, output from commands should show. Only user typing is hidden.
+        self.insertPlainText(text + ("\n" if newline else ""))
+        self.ensureCursorVisible()
 
-    def _set_command_start(self):
-        self.command_start_pos = self.textCursor().position()
-
-    def _insert_completion(self, completion):
+    def _get_current_input(self):
+        if self._is_password_mode and hasattr(self, "_pass_buffer"):
+            res = self._pass_buffer
+            self._pass_buffer = ""
+            return res
         cursor = self.textCursor()
-        extra = len(completion) - len(self.completer.completionPrefix())
-        cursor.movePosition(QTextCursor.Left)
-        cursor.movePosition(QTextCursor.EndOfWord)
-        cursor.insertText(completion[-extra:])
+        cursor.setPosition(self._prompt_pos)
+        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+        return cursor.selectedText()
+
+    def _replace_current_input(self, text):
+        cursor = self.textCursor()
+        cursor.setPosition(self._prompt_pos)
+        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
+        cursor.insertPlainText(text)
         self.setTextCursor(cursor)
 
-    def keyPressEvent(self, event):
-        # 1. Tab Autocomplete (Disable in Password Mode)
-        if event.key() == Qt.Key_Tab and not self.password_mode:
-            if self.completer.popup().isVisible():
-                event.ignore()
-                return
-            
-            cursor = self.textCursor()
-            cursor.select(QTextCursor.WordUnderCursor)
-            prefix = cursor.selectedText()
-            
-            if prefix:
-                self.completer.setCompletionPrefix(prefix)
-                rect = self.cursorRect()
-                rect.setWidth(self.completer.popup().sizeHintForColumn(0) + self.completer.popup().verticalScrollBar().sizeHint().width())
-                self.completer.complete(rect)
-            return
+    def cut(self):
+        """Terminals NEVER allow cut. Always blocked."""
+        return
 
+    def paste(self):
+        # Always paste at end, never into protected history
+        self.moveCursor(QTextCursor.End)
+        super().paste()
+
+    def insertFromMimeData(self, source):
+        # Always insert at end, never into protected history
+        self.moveCursor(QTextCursor.End)
+        super().insertFromMimeData(source)
+
+    def _is_range_protected(self, cursor: QTextCursor) -> bool:
+        if not cursor.hasSelection():
+            return cursor.position() <= self._prompt_pos
+        return cursor.selectionStart() < self._prompt_pos
+
+    def contextMenuEvent(self, event):
+        """Custom context menu — Copy & Select All only. No Cut/Delete."""
+        from PyQt5.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.setStyleSheet(
+            "QMenu{background:#0b162d;border:1px solid rgba(0,230,255,0.2);"
+            "border-radius:8px;padding:4px;color:#e6f7ff;font-family:'Segoe UI';font-size:10pt;}"
+            "QMenu::item{padding:6px 20px;border-radius:4px;margin:1px 4px;}"
+            "QMenu::item:selected{background:rgba(0,230,255,0.15);color:#00e6ff;}"
+            "QMenu::item:disabled{color:#555568;}"
+        )
+        act_copy = menu.addAction("📋  Copy")
+        act_copy.setEnabled(self.textCursor().hasSelection())
+        act_copy.triggered.connect(self.copy)
+        menu.addSeparator()
+        act_all = menu.addAction("📄  Select All")
+        act_all.triggered.connect(self.selectAll)
+        menu.exec_(event.globalPos())
+
+    def keyPressEvent(self, event):
         cursor = self.textCursor()
         
-        # 2. Backspace Protection
-        if event.key() == Qt.Key_Backspace:
-            if cursor.position() <= self.command_start_pos:
+        # 0. Keyboard shortcut protection
+        if event.modifiers() & Qt.ControlModifier:
+            # Ctrl+X: ALWAYS blocked in terminal (no cut ever)
+            if event.key() == Qt.Key_X:
                 return
-            if self.password_mode:
-                self._pass_buffer = self._pass_buffer[:-1]
-
-        # 3. Command Execution
-        elif event.key() == Qt.Key_Return:
-            text = self.toPlainText()
-            command = self._pass_buffer if self.password_mode else text[self.command_start_pos:].strip()
-            
-            self._pass_buffer = "" # Clear buffer
-            cursor.movePosition(QTextCursor.End)
-            self.setTextCursor(cursor)
-            self.insertPlainText("\n")
-            
-            if command or self.password_mode:
-                if not self.password_mode:
-                    self.history.append(command)
-                    self.history_idx = len(self.history)
-                self.parent_app.call_remote("execute_command", command)
-            else:
-                self._write_prompt()
-            return
-
-        # 4. History (Up/Down)
-        elif event.key() == Qt.Key_Up and not self.password_mode:
-            if self.history and self.history_idx > 0:
-                self.history_idx -= 1
-                self._replace_command(self.history[self.history_idx])
-            return
-        elif event.key() == Qt.Key_Down and not self.password_mode:
-            if self.history and self.history_idx < len(self.history) - 1:
-                self.history_idx += 1
-                self._replace_command(self.history[self.history_idx])
-            elif self.history_idx == len(self.history) - 1:
-                self.history_idx = len(self.history)
-                self._replace_command("")
-            return
-
-        # 5. Prevent editing old lines
-        if cursor.position() < self.command_start_pos:
+            # Ctrl+C: Copy selection (not interrupt — we're not a real shell)
+            if event.key() == Qt.Key_C:
+                if cursor.hasSelection():
+                    self.copy()
+                return
+            # Ctrl+V: Paste at end
+            if event.key() == Qt.Key_V:
+                self.paste(); return
+        
+        # 1. Enforce typing zone
+        if cursor.position() < self._prompt_pos:
             cursor.movePosition(QTextCursor.End)
             self.setTextCursor(cursor)
 
-        # 6. Password Masking
-        if self.password_mode and event.text() and event.key() not in (Qt.Key_Return, Qt.Key_Enter, Qt.Key_Backspace):
-            self._pass_buffer += event.text()
-            self.insertPlainText("*") # Show asterisk
+        # 2. Intercept Enter
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            cmd = self._get_current_input()
+            self.append_output("") # New line for the user's enter
+            if cmd.strip():
+                if not self._history or self._history[-1] != cmd:
+                    self._history.append(cmd)
+            self._hist_idx = -1
+            self.command_entered.emit(cmd)
             return
+
+        # 3. Intercept Backspace / Delete
+        if event.key() == Qt.Key_Backspace or event.key() == Qt.Key_Delete:
+            if self._is_range_protected(cursor):
+                return
+            if self._is_password_mode and event.key() == Qt.Key_Backspace and hasattr(self, "_pass_buffer"):
+                if self._pass_buffer:
+                    self._pass_buffer = self._pass_buffer[:-1]
+                return
+
+        # 4. History
+        if event.key() == Qt.Key_Up:
+            if self._is_password_mode: return
+            if self._history:
+                if self._hist_idx == -1: self._hist_idx = len(self._history) - 1
+                elif self._hist_idx > 0: self._hist_idx -= 1
+                self._replace_current_input(self._history[self._hist_idx])
+            return
+        if event.key() == Qt.Key_Down:
+            if self._is_password_mode: return
+            if self._hist_idx != -1:
+                self._hist_idx += 1
+                if self._hist_idx >= len(self._history):
+                    self._hist_idx = -1
+                    self._replace_current_input("")
+                else:
+                    self._replace_current_input(self._history[self._hist_idx])
+            return
+
+        # 5. Tab Autocomplete
+        if event.key() == Qt.Key_Tab:
+            if self._is_password_mode: return
+            self.tab_pressed.emit(self._get_current_input())
+            return
+
+        # 6. Password masking (No-echo)
+        if self._is_password_mode:
+            # We don't call super().keyPressEvent(event) for printable characters
+            if event.text() and not (event.modifiers() & (Qt.ControlModifier | Qt.AltModifier)):
+                # Ignore control chars like \r \t \b
+                if ord(event.text()[0]) >= 32:
+                    if not hasattr(self, "_pass_buffer"): self._pass_buffer = ""
+                    self._pass_buffer += event.text()
+                return # Don't show anything
 
         super().keyPressEvent(event)
 
-    def set_password_mode(self, enabled):
-        """Toggle masking for password inputs."""
-        self.password_mode = enabled
-        self._pass_buffer = ""
-
-    def _replace_command(self, new_cmd):
-        cursor = self.textCursor()
-        cursor.setPosition(self.command_start_pos)
-        cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
-        cursor.removeSelectedText()
-        cursor.insertPlainText(new_cmd)
-        self.setTextCursor(cursor)
-
-    def append_output(self, text):
-        if "\x0c" in text:
-            self.clear()
-            self._write_prompt()
-            return
-
-        cursor = self.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        self.setTextCursor(cursor)
+class TerminalApp(QWidget):
+    def __init__(self, secure_api=None, start_path: str = None, parent=None):
+        super().__init__(parent)
+        self.secure_api = secure_api
+        self._base_dir = Path(get_qvault_home()).resolve()
         
-        if text.strip() or text == "\n":
-            self.insertPlainText(text)
+        # v2.0 Refactor: Use TerminalEngine for core logic
+        from .terminal_engine import TerminalEngine
+        start_path_obj = Path(start_path).resolve() if start_path else None
+        self._engine = TerminalEngine(secure_api=secure_api, start_path=start_path_obj)
         
-        if text.endswith("\n") or text == "":
-            self._write_prompt()
+        self._setup_ui()
+        
+        # Connect Engine -> Buffer
+        self._engine.output_ready.connect(self._buffer.append_output)
+        self._engine.prompt_update.connect(lambda _, p: self._buffer.set_prompt_text(p))
+        self._engine.password_mode.connect(lambda _, m: self._buffer.set_password_mode(m))
+        
+        # Connect Buffer -> Engine
+        self._buffer.command_entered.connect(self._engine.execute_command)
+        self._buffer.tab_pressed.connect(self._handle_tab)
+        
+        # Hook nano request
+        self._engine._executor._on_nano_request = self._open_nano
+        
+        self._engine.boot_terminal()
+        # Scroll to bottom so prompt is visible
+        QTimer.singleShot(100, self._buffer.ensureCursorVisible)
 
-    def update_prompt(self, new_prompt):
-        """Updates the prompt string and redraws it if at the end."""
-        self.prompt = new_prompt
-        # If we just finished a command, the next _write_prompt will use the new one.
-
-class TerminalApp(IsolatedAppWidget):
-    """
-    Process-Isolated Terminal Frontend (v4.5 Kali Alignment).
-    Featuring Interactive Emulator, Bash-style Autocomplete, and Syntax Highlighting.
-    """
-    APP_ID = "terminal"
-
-    def __init__(self, secure_api=None, parent=None):
-        super().__init__(
-            app_id=self.APP_ID,
-            module_path="apps.terminal.terminal_engine",
-            class_name="TerminalEngine",
-            secure_api=secure_api,
-            parent=parent
-        )
-
-        self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setObjectName("AppContainer")
-        self._build_ui()
-
-    def _build_ui(self):
-        layout = QVBoxLayout(self.container)
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self.terminal = TerminalWidget(self)
-        layout.addWidget(self.terminal)
+        self._buffer = TerminalBuffer()
+        self._hl = _Highlighter(self._buffer.document())
 
-    def handle_event(self, event, data):
-        """Asynchronous events from the isolated engine."""
-        if event == "output_ready":
-            self.terminal.append_output(data)
-        elif event == "prompt_update":
-            self.terminal.update_prompt(data)
-        elif event == "password_mode":
-            self.terminal.set_password_mode(data)
+        # Buffer fills the ENTIRE available space — no dead zones
+        layout.addWidget(self._buffer)
 
-    def on_start(self):
-        self.terminal.setFocus()
-        self.call_remote("boot_terminal")
+    def _handle_tab(self, current_input):
+        # Very basic autocomplete for files in CWD
+        parts = current_input.split()
+        if not parts: return
+        
+        prefix = parts[-1]
+        cwd = self._engine.cwd
+        try:
+            matches = [e.name for e in cwd.iterdir() if e.name.startswith(prefix)]
+            if len(matches) == 1:
+                new_input = current_input[:-len(prefix)] + matches[0]
+                self._buffer._replace_current_input(new_input)
+            elif len(matches) > 1:
+                self._buffer.append_output("\n" + "  ".join(sorted(matches)))
+                # Re-emit prompt? No, usually you just stay on current line.
+                # But here we need to re-show the prompt to continue.
+                # Actually, real terminal just shows matches and keeps input.
+                # For now, let's just show matches.
+        except Exception:
+            pass
 
-    def get_permissions(self):
-        return ["file_access:workspace", "system_calls:governed"]
+    def _open_nano(self, file_path):
+        """Opens the NanoEditor overlay."""
+        try:
+            content = ""
+            if file_path.exists():
+                content = file_path.read_text(encoding='utf-8')
+            
+            self.nano = NanoEditor(file_path, content, parent=self)
+            self.nano.setGeometry(self.rect())
+            self.nano.show()
+            self.nano.closed.connect(self._on_nano_closed)
+        except Exception as e:
+            self._buffer.append_output(f"[ERROR] Nano failed: {e}")
+
+    def _on_nano_closed(self):
+        self._buffer.setFocus()
+        # Trigger a prompt refresh from engine
+        self._engine._emit_prompt()
+
+    def change_directory(self, path: str):
+        """API for external callers to dynamically change directory."""
+        t = Path(path).resolve()
+        # Direct access to engine's executor to update CWD
+        self._engine._executor.cwd = t
+        self._engine._emit_prompt()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._buffer.setFocus()

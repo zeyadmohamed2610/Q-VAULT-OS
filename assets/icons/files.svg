@@ -1,11 +1,9 @@
-<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M6 10C6 7.79086 7.79086 6 10 6H20L26 12H38C40.2091 12 42 13.7909 42 16V38C42 40.2091 40.2091 42 38 42H10C7.79086 42 6 40.2091 6 38V10Z" stroke="#00e6ff" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M6 16H42" stroke="#00e6ff" stroke-width="2" stroke-opacity="0.3"/>
-  <rect x="6" y="16" width="36" height="26" fill="url(#folder_glow)" fill-opacity="0.05"/>
-  <defs>
-    <radialGradient id="folder_glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(24 29) scale(18 13)">
-      <stop stop-color="#00e6ff"/>
-      <stop offset="1" stop-color="#00e6ff" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="12" fill="#0b162d"/>
+  <rect width="64" height="64" rx="12" fill="none" stroke="#54b1c6" stroke-width="1.5" opacity="0.6"/>
+  <path d="M10 26 Q10 20 16 20 L26 20 L30 24 L52 24 Q56 24 56 28 L56 50 Q56 54 52 54 L16 54 Q10 54 10 50 Z"
+        fill="#0f2842" stroke="#2f6183" stroke-width="1.5"/>
+  <path d="M10 20 L26 20 L30 24 L10 24 Z" fill="#2f6183"/>
+  <line x1="20" y1="36" x2="46" y2="36" stroke="#54b1c6" stroke-width="2" stroke-linecap="round" opacity="0.8"/>
+  <line x1="20" y1="43" x2="38" y2="43" stroke="#54b1c6" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
 </svg>

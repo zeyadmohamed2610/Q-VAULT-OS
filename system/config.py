@@ -1,10 +1,3 @@
-# =============================================================
-#  system/config.py — Q-Vault OS
-#
-#  Global Configuration & Environment Setup.
-#  Handles production flags and system paths.
-# =============================================================
-
 import os
 import logging
 from pathlib import Path
@@ -29,15 +22,34 @@ def init_environment():
     for d in dirs:
         (home / d).mkdir(exist_ok=True)
         
-    # Setup Logging
     log_file = home / "logs" / "system.log"
+
+    # ── File handler: full DEBUG detail ──
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+    ))
+
+    # ── Console handler: WARNING+ only (no spam) ──
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.WARNING)
+    console_handler.setFormatter(logging.Formatter(
+        '[%(levelname)s] %(name)s: %(message)s'
+    ))
+
+    # Silence the noisiest high-frequency loggers entirely on console
+    for noisy in (
+        "core.event_bus",
+        "kernel.interrupt_manager",
+        "kernel.deadlock_manager",
+        "EventBus_Monitor",
+    ):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
     logging.basicConfig(
-        level=logging.INFO if PRODUCTION else logging.DEBUG,
-        format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-        handlers=[
-            logging.FileHandler(log_file, encoding='utf-8'),
-            logging.StreamHandler()
-        ]
+        level=logging.DEBUG,   # root captures everything
+        handlers=[file_handler, console_handler],
     )
     
     logging.info(f"[CONFIG] System Environment Initialized at {home}")

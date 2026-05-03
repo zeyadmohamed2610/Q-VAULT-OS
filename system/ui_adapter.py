@@ -1,13 +1,3 @@
-# =============================================================
-#  system/ui_adapter.py — Q-VAULT OS  |  UI Boundary Adapter
-#
-#  Responsibilities:
-#  - Catch raw PyO3 exceptions from Rust boundary.
-#  - Parse strict JSON formatted strings.
-#  - Convert into safe Python dictionaries.
-#  - GUARANTEE: NEVER crash the UI, NO manual security tracking.
-# =============================================================
-
 import json
 import logging
 from typing import Dict, Any

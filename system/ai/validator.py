@@ -1,11 +1,3 @@
-# =============================================================
-#  system/ai/validator.py — Q-Vault OS
-#
-#  AI Action Safety & Governance.
-#  Ensures AI-generated requests are safe, malform-free,
-#  and architecturally compliant.
-# =============================================================
-
 import logging
 from typing import Dict, Any, Tuple
 

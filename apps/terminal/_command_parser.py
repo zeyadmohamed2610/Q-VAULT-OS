@@ -1,21 +1,16 @@
 """
-apps.terminal._command_parser
-────────────────────────────────────────────────────────────────────────────
-Q-Vault OS — Terminal Command Parser
+apps.terminal._command_parser — Q-Vault OS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Terminal Command Parser  |  Upgrade v4
 
-Single Responsibility: turn a raw input string into structured parts and
-classify the command — nothing else.
-
-No Qt, no file I/O, no state mutation.  Every method is pure: given the
-same input it always returns the same output.
-
-Previously these concerns were inline inside TerminalEngine.execute_command
-and scattered across the _run_subprocess path.  Extracting them here means:
-
-  - The parsing contract is independently testable (no mocking needed).
-  - The subprocess whitelist is a single, auditable constant.
-  - execute_command() becomes a thin routing decision, not a parser + router.
-────────────────────────────────────────────────────────────────────────────
+Changes from v3
+───────────────
+- BUILTIN_COMMANDS expanded with every new command
+- SUBPROCESS_WHITELIST: added curl, wget (simulated; executor intercepts first)
+- Alias expansion: resolve aliases before parsing
+- Pipeline stub: detect | character and split (future use)
+- Improved shlex fallback for Windows compat
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 from __future__ import annotations
 
@@ -24,15 +19,10 @@ import shlex
 from typing import NamedTuple
 
 
-# ── Subprocess Whitelist ──────────────────────────────────────────────────
-#
-# Only commands in this dict may be forwarded to the real OS via
-# ProcessGuard.Popen().  The value lists the permitted sub-arguments;
-# ["*"] means any arguments are allowed.
-#
-# Previously: _SUBPROCESS_WHITELIST  (module-level in terminal_engine.py)
-# Now         : CommandParser.SUBPROCESS_WHITELIST (canonical location)
-# Re-exported : _SUBPROCESS_WHITELIST  (compat alias in terminal_engine.py)
+# ── Subprocess Whitelist ──────────────────────────────────────────────────────
+# Commands that may be forwarded to the real OS via ProcessGuard.Popen().
+# curl/wget are listed here but CommandExecutor intercepts them as builtins
+# first, so they never reach the real OS — whitelist entry is a safety net.
 
 SUBPROCESS_WHITELIST: dict[str, list[str]] = {
     "ping":     ["*"],
@@ -41,22 +31,44 @@ SUBPROCESS_WHITELIST: dict[str, list[str]] = {
     "echo":     ["*"],
     "hostname": [],
     "ver":      [],
+    "curl":     ["*"],
+    "wget":     ["*"],
 }
 
 
-# ── Built-in command registry ─────────────────────────────────────────────
-#
-# Commands that are handled internally by CommandExecutor or TerminalEngine
-# and must NOT be forwarded to the OS subprocess layer.
+# ── Built-in command registry ──────────────────────────────────────────────────
+# Every command handled internally MUST be listed here to prevent OS forwarding.
 
 BUILTIN_COMMANDS: frozenset[str] = frozenset({
-    "ls", "cd", "pwd", "rm", "cat", "echo",
+    # File & Directory
+    "ls", "cd", "pwd", "mkdir", "touch", "rmdir", "rm", "mv", "cp", "ln", "tree",
+    # Viewing & Editing
+    "cat", "less", "more", "head", "tail", "nano", "vim", "vi",
+    # Permissions
+    "chmod", "chown",
+    # Search
+    "grep", "egrep", "fgrep", "find",
+    # Text processing
+    "echo", "wc", "sort", "uniq", "diff",
+    # System info
+    "stat", "ps", "top", "htop", "df", "du", "free",
+    "uname", "date", "uptime", "id", "whoami", "which", "type",
+    # Network (intercepted before subprocess)
+    "ping", "curl", "wget", "ssh",
+    # Documentation
+    "man", "history",
+    # Environment & Session
+    "env", "export", "unset", "alias", "exit", "logout",
+    # Shell / Security / AI
     "clear", "help", "status", "sudo", "passwd",
-    "lock", "ask", "verify_audit", "whoami",
+    "lock", "ask", "verify_audit",
+    "qsu", "bash", "sh",
+    # Stress tools
+    "stress", "fullstress",
 })
 
 
-# ── Result type ───────────────────────────────────────────────────────────
+# ── Result type ────────────────────────────────────────────────────────────────
 
 class ParsedCommand(NamedTuple):
     """
@@ -64,86 +76,123 @@ class ParsedCommand(NamedTuple):
 
     Attributes
     ----------
-    parts : list[str]
-        The tokenised argv, e.g. ["ls", "-la", "/home"].
-        Empty list if the raw input was blank.
-    base : str
-        Lower-cased argv[0], e.g. "ls".  Empty string if parts is empty.
-    is_builtin : bool
-        True when base is handled by the internal command dispatcher.
-    is_whitelisted : bool
-        True when base may be forwarded to the OS via ProcessGuard.Popen().
+    parts          : list[str]  – tokenised argv
+    base           : str        – lower-cased argv[0]
+    flags          : set[str]   – extracted flags (single chars and long flags)
+    args           : list[str]  – positional arguments (no leading -)
+    is_builtin     : bool       – handled internally
+    is_whitelisted : bool       – may go to real OS via ProcessGuard
+    is_local_exec  : bool       – starts with ./ or .\
+    raw            : str        – original raw input string (for history)
     """
     parts:          list[str]
     base:           str
+    flags:          set[str]
+    args:           list[str]
     is_builtin:     bool
     is_whitelisted: bool
+    is_local_exec:  bool
+    raw:            str = ""
 
 
-# ── Parser ────────────────────────────────────────────────────────────────
+# ── Parser ─────────────────────────────────────────────────────────────────────
 
 class CommandParser:
-    """
-    Stateless command parser for the Q-Vault terminal shell.
-
-    Usage
-    -----
-    ::
-
-        parsed = CommandParser.parse("ls -la /home")
-        # ParsedCommand(parts=['ls', '-la', '/home'],
-        #               base='ls',
-        #               is_builtin=True,
-        #               is_whitelisted=False)
-    """
+    """Stateless command parser for the Q-Vault terminal shell."""
 
     SUBPROCESS_WHITELIST: dict[str, list[str]] = SUBPROCESS_WHITELIST
-    BUILTIN_COMMANDS: frozenset[str] = BUILTIN_COMMANDS
+    BUILTIN_COMMANDS:     frozenset[str]        = BUILTIN_COMMANDS
+
+    # System paths protected from destructive operations
+    _PROTECTED: frozenset[str] = frozenset({
+        ".", "..", "/", "system", "core", "apps", "kernel",
+    })
 
     @classmethod
-    def parse(cls, raw: str) -> ParsedCommand:
+    def parse(cls, raw: str, aliases: dict[str, str] | None = None) -> ParsedCommand:
         """
-        Tokenise `raw` and classify the leading command.
+        Tokenise raw input into a ParsedCommand.
 
-        Mirrors the original logic in TerminalEngine.execute_command:
-          - On POSIX: use shlex.split()
-          - On Windows: fall back to str.split()  (shlex chokes on
-            backslash paths that are common on Windows)
+        Alias expansion
+        ───────────────
+        If the leading token matches a defined alias, the alias value is
+        prepended and the rest of the line is appended before re-parsing.
+        Alias cycles are prevented (max one expansion level).
 
         Parameters
         ----------
-        raw : str
-            The stripped command line from the terminal widget.
-
-        Returns
-        -------
-        ParsedCommand
-            If `raw` is blank, returns an empty ParsedCommand where
-            parts=[], base="", is_builtin=False, is_whitelisted=False.
+        raw     : str
+            Raw shell input line.
+        aliases : dict[str, str] | None
+            Current alias table.  Pass None to skip alias expansion.
         """
         raw = raw.strip()
         if not raw:
-            return ParsedCommand([], "", False, False)
+            return ParsedCommand([], "", set(), [], False, False, False, "")
 
-        parts = shlex.split(raw) if os.name != "nt" else raw.split()
+        # ── Alias expansion ────────────────────────────────────────────────
+        if aliases:
+            first_token = raw.split()[0].lower()
+            if first_token in aliases:
+                remainder = raw[len(first_token):].strip()
+                expanded  = aliases[first_token]
+                if remainder:
+                    expanded += " " + remainder
+                raw = expanded
+
+        # ── Tokenise ──────────────────────────────────────────────────────
+        try:
+            parts = shlex.split(raw, posix=(os.name != "nt"))
+        except ValueError:
+            # Unmatched quote — fall back to simple split
+            parts = raw.split()
+
         if not parts:
-            return ParsedCommand([], "", False, False)
+            return ParsedCommand([], "", set(), [], False, False, False, raw)
 
-        base = parts[0].lower()
+        base          = parts[0].lower()
+        is_local_exec = base.startswith("./") or base.startswith(".\\")
+
+        # ── Flag & argument extraction ─────────────────────────────────────
+        flags: set[str] = set()
+        args:  list[str] = []
+
+        skip_next = False
+        for idx, token in enumerate(parts[1:], start=1):
+            if skip_next:
+                skip_next = False
+                continue
+            if token == "--":
+                # Everything after -- is positional
+                args.extend(parts[idx + 1:])
+                break
+            if token.startswith("--") and len(token) > 2:
+                flag_name = token[2:]
+                # Handle --flag=value
+                if "=" in flag_name:
+                    k, v = flag_name.split("=", 1)
+                    flags.add(k)
+                    args.append(v)
+                else:
+                    flags.add(flag_name)
+            elif token.startswith("-") and len(token) > 1 and not token[1:].replace(".", "").isdigit():
+                for ch in token[1:]:
+                    flags.add(ch)
+            else:
+                args.append(token)
+
         return ParsedCommand(
-            parts=parts,
-            base=base,
-            is_builtin=base in cls.BUILTIN_COMMANDS,
-            is_whitelisted=base in cls.SUBPROCESS_WHITELIST,
+            parts          = parts,
+            base           = base,
+            flags          = flags,
+            args           = args,
+            is_builtin     = base in cls.BUILTIN_COMMANDS,
+            is_whitelisted = base in cls.SUBPROCESS_WHITELIST,
+            is_local_exec  = is_local_exec,
+            raw            = raw,
         )
 
     @classmethod
     def is_system_path_target(cls, name: str) -> bool:
-        """
-        Return True if `name` refers to a protected system directory.
-
-        Used by CommandExecutor._handle_rm to gate destructive operations
-        before touching the filesystem.
-        """
-        PROTECTED = {".", "..", "/", "system", "core", "apps"}
-        return name in PROTECTED
+        """Return True if `name` refers to a protected system path."""
+        return name.strip("/") in cls._PROTECTED

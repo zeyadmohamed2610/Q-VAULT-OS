@@ -75,6 +75,7 @@ class AppRecord:
         
         # Phase 13.9: Atomic Process Tracking
         self.tracked_pids = set() # pids currently counted in active_workers["process"]
+        self.worker_tokens = set() # Phase 13: Token-based worker tracking
         
         # ── Phase 14.3.2: Kernel-level Backpressure & Rate Limiting ──
         self.pending_calls = 0
@@ -201,6 +202,7 @@ class AppRuntimeManager:
         self.decision_history = deque(maxlen=50)       # Structured decision trace
         self.pressure_history = deque(maxlen=120)      # (timestamp, ratio) — 2 min @ 1Hz
         self._gov_log_buffer = []                      # NDJSON flush buffer
+        self._gov_log_path = log_dir / "governance.ndjson"  # NDJSON output path
         self._last_decision_time = 0.0                 # Rate-limit: max 1 decision per 500ms
         self._last_flush_time = 0.0                    # Last disk-write timestamp
         # ── Phase 13.7: Reality Hardening ──
@@ -215,11 +217,10 @@ class AppRuntimeManager:
         # ── Phase 16.5: Production Stability ──
         self._perform_cold_start_cleanup()
 
-        try:
-            from core.process_manager import PM
-            PM.subscribe(self._on_process_event)
-        except Exception as e:
-            self.logger.error(f"Failed to subscribe to Core PM: {e}")
+        from core.event_bus import EVENT_BUS, SystemEvent
+        EVENT_BUS.subscribe(SystemEvent.PROC_COMPLETED, self._on_proc_bus_event)
+        EVENT_BUS.subscribe(SystemEvent.PROC_STOPPED,   self._on_proc_bus_event)
+        EVENT_BUS.subscribe(SystemEvent.PROC_GC,        self._on_proc_bus_event)
 
     def _perform_cold_start_cleanup(self):
         """Phase 16.5: Cleanup orphaned engines on cold boot."""
@@ -272,7 +273,7 @@ class AppRuntimeManager:
         if app_def is None:
             # No definition at all — create a minimal stub AppRecord so the
             # instance still exists in the registry for governance purposes.
-            logger.warning(
+            self.logger.warning(
                 f"[RuntimeManager] start_app: no AppDefinition for '{app_id}' "
                 "— creating stub record"
             )
@@ -285,7 +286,7 @@ class AppRuntimeManager:
 
         if app_instance is None:
             # REGISTRY already logged the error; create a quarantined stub
-            logger.warning(
+            self.logger.warning(
                 f"[RuntimeManager] start_app: REGISTRY failed to instantiate '{app_id}'"
             )
             from unittest.mock import MagicMock
@@ -477,13 +478,6 @@ class AppRuntimeManager:
         else:
             record.congested = False
             return False
-
-        
-        if record.trust_score < 20:
-            self.quarantine_app(instance_id, reason)
-        else:
-            record.last_warning_time = time.time()
-            self.notify(f"Security Alert: {record.app_id}", reason, "warning")
 
     def apply_penalty(self, instance_id: str, score: int, reason: str) -> None:
         """Graduated penalty for suspicious but non-violation behavior."""
@@ -931,6 +925,16 @@ class AppRuntimeManager:
         self.logger.info(f"[OS] Governed kill authorized: {instance_id} killing PID {pid}")
         return PM.kill(pid)
 
+    def _on_proc_bus_event(self, payload: "EventPayload"):
+        event_name = payload.event.name.lower().replace("proc_", "")
+        if event_name == "completed": event_name = "done"
+        
+        # Payload data: {"process": dict, "pid": int}
+        proc_data = payload.data.get("process", {})
+        from types import SimpleNamespace
+        proc_obj = SimpleNamespace(**proc_data)
+        self._on_process_event(event_name, proc_obj)
+
     def _on_process_event(self, event: str, proc: Any):
         """Observer callback for Core ProcessManager events."""
         if event in ["done", "stopped", "gc"]:
@@ -1023,7 +1027,20 @@ class AppRuntimeManager:
 
         try:
             if self._desktop_parent:
-                notif = Notification(title, text, parent=self._desktop_parent)
+                from components.notification_toast import NotificationToast
+                from system.notification_service import NotificationData, NotificationLevel
+                import time as _t
+                from datetime import datetime as _dt
+                _lvl = {"error": NotificationLevel.DANGER, "warning": NotificationLevel.WARNING}.get(level, NotificationLevel.INFO)
+                _data = NotificationData(
+                    id=f"rm_{int(_t.time()*1000)}",
+                    title=title,
+                    message=text,
+                    level=_lvl,
+                    timestamp=_t.time(),
+                    time_str=_dt.now().strftime("%H:%M:%S")
+                )
+                notif = NotificationToast(_data, parent=self._desktop_parent)
                 w = self._desktop_parent.width()
                 from PyQt5.QtCore import QPoint
                 target_pos = QPoint(max(0, w - notif.width() - 20), 40)

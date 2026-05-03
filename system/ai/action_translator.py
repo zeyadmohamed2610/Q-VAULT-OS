@@ -1,10 +1,3 @@
-# =============================================================
-#  system/ai/action_translator.py — Q-Vault OS
-#
-#  AI Action Dispatcher. Converts logical AI decisions into
-#  standardized SystemEvent requests.
-# =============================================================
-
 import logging
 from core.event_bus import EVENT_BUS, SystemEvent
 

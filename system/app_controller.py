@@ -71,13 +71,6 @@ class AppController:
                 
             self._switch_to_login()
 
-    def launch_app(self, name: str):
-        """Unified Public API for launching applications."""
-        desktop = self._screens.get("desktop")
-        if desktop and hasattr(desktop, "launch_app"):
-            desktop.launch_app(name)
-        else:
-            logger.error(f"[AppController] Cannot launch '{name}': Desktop not ready or missing launch_app")
 
     # ── Screen switching (private) ───────────────────────────────
 
@@ -166,7 +159,7 @@ class AppController:
         # 2. Welcome Workflow
         engine.register_workflow({
             "name": "welcome_sequence",
-            "trigger": "sys.welcome", # Manual trigger
+            "trigger": SystemEvent.EVT_WELCOME.value, # Manual trigger
             "actions": [
                 {"action": "notify", "params": {"title": "Q-Vault OS", "message": "System ready. Welcome back."}},
                 {"action": "launch", "params": {"app": "Files"}}
@@ -198,7 +191,12 @@ class AppController:
         logger.info(f"[AppController] Executing command: {event_type.name} for {wid}")
         
         if event_type == SystemEvent.REQ_WINDOW_FOCUS:
-            wm.focus_window(wid)
+            # If the window is minimized, restore it (triggers WINDOW_RESTORED animation)
+            window = wm._windows.get(wid)
+            if window and getattr(window, "is_minimized", False):
+                wm.restore_window(wid)
+            else:
+                wm.focus_window(wid)
         elif event_type == SystemEvent.REQ_WINDOW_MINIMIZE:
             wm.minimize_window(wid)
         elif event_type == SystemEvent.REQ_WINDOW_CLOSE:

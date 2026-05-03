@@ -1,116 +1,79 @@
-# Q-Vault OS .gitignore
-
-# Python
+# ── Python ────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
+
+# Keep compiled Rust extension
+!core/binaries/qvault_core.pyd
+
+# ── Virtual environments ──────────────────────────────────────────
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# PyInstaller
-*.spec
-*.log
-
-# Virtual environments
-venv/
-ENV/
 env/
+venv/
 .venv/
+pip-log.txt
+pip-delete-this-directory.txt
 
-# IDE
+# ── Testing & coverage ────────────────────────────────────────────
+.tox/
+.nox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+
+# ── Build artifacts ───────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.spec
+target/
+node_modules/
+bin/
+obj/
+
+# ── Logs ─────────────────────────────────────────────────────────
+logs/
+*.log
+shadow_logs/
+shadow_logs_archive/
+shadow_events.jsonl
+test_output.log
+
+# ── User data & runtime state (local only) ───────────────────────
+users/
+qvault_home/
+data/
+*.vault
+*.db
+*.key
+!qvault-core/test_data/
+scratch/
+
+# ── IDE & local tool metadata ─────────────────────────────────────
 .vscode/
 .idea/
+.vs/
 *.swp
 *.swo
-*~
+.kilo/
+.agents/
+.cursor/
+.logs/
+.ruff_cache/
+.mypy_cache/
+.gemini/
+.history/
 
-# OS
+# ── OS artifacts ──────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
 
-# Environment
-.env
-.env.local
-*.local
-
-# Q-Vault specific
-.local/
-.qvault/
-*.qvault
-
-# Logs
-logs/
-
-# Temporary
-tmp/
-temp/
-*.tmp
-
-# Rust
-target/
-Cargo.lock
-*.rlib
-*.a
-!.cargo/
-
-# Build outputs
-*.exe
-*.dll
-*.dylib
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# PlatformIO / ESP32
-.platformio/
-.pio/
-.build/
-libdeps/
-platformio.ini.user
-
-# Qt
-*.pro.user
-*.qmake.stash
-*.qmake.super
-*.user
-*.user.*
-*.pro.user.*
-*.vcxproj*
-*.sln
-
-# JetBrains IDEs
-.idea/
-*.iml
-out/
-
-# Python extras
-.pytest_cache/
-.coverage
-htmlcov/
-dist/
-*.egg-info/
-pip-wheel-metadata/
-
-# VSCode
-.vscode/
-
+# ── Archives ──────────────────────────────────────────────────────
+*.zip
+*.tar.gz
+*.7z

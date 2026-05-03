@@ -31,6 +31,7 @@ from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 
 from assets import theme
+from assets.theme import THEME
 
 
 class FeedbackDialog(QDialog):

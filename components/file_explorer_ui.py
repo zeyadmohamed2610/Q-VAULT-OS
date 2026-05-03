@@ -1,10 +1,3 @@
-# =============================================================
-#  components/file_explorer_ui.py — Q-Vault OS  |  File Explorer UI
-#
-#  Pure View component. No direct system calls.
-#  Communicates via EventBus.
-# =============================================================
-
 import os
 import pathlib
 import logging

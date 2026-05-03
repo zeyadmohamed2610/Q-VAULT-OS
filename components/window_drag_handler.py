@@ -1,3 +1,4 @@
+import time
 from PyQt5.QtCore import Qt, QPoint
 from core.event_bus import EVENT_BUS, SystemEvent
 from system.window_manager import get_window_manager, WindowState, SnapZone
@@ -9,10 +10,13 @@ class WindowDragHandler:
     snap preview during drag, and snap execution on release.
     """
 
+    _DRAG_EMIT_INTERVAL = 0.033   # ~30fps max for drag_update events
+
     def __init__(self, window, snap_ctrl):
         self._window = window
         self._snap_ctrl = snap_ctrl
         self._drag_pos = QPoint()
+        self._last_drag_emit = 0.0
 
     def on_press(self, event):
         """Handle mouse press for drag initiation. Returns True if drag started."""
@@ -35,7 +39,7 @@ class WindowDragHandler:
             self._drag_pos = event.pos()
 
         sc.state = WindowState.DRAGGING
-        EVENT_BUS.emit(SystemEvent.REQ_WINDOW_DRAG_START, {"id": w.window_id})
+        EVENT_BUS.emit(SystemEvent.REQ_WINDOW_DRAG_START, {"id": w.window_id}, source="WindowDragHandler")
         return True
 
     def on_move(self, event):
@@ -63,11 +67,15 @@ class WindowDragHandler:
                 else:
                     desktop.snap_preview.hide_preview()
 
-        EVENT_BUS.emit(SystemEvent.REQ_WINDOW_DRAG_UPDATE, {
-            "id": w.window_id,
-            "x": new_pos.x(),
-            "y": new_pos.y()
-        })
+        # Throttle drag event emission to ~30fps to prevent event bus flood
+        now = time.perf_counter()
+        if now - self._last_drag_emit >= self._DRAG_EMIT_INTERVAL:
+            self._last_drag_emit = now
+            EVENT_BUS.emit(SystemEvent.REQ_WINDOW_DRAG_UPDATE, {
+                "id": w.window_id,
+                "x": new_pos.x(),
+                "y": new_pos.y()
+            }, source="WindowDragHandler")
 
     def on_release(self, event):
         """Handle mouse release — finalize drag and execute snap."""
@@ -93,4 +101,4 @@ class WindowDragHandler:
             if zone != SnapZone.NONE:
                 wm.apply_snap(w.window_id, zone)
 
-        EVENT_BUS.emit(SystemEvent.REQ_WINDOW_DRAG_END, {"id": w.window_id})
+        EVENT_BUS.emit(SystemEvent.REQ_WINDOW_DRAG_END, {"id": w.window_id}, source="WindowDragHandler")

@@ -147,132 +147,43 @@ class CommandExecutor(QObject):
 
     # ── Dispatch ──────────────────────────────────────────────────────────
 
-    # Commands that require admin role to execute destructively
-    _ADMIN_COMMANDS: frozenset[str] = frozenset({"rm"})
-
-    def dispatch(self, base: str, parts: list[str]) -> bool:
+    def dispatch(self, parsed: ParsedCommand) -> bool:
         """
-        Route ``base`` to the correct _handle_* method.
-
-        Returns True if the command was handled (callers can branch on this
-        to know whether to fall through to _run_subprocess).
-        Returns False for unrecognised commands — TerminalEngine will then
-        call run_subprocess().
-
-        Note: "sudo" and "lock" are intentionally absent — they live in
-        TerminalEngine because they require EngineState transitions.
+        Route ``parsed`` command to the correct OOP Command.
         """
-        table: dict[str, Callable] = {
-            "ls":           self._handle_ls,
-            "cd":           self._handle_cd,
-            "pwd":          self._handle_pwd,
-            "cat":          self._handle_cat,
-            "rm":           self._handle_rm,
-            "echo":         self._handle_echo,
-            "clear":        self._handle_clear,
-            "help":         self._handle_help,
-            "status":       self._handle_status,
-            "ask":          self._handle_ask,
-            "whoami":       self._handle_whoami,
-            "passwd":       self._handle_passwd,
-            "verify_audit": self._handle_verify_audit,
-        }
-        handler = table.get(base)
-        if handler is None:
+        from ._commands import COMMAND_REGISTRY, CommandContext, ExecCommand
+        
+        # Handle ./local_exec style
+        if parsed.is_local_exec:
+            ctx = CommandContext(self)
+            ExecCommand().execute(parsed, ctx)
+            return True
+
+        cmd_instance = COMMAND_REGISTRY.get(parsed.base)
+        if cmd_instance is None:
             return False
-        handler(parts)
+            
+        ctx = CommandContext(self)
+        try:
+            cmd_instance.execute(parsed, ctx)
+        except Exception as exc:
+            self._emit_output(f"[ERROR] {str(exc)}\n")
         return True
 
-    # ── Filesystem commands ───────────────────────────────────────────────
-
-    def _handle_ls(self, parts: list[str]) -> None:
-        target = (self.cwd / parts[1]).resolve() if len(parts) > 1 else self.cwd
-        if not str(target).startswith(str(self._base_dir)):
-            self._emit_output(OutputFormatter.permission_denied(str(target)))
-            return
-        try:
-            entries = sorted(
-                target.iterdir(),
-                key=lambda x: (not x.is_dir(), x.name.lower()),
-            )
-            self._emit_output(OutputFormatter.ls_output(entries))
-        except Exception:
-            self._emit_output(OutputFormatter.ls_error())
-
-    def _handle_cd(self, parts: list[str]) -> None:
-        raw = parts[1] if len(parts) > 1 else "~"
-        if raw == "~":
-            self.cwd = self._base_dir
-            self._emit_prompt()
-            return
-        try:
-            candidate = (self.cwd / raw).resolve()
-            if (
-                str(candidate).startswith(str(self._base_dir))
-                and candidate.is_dir()
-            ):
-                self.cwd = candidate
-                self._emit_prompt()
-            else:
-                self._emit_output(OutputFormatter.cd_invalid_path())
-        except Exception:
-            self._emit_output(OutputFormatter.cd_error())
-
-    def _handle_pwd(self, _parts: list[str]) -> None:
-        self._emit_output(str(self.cwd) + "\n")
-
-    def _handle_cat(self, parts: list[str]) -> None:
-        if len(parts) < 2:
-            self._emit_output("cat: missing filename\n")
-            return
-        target = (self.cwd / parts[1]).resolve()
-        if not str(target).startswith(str(self._base_dir)):
-            self._emit_output(OutputFormatter.permission_denied(str(target)))
-            return
-        try:
-            self._emit_output(target.read_text(errors="replace") + "\n")
-        except FileNotFoundError:
-            self._emit_output(f"cat: {parts[1]}: No such file or directory\n")
-        except IsADirectoryError:
-            self._emit_output(f"cat: {parts[1]}: Is a directory\n")
-        except Exception as exc:
-            self._emit_output(OutputFormatter.subprocess_error(exc))
-
-    def _handle_echo(self, parts: list[str]) -> None:
-        self._emit_output(" ".join(parts[1:]) + "\n")
-
-    def _handle_rm(self, parts: list[str]) -> None:
-        if len(parts) < 2:
-            return
-
-        name = parts[1]
-
-        # Guard: protected system paths (threat reporting stays in TerminalEngine)
-        if CommandParser.is_system_path_target(name):
-            self._emit_output(OutputFormatter.policy_restricted("rm", name))
-            # Signal to TerminalEngine that a threat event occurred
-            self._on_rm_policy_violation(name)
-            return
-
-        # Guard: admin role required for rm
-        if self._role_getter() != "admin":
-            self._emit_output(OutputFormatter.admin_required("rm"))
-            return
-
-        target = (self.cwd / name).resolve()
-        if not str(target).startswith(str(self._base_dir)):
-            self._emit_output(OutputFormatter.permission_denied(name))
-            return
-
-        try:
-            if target.is_dir():
-                shutil.rmtree(target)
-            else:
-                target.unlink()
-            self._emit_output(OutputFormatter.rm_success(name))
-        except Exception:
-            pass  # silently ignored — mirrors original behaviour
-
+    def _handle_nano(self, filename: str) -> None:
+        """Hook for GUI to open nano overlay - overridden by TerminalApp"""
+        if hasattr(self, "_on_nano_request"):
+            # Resolve path relative to current working directory
+            target = (self.cwd / filename).resolve()
+            
+            # Security Boundary Check
+            if not str(target).startswith(str(self._base_dir)):
+                self._emit_output(OutputFormatter.permission_denied(filename))
+                return
+                
+            self._on_nano_request(target)
+        else:
+            self._emit_output("nano: terminal environment does not support GUI overlays\n")
     # Policy violation hook — overridden by TerminalEngine to feed threat score
     def _on_rm_policy_violation(self, name: str) -> None:
         """
@@ -340,4 +251,5 @@ class CommandExecutor(QObject):
         self._thread.started.connect(self._worker.run)
         self._worker.output_ready.connect(self._emit_output)
         self._worker.finished.connect(self._thread.quit)
+        self._worker.finished.connect(self._emit_prompt)
         self._thread.start()

@@ -1,17 +1,3 @@
-# ⚠️ QUARANTINED MODULE ⚠️
-# ==============================
-# Module: splash_screen.py
-# Status: NOT PART OF RUNTIME
-# Warning: DO NOT IMPORT
-# Reason: Pending architectural verification
-# ==============================
-
-# =============================================================
-#  splash_screen.py - Q-Vault OS  |  Startup Splash Screen
-# =============================================================
-# ⚠️ QUARANTINED: 2026-04-18
-# =============================================================
-
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QEasingCurve
 from PyQt5.QtGui import QColor, QLinearGradient, QPainter, QFont
 from PyQt5.QtWidgets import QWidget

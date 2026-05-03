@@ -89,8 +89,36 @@ class SudoManager:
     # ── Verification ─────────────────────────────────────────────────────
 
     def verify_password(self, text: str) -> bool:
-        """Delegate to AuthManager.verify_password()."""
-        return self._auth.verify_password(text)
+        """
+        Verify password. Strategy:
+          1. If file-based auth is set up (qsu was run), use it.
+          2. Otherwise, fallback to the Rust core login() with 'admin' user.
+        This ensures sudo works whether the user set up via qsu or the Lock Screen.
+        """
+        import logging
+        _log = logging.getLogger("terminal.sudo")
+        
+        if self._auth.is_setup_complete():
+            _log.info("[SudoManager] Verifying via file-based auth store")
+            return self._auth.verify_password(text)
+        
+        # Fallback: try Rust core login
+        _log.info("[SudoManager] File-based auth not set up — falling back to Rust core")
+        try:
+            from system.security_api import get_security_api
+            api = get_security_api()
+            result = api.login("admin", text)
+            if result.get("success"):
+                _log.info("[SudoManager] Rust core login succeeded")
+                # Also set up the file-based store so future sudo calls are faster
+                self._auth.set_password(text)
+                return True
+            else:
+                _log.info(f"[SudoManager] Rust core login failed: {result.get('code')}")
+                return False
+        except Exception as e:
+            _log.warning(f"[SudoManager] Rust core fallback failed: {e}")
+            return False
 
     def set_password(self, text: str) -> None:
         """Delegate to AuthManager.set_password() (initial setup only)."""

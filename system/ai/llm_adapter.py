@@ -1,10 +1,3 @@
-# =============================================================
-#  system/ai/llm_adapter.py — Q-Vault OS
-#
-#  Pluggable Large Language Model Interface.
-#  Abstraction layer for external AI services.
-# =============================================================
-
 import logging
 from typing import Optional, Dict, Any
 

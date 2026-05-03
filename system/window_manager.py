@@ -20,6 +20,8 @@ class SnapZone(enum.Enum):
     LEFT = "left"
     RIGHT = "right"
     MAXIMIZE = "maximize"
+    TOP_LEFT = "top_left"
+    TOP_RIGHT = "top_right"
 
 class WindowState(enum.Enum):
     NORMAL = "normal"
@@ -102,6 +104,7 @@ class WindowManager(QObject):
             w.raise_()
             if w.window_id == window_id:
                 w.activateWindow()
+                w.setFocus()
 
         self._active = window_id
 
@@ -264,8 +267,8 @@ class WindowManager(QObject):
     def _failsafe_destroy(self, w):
         """Forces idempotent cleanup if animations failed due to event loop starvation."""
         try:
-            if hasattr(w, "_final_close"):
-                print("[WindowManager] Failsafe Triggered!")
+            if hasattr(w, "_final_close") and not getattr(w, "_is_destroyed", False):
+                logger.warning("[WindowManager] Failsafe Triggered — forcing cleanup.")
                 w._final_close()
         except RuntimeError:
             pass  # Object already deleted cleanly by animation
@@ -283,21 +286,30 @@ class WindowManager(QObject):
     def calculate_snap_geometry(self, zone: SnapZone, parent_rect: QRect) -> QRect:
         """Calculates the target rectangle for a specific snap zone."""
         pw, ph = parent_rect.width(), parent_rect.height()
-        
+
         if zone == SnapZone.LEFT:
             return QRect(0, 0, pw // 2, ph)
         elif zone == SnapZone.RIGHT:
             return QRect(pw // 2, 0, pw // 2, ph)
         elif zone == SnapZone.MAXIMIZE:
             return QRect(0, 0, pw, ph)
+        elif zone == SnapZone.TOP_LEFT:
+            return QRect(0, 0, pw // 2, ph // 2)
+        elif zone == SnapZone.TOP_RIGHT:
+            return QRect(pw // 2, 0, pw // 2, ph // 2)
         return QRect()
 
     def detect_snap_zone(self, x: int, y: int, parent_rect: QRect) -> SnapZone:
         """Determines if coordinates are within a snap trigger threshold."""
         pw, ph = parent_rect.width(), parent_rect.height()
         THRESHOLD = 30
-        
+
         if y < THRESHOLD:
+            # Top corners take priority over plain top
+            if x < THRESHOLD:
+                return SnapZone.TOP_LEFT
+            if x > pw - THRESHOLD:
+                return SnapZone.TOP_RIGHT
             return SnapZone.MAXIMIZE
         if x < THRESHOLD:
             return SnapZone.LEFT

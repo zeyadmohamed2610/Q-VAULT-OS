@@ -1,15 +1,3 @@
-# =============================================================
-#  system/taskbar_controller.py — Q-Vault OS
-#
-#  v2.0 Event-Driven Taskbar State Machine.
-#
-#  Rules:
-#    1. Receives window Facts ONLY via EventBus (not pyqtSignals).
-#    2. Emits Commands (intents) via EventBus for actions.
-#    3. Owns its own pyqtSignal (state_updated) for intra-component
-#       UI rendering — this is a local concern, not a system fact.
-# =============================================================
-
 import logging
 from typing import Dict
 from PyQt5.QtCore import QObject, pyqtSignal, QTimer, QTime

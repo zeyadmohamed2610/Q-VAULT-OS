@@ -1,22 +1,3 @@
-# =============================================================
-#  core/app_registry.py — Q-VAULT OS  |  Application Registry
-#
-#  THE single source of truth for all application definitions.
-#  No other module may import an app class directly; all
-#  instantiation MUST pass through AppRegistry.instantiate().
-#
-#  Architecture:
-#    AppDefinition  — immutable data describing an app
-#    AppRegistry    — singleton registry + dynamic loader
-#    REGISTRY       — the process-wide singleton instance
-#
-#  Plugin contract for every app:
-#    - Module lives at  apps/<module>.py  (or apps/<module>/__init__.py)
-#    - Contains exactly one class matching AppDefinition.class_name
-#    - __init__ signature:  __init__(self, parent=None)
-#    - On failure: app moves to QUARANTINE status, never crashes the OS
-# =============================================================
-
 from __future__ import annotations
 
 import importlib
@@ -70,89 +51,67 @@ class AppDefinition:
 
 _MANIFEST: tuple[AppDefinition, ...] = (
     AppDefinition(
+        name="Terminal",
+        emoji="🖥️",
+        module="apps.terminal.terminal_app",
+        class_name="TerminalApp",
+        icon_asset="icons/terminal.svg",
+        isolation_mode="direct",
+        show_on_desktop=True,
+    ),
+    AppDefinition(
+        name="File Manager",
+        emoji="📁",
+        module="apps.file_manager.file_manager_app",
+        class_name="FileManagerApp",
+        icon_asset="icons/files.svg",
+        isolation_mode="direct",
+        show_on_desktop=True,
+    ),
+    AppDefinition(
+        name="Trash",
+        emoji="🗑️",
+        module="apps.trash.trash_app",
+        class_name="TrashApp",
+        icon_asset="icons/trash.svg",
+        isolation_mode="direct",
+        show_on_desktop=True,
+    ),
+    # Legacy entries kept for backward compat (not shown on desktop)
+    AppDefinition(
         name="Files",
         emoji="📁",
-        module="components.app_proxies",
-        class_name="FileExplorerProxy",
+        module="apps.file_manager.file_manager_app",
+        class_name="FileManagerApp",
         icon_asset="icons/files.svg",
-        isolation_mode="process",
+        isolation_mode="direct",
+        show_on_desktop=False,
     ),
     AppDefinition(
-        name="Terminal",
-        emoji="🐚",
-        module="components.app_proxies",
-        class_name="TerminalProxy",
-        icon_asset="icons/terminal.svg",
-        isolation_mode="process",
-    ),
-    AppDefinition(
-        name="System Monitor",
-        emoji="📊",
-        module="components.app_proxies",
-        class_name="TaskManagerProxy",
-        icon_asset="icons/prediction.svg",
-        sessions=frozenset({"real"}),
+        name="Q-Vault Browser",
+        emoji="🌐",
+        module="apps.browser.browser_app",
+        class_name="BrowserApp",
+        icon_asset="icons/browser.svg",
+        isolation_mode="direct",
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="Security",
+        name="Q-Vault Security",
         emoji="🛡️",
-        module="components.security_ui",
-        class_name="SecurityPanel",
-        icon_asset="icons/trust.svg",
-        sessions=frozenset({"real"}),
+        module="apps.qvault_security.qvault_security_app",
+        class_name="QVaultSecurityApp",
+        icon_asset="icons/icon-vault.svg",
+        isolation_mode="direct",
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="Marketplace",
-        emoji="💎",
-        module="components.app_proxies",
-        class_name="MarketplaceProxy",
-        icon_asset="icons/intent.svg",
-        sessions=frozenset({"real"}),
-        isolation_mode="process",
-        show_on_desktop=True,
-    ),
-    AppDefinition(
-        name="Network",
-        emoji="🌐",
-        module="components.app_proxies",
-        class_name="NetworkToolsProxy",
-        icon_asset="icons/trust.svg",
-        show_on_desktop=True,
-    ),
-    AppDefinition(
-        name="Settings",
-        emoji="⚙️",
-        module="components.app_proxies",
-        class_name="SettingsProxy",
-        icon_asset="icons/settings.svg",
-        show_on_desktop=True,
-    ),
-    AppDefinition(
-        name="Google Chrome",
-        emoji="🌐",
-        module="components.app_proxies",
-        class_name="ChromeProxy",
-        icon_asset="icons/chrome.svg",
-        show_on_desktop=True,
-    ),
-    AppDefinition(
-        name="Mozilla Firefox",
-        emoji="🦊",
-        module="components.app_proxies",
-        class_name="FirefoxProxy",
-        icon_asset="icons/firefox.svg",
-        show_on_desktop=True,
-    ),
-    AppDefinition(
-        name="Chaos Tester",
-        emoji="🔥",
-        module="adversary.chaos_tester",
-        class_name="ChaosTester",
-        icon_asset="icons/intent.svg",
-        sessions=frozenset({"real"}),
-        isolation_mode="process",
+        name="Kernel Monitor",
+        emoji="🖥",
+        module="kernel.app",
+        class_name="KernelMonitorApp",
+        icon_asset="icons/kernel_monitor.svg",
+        isolation_mode="direct",
         show_on_desktop=True,
     ),
 )
@@ -162,7 +121,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
 
 # Phase 15.4: Global Isolation Policy
 DEFAULT_ISOLATION = "direct"
-CRITICAL_APPS = {"Desktop", "Taskbar", "SystemUI", "Chaos Tester"} # Chaos Tester needs process mode too
+CRITICAL_APPS = {"Desktop", "Taskbar"}
 SAFE_MODE = False # Emergency Kill Switch
 
 class AppRegistry:
@@ -272,26 +231,17 @@ class AppRegistry:
                 results[app.name] = f"QUARANTINE: {reason}"
         return results
 
-    def instantiate(self, name: str, secure_api=None) -> Optional[QWidget]:
+    def instantiate(self, name: str, secure_api=None, parent=None):
         """
-        Dynamically loads and instantiates an application widget.
+        Dynamically loads and instantiates an application widget via centralized factory.
         
         This is the ONLY way to launch an app in Q-Vault OS.
         Returns the widget instance, or None if failed.
         """
-        app = self.get_by_name(name)
-        if not app:
-            logger.error(f"[REGISTRY] App '{name}' not found in manifest.")
-            return None
-            
+        from system.app_factory import create_app_by_name
+
         try:
-            # 1. Resolve module
-            mod = importlib.import_module(app.module)
-            # 2. Resolve class
-            cls = getattr(mod, app.class_name)
-            # 3. Instantiate with common signature
-            widget = cls(secure_api=secure_api)
-            return widget
+            return create_app_by_name(name, parent=parent)
         except Exception as e:
             logger.error(f"[REGISTRY] Failed to instantiate '{name}': {e}", exc_info=True)
             self.quarantine(name, str(e))

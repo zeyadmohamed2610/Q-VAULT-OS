@@ -3,8 +3,8 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QLineEdit, QPushButton,
     QGraphicsOpacityEffect
 )
-from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
-from PyQt5.QtGui import QFont
+from PyQt5.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve, QLocale, QDateTime
+from PyQt5.QtGui import QFont, QCursor
 
 
 class LockScreen(QWidget):
@@ -17,6 +17,7 @@ class LockScreen(QWidget):
 
     def __init__(self, username: str, parent=None):
         super().__init__(parent)
+        self.setCursor(Qt.CrossCursor)
         self.username = username
         self._auth_revealed = False
         self._is_unlocking = False
@@ -72,7 +73,7 @@ class LockScreen(QWidget):
         
         self.lbl_clock = QLabel()
         self.lbl_clock.setAlignment(Qt.AlignCenter)
-        self.lbl_clock.setFont(QFont("Segoe UI Light", 72))
+        self.lbl_clock.setFont(QFont("Segoe UI Light", 96))
         
         self.lbl_date = QLabel()
         self.lbl_date.setAlignment(Qt.AlignCenter)
@@ -114,12 +115,8 @@ class LockScreen(QWidget):
         self.pw_field.setPlaceholderText("Enter secure passphrase...")
         self.pw_field.setFixedHeight(40)
         self.pw_field.setAlignment(Qt.AlignCenter)
+        self.pw_field.textChanged.connect(self._on_pw_changed)
         self.pw_field.returnPressed.connect(self._try_unlock)
-
-        self.btn_unlock = QPushButton("AUTHENTICATE")
-        self.btn_unlock.setObjectName("BtnUnlock")
-        self.btn_unlock.setFixedHeight(40)
-        self.btn_unlock.clicked.connect(self._try_unlock)
 
         self.lbl_error = QLabel("")
         self.lbl_error.setAlignment(Qt.AlignCenter)
@@ -128,7 +125,6 @@ class LockScreen(QWidget):
         auth_layout.addWidget(self.scan_lbl)
         auth_layout.addWidget(lbl_user)
         auth_layout.addWidget(self.pw_field)
-        auth_layout.addWidget(self.btn_unlock)
         auth_layout.addWidget(self.lbl_error)
         
         main_layout.addWidget(self.auth_container, alignment=Qt.AlignCenter)
@@ -163,10 +159,19 @@ class LockScreen(QWidget):
     # ── Phase 1: Clock-only ──────────────────────────────────────
 
     def _tick(self):
-        from PyQt5.QtCore import QDateTime
-        now = QDateTime.currentDateTime()
-        self.lbl_clock.setText(now.toString("h:mm AP"))
-        self.lbl_date.setText(now.toString("dddd, MMMM d").upper())
+        from datetime import datetime
+        # Force English format — do NOT use QDateTime (respects system locale)
+        # This prevents Arabic numerals on Arabic Windows
+        now = datetime.now()
+        # 12-hour format: "11:31 PM" (no leading zero)
+        time_str = now.strftime("%I:%M %p").lstrip("0") or now.strftime("%I:%M %p")
+        # Day + date in English using fixed English day/month names
+        _DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+        _MONTHS = ["January", "February", "March", "April", "May", "June",
+                   "July", "August", "September", "October", "November", "December"]
+        date_str = f"{_DAYS[now.weekday()]}, {_MONTHS[now.month - 1]} {now.day:02d}".upper()
+        self.lbl_clock.setText(time_str)
+        self.lbl_date.setText(date_str)
 
     def keyPressEvent(self, event):
         """Phase 1 -> Phase 2: Any keypress reveals auth card."""
@@ -224,6 +229,18 @@ class LockScreen(QWidget):
 
     # ── Phase 2: Authentication ──────────────────────────────────
 
+    def _on_pw_changed(self, text):
+        if not text or len(text) < 4:
+            return
+        # Auto-login: Quick pre-check with file-based auth, then Rust core
+        try:
+            from system.security.auth_manager import AuthManager as FileAuth
+            file_auth = FileAuth()
+            if file_auth.is_setup_complete() and file_auth.verify_password(text):
+                self._try_unlock()
+        except Exception:
+            pass  # Pre-check failed silently — user can still press Enter
+
     def _try_unlock(self):
         if self._is_unlocking:
             return
@@ -233,9 +250,7 @@ class LockScreen(QWidget):
             return
 
         self._is_unlocking = True
-        self.btn_unlock.setEnabled(False)
         self.pw_field.setEnabled(False)
-        self.btn_unlock.setText("VERIFYING IDENTITY...")
         self.scan_lbl.setStyleSheet(f"color: {THEME['warning']};")
 
         # Pulse animation for scan icon
@@ -258,15 +273,12 @@ class LockScreen(QWidget):
             # Success — stop pulse, show green, AppController switches screen
             self._stop_pulse()
             self.scan_lbl.setStyleSheet(f"color: {THEME['success']};")
-            self.btn_unlock.setText("ACCESS GRANTED")
 
     def _on_fail(self, error_dict: dict):
         self._is_unlocking = False
         self._stop_pulse()
 
-        self.btn_unlock.setEnabled(True)
         self.pw_field.setEnabled(True)
-        self.btn_unlock.setText("AUTHENTICATE")
         self.scan_lbl.setStyleSheet(f"color: {THEME['error_bright']};")
         self.lbl_error.setText("ACCESS DENIED")
         
@@ -310,8 +322,6 @@ class LockScreen(QWidget):
         self.lbl_hint.show()
         self.lbl_error.setText("")
         self.pw_field.clear()
-        self.btn_unlock.setText("AUTHENTICATE")
-        self.btn_unlock.setEnabled(True)
         self.pw_field.setEnabled(True)
         self.scan_lbl.setStyleSheet(f"color: {THEME['primary_glow']};")
         self._clock_opacity.setOpacity(1.0)

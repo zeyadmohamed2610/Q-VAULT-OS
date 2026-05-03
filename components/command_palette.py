@@ -20,7 +20,8 @@ class CommandPalette(QFrame):
     """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(500, 350)
+        self.hide()
+        return
         self.setWindowFlags(Qt.SubWindow | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setObjectName("Palette")
@@ -47,7 +48,7 @@ class CommandPalette(QFrame):
         
         self.setStyleSheet(f"""
             QFrame#Palette {{
-                background: rgba(20, 20, 35, 0.95);
+                background: rgba(20, 20, 35, 0.98);
                 border: 1px solid rgba(255, 255, 255, 0.1);
                 border-radius: 12px;
             }}
@@ -228,12 +229,19 @@ class CommandPalette(QFrame):
         self._drag_pos = None
 
     def _close_palette(self):
+        self.hide()
         EVENT_BUS.emit(SystemEvent.REQ_COMMAND_PALETTE_TOGGLE)
 
-    def show_centered(self, parent_rect: QRect):
-        x = (parent_rect.width() - self.width()) // 2
-        y = parent_rect.height() // 4 # Top-weighted center
-        self.move(x, y)
+    def show_and_focus(self):
+        if self.parent() and hasattr(self.parent(), 'rect'):
+            parent_rect = self.parent().rect()
+            x = (parent_rect.width() - self.width()) // 2
+            y = parent_rect.height() // 4
+            self.move(x, y)
         self.show()
+        self.raise_()
         self.input.setFocus()
         self.input.clear()
+
+    def show_centered(self, parent_rect: QRect):
+        self.show_and_focus()

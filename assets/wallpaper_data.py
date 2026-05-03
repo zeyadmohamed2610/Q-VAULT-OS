@@ -1,9 +1,3 @@
-# =============================================================
-#  wallpaper_data.py — Q-Vault OS  |  Wallpaper Registry (Static)
-#
-#  Passive asset layer. No logic.
-# =============================================================
-
 from dataclasses import dataclass
 
 @dataclass
