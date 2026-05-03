@@ -38,6 +38,7 @@ At its heart lies the **Q-Vault Security Core**, a native Rust implementation th
 ## 🚀 Key Pillars of Excellence {#key-pillars-of-excellence}
 
 ### 🦀 Rust-Hardened Kernel
+
 Leveraging `PyO3`, the security-critical logic is offloaded to a native Rust binary. 
 
 - **Zero-Knowledge Architecture**: Encryption keys never touch the Python memory space.
@@ -45,6 +46,7 @@ Leveraging `PyO3`, the security-critical logic is offloaded to a native Rust bin
 - **Argon2id KDF**: Industrial-grade password hashing and key derivation.
 
 ### 🧠 AI-Native Governance
+
 Q-Vault is built for the age of AI. The **Runtime Intelligence Manager** monitors application behavior in real-time.
 
 - **Dynamic Trust Scores**: Apps are assigned trust levels based on their API call patterns.
@@ -52,6 +54,7 @@ Q-Vault is built for the age of AI. The **Runtime Intelligence Manager** monitor
 - **Context-Aware Terminal**: A specialized shell that understands system state and provides AI-assisted command suggestions.
 
 ### 🖥️ Fluid Multitasking Engine
+
 A custom-built window manager designed for maximum productivity.
 
 - **Tiling & Snapping**: Intelligent window placement with physics-based animations.
