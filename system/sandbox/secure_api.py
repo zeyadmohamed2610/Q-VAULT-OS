@@ -46,17 +46,24 @@ _SYS_POPEN = subprocess.Popen
 
 def _governed_popen_guard(*args, **kwargs):
     import traceback
-    # Analyze the call stack to see if an app is trying a direct bypass
     stack = traceback.extract_stack()
+    
+    # Trusted internal components that are allowed to launch processes
+    TRUSTED_COMPONENTS = ["qvault_launcher.py", "qvault_adapter.py", "qvault_runtime_bridge.py"]
+    
+    # If any part of the call stack is a trusted component, allow the launch
     for frame in stack:
-        # If any frame is inside the 'apps/' directory, it's an unauthorized bypass
-        # EXCEPT for the trusted qvault_launcher which is allowed to start the mediator.
+        fn = frame.filename.replace("\\", "/")
+        if any(trusted in fn for trusted in TRUSTED_COMPONENTS):
+            return _SYS_POPEN(*args, **kwargs)
+            
+    # Otherwise, check if any app is trying to bypass
+    for frame in stack:
         fn = frame.filename.replace("\\", "/")
         if "/apps/" in fn:
-            if "qvault_launcher.py" in fn or "qvault_adapter.py" in fn:
-                continue
             logger.critical("[BYPASS INTERDICTED] App attempted direct subprocess execution: %s", fn)
             raise PermissionError("[Sandbox] CRITICAL: Direct subprocess access is FORBIDDEN. Use self.secure_api.process instead.")
+            
     return _SYS_POPEN(*args, **kwargs)
 
 # Secure the OS boundary
