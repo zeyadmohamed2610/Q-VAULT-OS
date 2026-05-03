@@ -48,7 +48,6 @@ from system.app_controller import get_app_controller
 from components.boot_screen import BootScreen
 from components.login_screen import LoginScreen
 from components.desktop import Desktop
-from components.lock_screen import LockScreen
 
 
 class QVaultOS(QMainWindow):
@@ -75,7 +74,6 @@ class QVaultOS(QMainWindow):
             "boot": self._boot_screen,
             "login": self._login_screen,
             "desktop": self._desktop_screen,
-            "lock_class": LockScreen
         }
 
         # Wire transitions

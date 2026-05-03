@@ -105,12 +105,8 @@ class AuthManager(QObject):
 
     def request_lock(self) -> None:
         """Called by Desktop idle timer or user action."""
-        if self._state != AuthState.LOGGED_IN:
-            logger.warning(f"[AuthManager] Ignoring lock request — state is {self._state.value}.")
-            return
-
-        self._idle_timer.stop()
-        self._set_state(AuthState.LOCKED)
+        logger.info("[AuthManager] Lock requested, but Lock Screen is completely disabled by user.")
+        return
 
     def request_logout(self) -> None:
         """Called by Taskbar logout. Full session teardown."""
@@ -172,20 +168,8 @@ class AuthManager(QObject):
     # ── Session timeout (moved from desktop.py) ──────────────────
 
     def _check_idle(self):
-        if self._state != AuthState.LOGGED_IN:
-            return
-
-        elapsed = time.time() - self._last_activity
-
-        if elapsed >= self.IDLE_LIMIT:
-            logger.info("[AuthManager] Idle timeout reached — locking session.")
-            self.request_lock()
-        elif elapsed >= (self.IDLE_LIMIT - self.DIM_WARN):
-            progress = (elapsed - (self.IDLE_LIMIT - self.DIM_WARN)) / self.DIM_WARN
-            EVENT_BUS.emit(SystemEvent.USER_IDLE, {
-                "dim_progress": round(progress, 2),
-                "seconds_remaining": int(self.IDLE_LIMIT - elapsed)
-            }, source="AuthManager")
+        # Disabled completely to bypass locking screen.
+        pass
 
     # ── State machine core ───────────────────────────────────────
 

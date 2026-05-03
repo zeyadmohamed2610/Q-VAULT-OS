@@ -62,13 +62,6 @@ class AppController:
             self._stop_services()
             self._close_all_windows()
             
-            # Prevent signal/memory leaks: destroy lock screen on full logout
-            if "lock" in self._screens:
-                lock_screen = self._screens.pop("lock")
-                if self._stack:
-                    self._stack.removeWidget(lock_screen)
-                lock_screen.deleteLater()
-                
             self._switch_to_login()
 
 
@@ -108,20 +101,8 @@ class AppController:
                 desktop_widget.init_notification_container()
 
     def _switch_to_lock(self):
-        am = get_auth_manager()
-
-        # v1.6 Context Security: Wipe session brain
-        from system.runtime.launcher_intelligence import BRAIN
-        BRAIN.reset_session_context()
-
-        if self._stack and "lock" not in self._screens and "lock_class" in self._screens:
-            lock_cls = self._screens["lock_class"]
-            lock = lock_cls(am.username, parent=self._stack)
-            self._screens["lock"] = lock
-            self._stack.addWidget(lock)
-            
-        if self._stack:
-            self._stack.setCurrentWidget(self._screens["lock"])
+        # Feature entirely disabled by user request.
+        pass
 
     # ── Services ─────────────────────────────────────────────────
 
