@@ -319,7 +319,7 @@ class OutputFormatter:
         """
         is_root = (role == "admin")
         sym     = "#" if is_root else "$"
-        badge   = "\033[41m[ROOT]\033[0m " if is_root else ""
+        badge   = "[ROOT] " if is_root else ""
 
         try:
             rel      = cwd.relative_to(base_dir)

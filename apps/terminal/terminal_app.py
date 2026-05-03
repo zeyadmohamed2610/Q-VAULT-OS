@@ -60,6 +60,7 @@ class _Highlighter(QSyntaxHighlighter):
         self._add(r"└─", "#3fb950", True)
         
         # 2. User & Machine
+        self._add(r"\[ROOT\]", "#f85149", True) # Red badge for ROOT
         self._add(r"\(.*㉿.*\)", "#3fb950", True) # (user㉿qvault)
         
         # 3. Path

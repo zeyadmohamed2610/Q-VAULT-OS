@@ -224,14 +224,16 @@ class TerminalEngine(QObject):
         elif parsed.base == "lock":
             self._handle_lock(parsed.parts)
         elif self._executor.dispatch(parsed):
-            self._emit_prompt()
+            if not getattr(self, "_suppress_prompt", False):
+                self._emit_prompt()
         elif parsed.is_whitelisted:
             self._executor.run_subprocess(parsed.parts)
         else:
             # Unknown command — suggest alternatives
             known = list(CommandParser.BUILTIN_COMMANDS) + list(CommandParser.SUBPROCESS_WHITELIST.keys())
             self.output_ready.emit(OutputFormatter.unknown_command(parsed.base, known))
-            self._emit_prompt()
+            if not getattr(self, "_suppress_prompt", False):
+                self._emit_prompt()
 
     # ── Right-click "Run as Administrator" ───────────────────────────────────
 
@@ -423,8 +425,11 @@ class TerminalEngine(QObject):
                 self.output_ready.emit(OutputFormatter.sudo_granted())
                 saved_role        = self.current_role
                 self.current_role = "admin"
+                self._suppress_prompt = True
                 self.execute_command(self._pending_cmd)
+                self._suppress_prompt = False
                 self.current_role = saved_role
+                self._emit_prompt()
         else:
             pts = self.sudo_manager.threat_points_for_failed_sudo()
             self._increase_threat(pts, "Failed sudo auth attempt")
@@ -452,8 +457,11 @@ class TerminalEngine(QObject):
         if self.sudo_manager.is_sudo_cached:
             saved_role        = self.current_role
             self.current_role = "admin"
+            self._suppress_prompt = True
             self.execute_command(self._pending_cmd)
+            self._suppress_prompt = False
             self.current_role = saved_role
+            self._emit_prompt()
             return
         self.state = EngineState.AUTH_SUDO
         self.password_mode.emit("password_mode", True)
