@@ -5,6 +5,7 @@ First off, thank you for considering contributing to Q-Vault OS! It's people lik
 ## Code of Conduct
 
 By participating in this project, you are expected to uphold our Code of Conduct:
+
 - Use welcoming and inclusive language.
 - Be respectful of differing viewpoints and experiences.
 - Gracefully accept constructive criticism.
