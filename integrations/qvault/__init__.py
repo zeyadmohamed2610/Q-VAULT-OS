@@ -28,6 +28,7 @@ def find_mediator_exe() -> Path | None:
     for candidate in MEDIATOR_EXE_CANDIDATES:
         searched.append(str(candidate))
         if candidate.exists() and candidate.stat().st_size > 0:
+            logger.info("[QVault] Resolved mediator at: %s", candidate)
             return candidate
     
     # If not found, log the searched paths to help the user debug

@@ -54,7 +54,13 @@ def launch_mediator() -> Optional[subprocess.Popen]:
     except OSError as exc:
         logger.error("[QVaultLauncher] OS error launching mediator: %s", exc)
     except Exception as exc:
-        logger.error("[QVaultLauncher] Unexpected error: %s", exc)
+        error_msg = f"OS Launch Error: {str(exc)}"
+        logger.error("[QVaultLauncher] %s", error_msg)
+        try:
+            from core.event_bus import EVENT_BUS, SystemEvent
+            EVENT_BUS.emit(SystemEvent.EVENT_QVAULT_ERROR, {"error": error_msg}, source="Launcher")
+        except: pass
+        return None
 
     return None
 
