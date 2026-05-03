@@ -429,7 +429,12 @@ class EventBus(QObject):
             self._sweep_dead()
 
         # ── 6. Qt signal for UI listeners (DebugOverlay etc.) ────
-        self.event_emitted.emit(payload)
+        try:
+            self.event_emitted.emit(payload)
+        except RuntimeError:
+            # This happens during shutdown if background threads emit while
+            # the QApplication (and thus EVENT_BUS QObject) is being deleted.
+            pass
 
     def subscribe(self, event_type: Any, callback: Callable):
         """Register a callback for an event type. Thread-safe."""
