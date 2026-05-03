@@ -3,6 +3,7 @@
 ![Q-Vault OS UI Mockup](assets/screenshots/hero_mockup.png)
 
 ## **Next-Generation Secure OS Simulation Environment**
+
 *Fusing Python's agility with Rust's uncompromising safety.*
 
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
@@ -108,6 +109,7 @@ Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form an
 ## ⚡ Quick Deployment {#quick-deployment}
 
 ### Prerequisites
+
 - **Python 3.10+**
 - **Rust Toolchain** (latest stable)
 - **.NET 9.0 Runtime** (Required for the Security Mediator)
@@ -136,6 +138,7 @@ The simulation operates on the **Principle of Least Privilege (PoLP)**:
 4. **Audit Logging**: Every system event is signed and stored in a secure ledger.
 
 ### 🔍 Troubleshooting & Diagnostics
+
 If the security subsystem fails to initialize:
 - Check the integration logs at `~/.qvault/logs/integration.log`.
 - View the mediator's internal stderr/stdout at `~/.qvault/logs/mediator.log`.
