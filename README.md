@@ -60,6 +60,7 @@ A custom-built window manager designed for maximum productivity.
 
 - **Tiling & Snapping**: Intelligent window placement with physics-based animations.
 - **Sub-Millisecond IPC**: Ultra-fast inter-process communication via an internal secure event bus.
+- **Advanced Shell Logic**: Full POSIX parity with redirection (`>`, `>>`), pipes (`|`), and path expansion (`~`, `$VAR`).
 - **Glassmorphic Aesthetics**: A modern, dark-themed UI with vibrant accents and smooth transitions.
 
 ---
@@ -92,7 +93,7 @@ graph TD
 
 | Subsystem | Description | Technology | Status |
 | :--- | :--- | :--- | :--- |
-| **Terminal** | POSIX-compliant shell with advanced nano & tab-completion. | Python + Rust | ✅ Stable |
+| **Terminal** | Pro-grade shell with Ghost-Text, redirection, and state-aware status header. | Python + Rust | ✅ Stable |
 | **File Manager** | Encrypted explorer with drag-and-drop support. | PyQt5 | ✅ Stable |
 | **Notepad** | Professional GUI text editor with full file I/O. | PyQt5 | ✅ Stable |
 | **System Monitor** | Live telemetry, resource graphs, and Trust Scores. | Matplotlib + IPC | ✅ Stable |
@@ -106,7 +107,8 @@ graph TD
 Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form and function:
 
 - **ASCII Boot Sequence**: A high-fidelity, gradient-colored boot banner that signals system readiness.
-- **Dynamic Syntax Highlighting**: A custom-engineered terminal highlighter that provides real-time visual feedback.
+- **Ghost-Text suggestions**: AI-like command completion based on history and local filesystem context.
+- **Real-time Status Header**: Live telemetry (CPU/MEM) and security state indicators (ROOT/SUDO).
 - **Monospace Consistency**: Guaranteed alignment across all systems via an intelligent font-fallback engine.
 
 ---
