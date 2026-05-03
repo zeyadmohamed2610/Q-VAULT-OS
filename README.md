@@ -14,15 +14,15 @@
 
 ## 📖 Table of Contents
 
-- [🌌 Overview](#-overview)
-- [🚀 Key Pillars of Excellence](#-key-pillars-of-excellence)
-- [🛠️ Technical Architecture](#-technical-architecture)
-- [📦 Included Subsystems](#-included-subsystems)
-- [🎨 Immersive Experience](#-immersive-experience)
-- [⚡ Quick Deployment](#-quick-deployment)
-- [🔒 Security Model](#-security-model)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
+- [🌌 Overview](#overview)
+- [🚀 Key Pillars of Excellence](#key-pillars-of-excellence)
+- [🛠️ Technical Architecture](#technical-architecture)
+- [📦 Included Subsystems](#included-subsystems)
+- [🎨 Immersive Experience](#immersive-experience)
+- [⚡ Quick Deployment](#quick-deployment)
+- [🔒 Security Model](#security-model)
+- [🤝 Contributing](#contributing)
+- [📄 License](#license)
 
 ---
 
