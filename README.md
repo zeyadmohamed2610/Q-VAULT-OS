@@ -1,16 +1,14 @@
 # 🛡️ Q-Vault OS: The Ultimate Secure AI-Native Simulator
 
-<div align="center">
-  <img src="assets/screenshots/hero_mockup.png" width="100%" alt="Q-Vault OS UI Mockup">
-  <br>
-  <h3><b>Next-Generation Secure OS Simulation Environment</b></h3>
-  <p><i>Fusing Python's agility with Rust's uncompromising safety.</i></p>
+![Q-Vault OS UI Mockup](assets/screenshots/hero_mockup.png)
 
-  ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
-  ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
-  ![Rust](https://img.shields.io/badge/rust-1.75%2B-DEA584?style=for-the-badge&logo=rust&logoColor=white)
-  ![PyQt5](https://img.shields.io/badge/PyQt5-GUI-41CD52?style=for-the-badge&logo=qt&logoColor=white)
-</div>
+## **Next-Generation Secure OS Simulation Environment**
+*Fusing Python's agility with Rust's uncompromising safety.*
+
+![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
+![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Rust](https://img.shields.io/badge/rust-1.75%2B-DEA584?style=for-the-badge&logo=rust&logoColor=white)
+![PyQt5](https://img.shields.io/badge/PyQt5-GUI-41CD52?style=for-the-badge&logo=qt&logoColor=white)
 
 ---
 
@@ -145,9 +143,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-<div align="center">
-  <p>Built with ❤️ by the Q-Vault Development Team</p>
-  <p><i>Protecting the simulation, one byte at a time.</i></p>
-  <br>
-  <img src="assets/icons/qvault_logo.svg" width="60" height="60">
-</div>
+---
+**Built with ❤️ by the Q-Vault Development Team**
+*Protecting the simulation, one byte at a time.*
+
+![Q-Vault Logo](assets/icons/qvault_logo.svg)
