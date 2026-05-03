@@ -39,7 +39,7 @@ At its heart lies the **Q-Vault Security Core**, a native Rust implementation th
 
 ### 🦀 Rust-Hardened Kernel
 
-Leveraging `PyO3`, the security-critical logic is offloaded to a native Rust binary. 
+Leveraging `PyO3`, the security-critical logic is offloaded to a native Rust binary.
 
 - **Zero-Knowledge Architecture**: Encryption keys never touch the Python memory space.
 - **AES-256-GCM Encryption**: Every file in the virtual filesystem is encrypted at rest.
@@ -69,7 +69,7 @@ A custom-built window manager designed for maximum productivity.
 graph TD
     User([User Interface]) --> Compositor[Window Compositor]
     Compositor --> AppContainer[Application Container]
-    
+
     subgraph "Secure Sandbox"
         AppContainer --> EventBus[Secure Event Bus]
         EventBus --> SecurityAPI[Python Security Bridge]
