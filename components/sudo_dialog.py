@@ -13,52 +13,53 @@ from PyQt5.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QWidget,
 )
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QPainter, QColor
+from PyQt5.QtGui import QPainter, QColor, QFont
 
 from system.security_api import get_security_api
 
 
 _STYLE = f"""
     QDialog#SudoDialog {{
-        background: {theme.BG_PANEL};
+        background: {THEME['bg_dark']};
     }}
     QLabel#SudoTitle {{
-        color: {theme.ACCENT_AMBER};
+        color: {THEME['warning']};
         font-family: 'Consolas', monospace;
         font-size: 14px;
         font-weight: bold;
         background: transparent;
     }}
     QLabel#SudoBody {{
-        color: {theme.TEXT_DIM};
+        color: {THEME['text_dim']};
         font-family: 'Consolas', monospace;
         font-size: 11px;
         background: transparent;
     }}
     QLabel#SudoError {{
-        color: {theme.ACCENT_RED};
+        color: {THEME['accent_error']};
         font-family: 'Consolas', monospace;
         font-size: 11px;
         background: transparent;
         min-height: 14px;
     }}
     QLineEdit#SudoPw {{
-        background: {theme.BG_DARK};
-        color: {theme.TEXT_PRIMARY};
+        background: {THEME['bg_black']};
+        color: {THEME['text_main']};
         font-family: 'Consolas', monospace;
         font-size: 13px;
-        border: 1px solid {theme.BORDER_DIM};
+        border: 1px solid {THEME['border_subtle']};
         border-radius: 6px;
         padding: 8px 12px;
     }}
     QLineEdit#SudoPw:focus {{
-        border: 1px solid {theme.ACCENT_AMBER};
+        border: 1px solid {THEME['warning']};
     }}
     QPushButton#SudoOk {{
-        background: {theme.ACCENT_AMBER};
-        color: {theme.BG_DARK};
+        background: {THEME['warning']};
+        color: {THEME['bg_black']};
         border: none;
         border-radius: 6px;
         padding: 8px 24px;
@@ -67,20 +68,20 @@ _STYLE = f"""
         font-weight: bold;
     }}
     QPushButton#SudoOk:hover {{
-        background: #ffd080;
+        background: {THEME['warning_soft']};
     }}
     QPushButton#SudoCancel {{
         background: transparent;
-        color: {theme.TEXT_DIM};
-        border: 1px solid {theme.BORDER_DIM};
+        color: {THEME['text_dim']};
+        border: 1px solid {THEME['border_subtle']};
         border-radius: 6px;
         padding: 8px 24px;
         font-family: 'Consolas', monospace;
         font-size: 12px;
     }}
     QPushButton#SudoCancel:hover {{
-        background: {theme.BG_HOVER};
-        color: {theme.TEXT_PRIMARY};
+        background: {THEME['hover_subtle']};
+        color: {THEME['text_main']};
     }}
 """
 
@@ -115,7 +116,7 @@ class SudoDialog(QDialog):
         icon = QLabel("[sudo]")
         icon.setStyleSheet(
             f"font-size:14px; font-weight:bold; "
-            f"color:{theme.ACCENT_AMBER}; background:transparent;"
+            f"color:{THEME['warning']}; background:transparent;"
         )
         title = QLabel("sudo -- Authentication Required")
         title.setObjectName("SudoTitle")
@@ -166,7 +167,7 @@ class SudoDialog(QDialog):
             rem = self._api.sudo_remaining()
             note = QLabel(f"[i]  Sudo already active ({rem}s remaining)")
             note.setStyleSheet(
-                f"color:{theme.ACCENT_GREEN}; font-family:'Consolas',monospace;"
+                f"color:{THEME['success']}; font-family:'Consolas',monospace;"
                 f"font-size:10px; background:transparent;"
             )
             layout.addWidget(note)
@@ -176,8 +177,8 @@ class SudoDialog(QDialog):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
-        painter.fillRect(self.rect(), QColor(theme.BG_PANEL))
-        painter.setPen(QColor(theme.ACCENT_AMBER))
+        painter.fillRect(self.rect(), QColor(THEME['bg_dark']))
+        painter.setPen(QColor(THEME['warning']))
         painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1), 8, 8)
 
     def _try_auth(self):
