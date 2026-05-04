@@ -451,7 +451,7 @@ class TerminalBuffer(QPlainTextEdit):
             self.viewport().update()
 
 class TerminalApp(QWidget):
-    def __init__(self, secure_api=None, start_path: str = None, parent=None):
+    def __init__(self, secure_api=None, start_path: str = None, role_override: str = None, parent=None):
         super().__init__(parent)
         self.secure_api = secure_api
         self._base_dir = Path(get_qvault_home()).resolve()
@@ -483,6 +483,10 @@ class TerminalApp(QWidget):
         self._engine._executor._on_notepad_request = self._open_notepad
         
         self._engine.boot_terminal()
+        if role_override == "admin":
+            # Already authenticated by desktop context menu
+            self._engine._elevate_to_root()
+            
         # Scroll to bottom so prompt is visible
         QTimer.singleShot(100, self._buffer.ensureCursorVisible)
 

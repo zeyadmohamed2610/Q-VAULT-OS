@@ -124,6 +124,7 @@ class OSWindow(QWidget):
         self.title_bar = OSTitleBar()
         self.title_bar.setObjectName("TitleBar")
         self.title_bar.setFixedHeight(30)
+        self.title_bar.setCursor(Qt.ArrowCursor)  # Prevent inheriting resize cursor
         self.title_bar.double_clicked.connect(lambda: self._snap_ctrl.toggle_maximize())
         
         tb_layout = QHBoxLayout(self.title_bar)
@@ -183,6 +184,7 @@ class OSWindow(QWidget):
         content_container = QWidget()
         content_container.setObjectName("WindowContent")
         content_container.setAttribute(Qt.WA_StyledBackground, True)
+        content_container.setCursor(Qt.ArrowCursor)  # Prevent inheriting resize cursor
         self.content_layout = QVBoxLayout(content_container)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
         if content_widget is not None:
