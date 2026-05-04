@@ -10,7 +10,7 @@ import ctypes
 
 class ControlCenter(QFrame):
     """
-    v2.7 Unified Control Center & Power Hub.
+    v1.0 Unified Control Center & Power Hub.
     Consolidates Network, Bluetooth, Volume, Brightness, and Power.
     """
     def __init__(self, parent=None):

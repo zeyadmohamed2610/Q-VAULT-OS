@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 class PlanRegistry:
     """
-    v2.1 Central Catalog for System Plans.
+    v1.0 Central Catalog for System Plans.
     Manages Plan Templates with category-based governance.
     """
     def __init__(self):

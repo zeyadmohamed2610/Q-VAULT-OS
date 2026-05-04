@@ -116,7 +116,7 @@ class QuickPanel(QWidget):
         self._pending_vol = 70
 
         # Footer
-        footer = QLabel("Q-VAULT CONTROL HUB v2.1")
+        footer = QLabel("Q-VAULT CONTROL HUB v1.0")
         footer.setAlignment(Qt.AlignCenter)
         footer.setStyleSheet(f"color: {THEME['text_disabled']}; font-size: 9px; letter-spacing: 1px;")
         self.layout.addWidget(footer)

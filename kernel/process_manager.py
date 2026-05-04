@@ -36,7 +36,7 @@ class Process:
         self.is_persistent = False  # New: auto-restart flag
         self.handle = None  # New: subprocess.Popen handle
 
-        # ── OS Scheduler fields (v2.1) ──────────────────────────
+        # ── OS Scheduler fields (v1.0) ──────────────────────────
         self.burst_time: int = 0
         self.remaining_time: int = 0
         self.waiting_time: int = 0
@@ -44,11 +44,11 @@ class Process:
         self.priority: int = 5
         self.arrival_tick: int = 0
 
-        # ── Dispatcher / PCB fields (v2.2) ──────────────────────
+        # ── Dispatcher / PCB fields (v1.0) ──────────────────────
         self.saved_registers: dict = {}
         self.cpu_id: int = 0
 
-        # ── Multicore Engine fields (v2.3) ───────────────────────
+        # ── Multicore Engine fields (v1.0) ───────────────────────
         # preferred_core: hint to MulticoreEngine; -1 = no preference.
         self.preferred_core: int = -1
 

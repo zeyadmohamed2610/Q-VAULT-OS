@@ -16,7 +16,7 @@ class GitState(Enum):
 
 class GitPlugin(BasePlugin):
     """
-    v3.5.2 Wisely Vigilant Partner.
+    v1.0 Wisely Vigilant Partner.
     Respects 'Professional Silence' and handles chaotic diffs with transparency.
     """
     def __init__(self):
@@ -49,7 +49,7 @@ class GitPlugin(BasePlugin):
                 }]
             
             elif self.state == GitState.STAGED:
-                # v3.5.2: Professional Silence Logic
+                # v1.0: Professional Silence Logic
                 diff_res = subprocess.run("git diff --staged --unified=1", shell=True, capture_output=True, text=True)
                 self.ai_evaluation = REASONING_ENGINE.summarize_diff(diff_res.stdout, self.handoff_metadata)
                 
@@ -62,7 +62,7 @@ class GitPlugin(BasePlugin):
                     "id": "git_commit",
                     "title": "Commit Staged Changes",
                     "description": "Semantic intent based on diff analysis.",
-                    "confidence": self.ai_evaluation['confidence'], # v3.5.2 Chaos transparency
+                    "confidence": self.ai_evaluation['confidence'], # v1.0 Chaos transparency
                     "command": "@git commit_step",
                     "is_sensitive": True,
                     "workflow": {"steps": 3, "current": 2, "progress": "● ● ○"},

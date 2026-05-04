@@ -86,7 +86,7 @@ class LauncherPanel(QWidget):
         title.setAlignment(Qt.AlignCenter)
         lay.addWidget(title)
 
-        ver = QLabel("v1.0.0 · admin")
+        ver = QLabel("v1.0 · admin")
         ver.setFont(QFont("Segoe UI", 9))
         ver.setStyleSheet("color:#4a6880; background:transparent;")
         ver.setAlignment(Qt.AlignCenter)

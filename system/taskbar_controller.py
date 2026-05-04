@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class TaskbarController(QObject):
     """
-    v2.0 Event-Driven Taskbar State Machine.
+    v1.0 Event-Driven Taskbar State Machine.
     Subscribes to EventBus Facts. Emits Commands for actions.
     The state_updated signal is intra-component only (-> TaskbarUI).
     """

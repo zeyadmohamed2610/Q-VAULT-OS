@@ -21,7 +21,7 @@ class PluginRegistry:
         self._plugins: Dict[str, Dict[str, Any]] = {}
         self._loaded_modules: Dict[str, Any] = {}
         
-        # 🧪 v2.7 Mock Marketplace Content
+        # 🧪 v1.0 Mock Marketplace Content
         self._plugins["neural_viz"] = {
             "id": "neural_viz", "name": "Neural Network Visualizer", "version": "1.0.4",
             "description": "Real-time visualization of LLM attention heads and logic branching.",

@@ -1574,7 +1574,7 @@ class LnCommand(BaseCommand):
 
 class BashCommand(BaseCommand):
     def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
-        ctx.emit_output("Q-Vault Bourne-Again SHell (bash) v5.2.1\n")
+        ctx.emit_output("Q-Vault Bourne-Again SHell (bash) v1.0\n")
         ctx.emit_output("Type 'exit' to return to main shell.\n")
 
 

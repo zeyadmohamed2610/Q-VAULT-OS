@@ -215,7 +215,7 @@ class MetricsBadge(QFrame):
 
 class IsolatedAppWidget(QWidget):
     """
-    Top-Tier UX Layer for isolated applications (v1.2.1 Stable).
+    Top-Tier UX Layer for isolated applications (v1.0 Stable).
     Manages loading, recovery, and snappy transitions.
     """
     def __init__(self, app_id, module_path, class_name, secure_api=None, parent=None, boot_timeout=5.0):

@@ -14,7 +14,7 @@ class PluginAction:
 class BasePlugin(ABC):
     """
     Abstract Base Class for all Q-Vault Plugins.
-    v3.1 'Execution Partner' Framework.
+    v1.0 'Execution Partner' Framework.
     """
     def __init__(self):
         self.plugin_id = self.__class__.__name__.lower()

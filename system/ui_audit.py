@@ -40,7 +40,7 @@ def run_deep_test():
             time.sleep(0.5) # Observation delay
             
         # ── TEST 2: Modern Launcher ──
-        print("\nTEST 2: MODERN LAUNCHER (v4.0)...")
+        print("\nTEST 2: MODERN LAUNCHER (v1.0)...")
         QTest.keyClick(desktop, Qt.Key_Space, Qt.ControlModifier)
         time.sleep(1)
         

@@ -52,7 +52,7 @@ class MotionController:
     @staticmethod
     def fade_focus(window, active: bool):
         """
-        v1.4 Focus Physics: Scale (0.985 -> 1.0) + Opacity (0.92 -> 1.0).
+        v1.0 Focus Physics: Scale (0.985 -> 1.0) + Opacity (0.92 -> 1.0).
         Uses snappy 150ms transitions.
         """
         if hasattr(window, "_focus_anim") and window._focus_anim.state() == QPropertyAnimation.Running:

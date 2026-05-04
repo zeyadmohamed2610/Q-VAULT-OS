@@ -456,7 +456,7 @@ class TerminalApp(QWidget):
         self.secure_api = secure_api
         self._base_dir = Path(get_qvault_home()).resolve()
         
-        # v2.0 Refactor: Use TerminalEngine for core logic
+        # v1.0 Refactor: Use TerminalEngine for core logic
         from .terminal_engine import TerminalEngine
         start_path_obj = Path(start_path).resolve() if start_path else None
         self._engine = TerminalEngine(secure_api=secure_api, start_path=start_path_obj)
@@ -538,7 +538,7 @@ class TerminalApp(QWidget):
         try:
             cpu = psutil.cpu_percent()
             mem = psutil.virtual_memory().percent
-            self.metrics_label.setText(f"CPU: {cpu}%  |  MEM: {mem}%  |  Q-VAULT v4.0")
+            self.metrics_label.setText(f"CPU: {cpu}%  |  MEM: {mem}%  |  Q-VAULT v1.0")
         except Exception:
             pass
 

@@ -6,7 +6,7 @@ from system.notification_service import NotificationData, NotificationLevel
 
 class NotificationToast(QFrame):
     """
-    v2.0 Notification Toast.
+    v1.0 Notification Toast.
     Features hover-pause, dynamic content updates, and fluid entry/exit animations.
     """
     dismissed = pyqtSignal()

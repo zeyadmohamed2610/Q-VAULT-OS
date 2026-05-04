@@ -11,7 +11,7 @@ from system.window_manager import get_window_manager
 logger = logging.getLogger(__name__)
 
 class AutomationMode(Enum):
-    """v1.8 User Governance Modes."""
+    """v1.0 User Governance Modes."""
     ASSISTIVE = "assistive"
     SEMI_AUTO = "semi_auto"
     AUTONOMOUS = "autonomous"
@@ -19,7 +19,7 @@ class AutomationMode(Enum):
 @dataclass
 class ActionSnapshot:
     """
-    v1.9.1 Hardened Safety Record.
+    v1.0 Hardened Safety Record.
     Featuring strict validation and origin tracking.
     """
     type: str # e.g. "app_restart", "app_launch"
@@ -33,7 +33,7 @@ class ActionSnapshot:
 @dataclass
 class CompoundSnapshot(ActionSnapshot):
     """
-    v2.0 Orchestrator Record.
+    v1.0 Orchestrator Record.
     Wraps multiple action steps into a single logical Undo.
     """
     plan_id: str = ""
@@ -41,7 +41,7 @@ class CompoundSnapshot(ActionSnapshot):
 
 class AutomationEngine:
     """
-    v1.9.1 Hardened Cohesive OS Governance.
+    v1.0 Hardened Cohesive OS Governance.
     Implements a robust LIFO Undo system with Re-entrant Locking and Strict Validation.
     """
     def __init__(self):
@@ -60,7 +60,7 @@ class AutomationEngine:
 
     def _on_ai_decision(self, payload: EventPayload):
         """
-        v2.1 Alignment: The bridge between Reasoning and UI.
+        v1.0 Alignment: The bridge between Reasoning and UI.
         Determines if a decision warrants human attention.
         """
         decision = payload.data
@@ -123,7 +123,7 @@ class AutomationEngine:
                     actions=[{"label": "Manual Restart", "command": "@launch " + app_id}]
                 )
             else:
-                # 🧠 v1.9 Emotional UX & Action Snapshot
+                # 🧠 v1.0 Emotional UX & Action Snapshot
                 narrative = f"'{app_id}' restarted to keep things stable 👀"
                 
                 # Take Snapshot before action (LIFO)
@@ -157,7 +157,7 @@ class AutomationEngine:
 
     def perform_undo(self):
         """
-        v1.9.1 Hardened Undo Execution.
+        v1.0 Hardened Undo Execution.
         Strategy: Peek -> Validate -> Pop -> Execute
         """
         if not self._undo_stack:

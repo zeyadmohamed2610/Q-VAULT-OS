@@ -15,7 +15,7 @@ class SnapController:
         self._prev_geometry = QRect()
 
     def snap_to_slot(self, slot_type, rect=None):
-        """v1.4 Tiling Engine core."""
+        """v1.0 Tiling Engine core."""
         w = self._window
 
         if slot_type == WindowSlot.NORMAL:

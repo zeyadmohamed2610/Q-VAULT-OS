@@ -113,15 +113,15 @@ class AppController:
         except Exception as e:
             logger.error(f"[AppController] Failed to start CpuService: {e}")
         
-        # v2.2 AI Intelligence Layer
+        # v1.0 AI Intelligence Layer
         from system.ai.ai_controller import AIController
         self.ai_controller = AIController()
         
-        # v2.5 Automation & Workflows
+        # v1.0 Automation & Workflows
         from system.automation.workflow_engine import WORKFLOW_ENGINE
         self._init_default_workflows(WORKFLOW_ENGINE)
         
-        # v2.7 Ecosystem & Marketplace
+        # v1.0 Ecosystem & Marketplace
         from system.marketplace.plugin_registry import PLUGIN_REGISTRY
         PLUGIN_REGISTRY.scan_plugins()
         # self.cpu_service.cpu_updated.connect(desktop_widget.top_panel.update_cpu)

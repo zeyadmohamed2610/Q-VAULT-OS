@@ -25,7 +25,7 @@ class OSTitleBar(QWidget):
 
 class OSWindow(QWidget):
     """
-    v1.4 Modern Shell Window.
+    v1.0 Modern Shell Window.
     Handles Slot-based Tiling, Zero-Lag Snap detection, and Focus Physics.
     """
     SNAP_THRESHOLD = 40
@@ -196,11 +196,11 @@ class OSWindow(QWidget):
         # ── PHYSICS CONTROLLER (Temporarily Disabled for Stability) ──
         self.physics_controller = None
 
-        # ── ANIMATION CONTROLLER (v2.1 Refinement) ──
+        # ── ANIMATION CONTROLLER (v1.0 Refinement) ──
         from components.window_animation_controller import WindowAnimationController
         self.anim_controller = WindowAnimationController(self)
 
-        # ── DECOMPOSED HANDLERS (v2.0 God Object Fix) ──
+        # ── DECOMPOSED HANDLERS (v1.0 God Object Fix) ──
         from components.focus_manager import FocusManager
         from components.snap_controller import SnapController
         from components.window_drag_handler import WindowDragHandler
@@ -211,7 +211,7 @@ class OSWindow(QWidget):
         # Subscribe to physics facts (delegates to SnapController)
         EVENT_BUS.subscribe(SystemEvent.EVT_WINDOW_SNAPPED, self._snap_ctrl.on_physics_snap)
 
-        # ── v2.2 Init Debug ──
+        # ── v1.0 Init Debug ──
         logger.info(f"[WINDOW_CREATED] {window_id} | Title: {title} | Size: {self.size()} | Pos: {self.pos()}")
 
 
@@ -288,7 +288,7 @@ class OSWindow(QWidget):
                 self._resize_start_geom = self.geometry()
                 event.accept()
                 return
-        # ── v2.2 Focus Layer (stays in OSWindow — UI concern) ──
+        # ── v1.0 Focus Layer (stays in OSWindow — UI concern) ──
         self.raise_()
         self.activateWindow()
         get_window_manager().focus_window(self.window_id)
@@ -316,7 +316,7 @@ class OSWindow(QWidget):
         self._drag_handler.on_release(event)
 
     def keyPressEvent(self, event):
-        # v1.4 Shortcuts (Super + Arrows) — delegated to SnapController
+        # v1.0 Shortcuts (Super + Arrows) — delegated to SnapController
         if event.modifiers() & Qt.MetaModifier or event.modifiers() & Qt.AltModifier:
             p = self.parent().rect() if self.parent() else QRect()
             if self._snap_ctrl.handle_key_snap(event.key(), p):

@@ -70,7 +70,7 @@ class AIInspectorPanel(QFrame):
         self.scroll.setWidget(self.content)
         layout.addWidget(self.scroll)
         
-        # 🧠 v2.7 Initial System Audit Logs
+        # 🧠 v1.0 Initial System Audit Logs
         self._add_log("SYSTEM: Governance Layer Initialized.", "#00e6ff")
         self._add_log("AUDIT: Secure Mode verification [PASSED]", "#00ff88")
         self._add_log("NETWORK: Monitoring traffic for anomalies...", "#aaaaaa")

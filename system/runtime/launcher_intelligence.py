@@ -18,7 +18,7 @@ class AppStats:
 
 class BaseCommand:
     """
-    v1.6 Formal Command API.
+    v1.0 Formal Command API.
     Provides metadata for Intelligence, Automation, and UI Blending.
     """
     def __init__(self, name, category="System", icon="⚡", description="", sensitive=False):
@@ -163,7 +163,7 @@ class KillCommand(BaseCommand):
 
 class LauncherIntelligence:
     """
-    v1.6 Intelligence Engine.
+    v1.0 Intelligence Engine.
     Handles Layered Context Memory (Session/Persistent) and Blended Ranking.
     """
     def __init__(self):
@@ -223,7 +223,7 @@ class LauncherIntelligence:
 
     def get_ranked_results(self, query: str, app_list: list) -> list:
         """
-        v1.6 Blended Search: Injects Apps + System Commands.
+        v1.0 Blended Search: Injects Apps + System Commands.
         """
         now = time.time()
         curr_hour = str(time.localtime().tm_hour)

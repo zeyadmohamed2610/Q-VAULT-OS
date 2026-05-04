@@ -233,14 +233,14 @@ class _Subscriber:
         return cb.__self__ is obj
 
 
-# ── EventBus v2.0 ───────────────────────────────────────────────
+# ── EventBus v1.0 ───────────────────────────────────────────────
 
 _CLEANUP_INTERVAL = 25  # Run global dead-ref sweep every N emits
 
 
 class EventBus(QObject):
     """
-    v2.0 Hardened Telemetry Backbone.
+    v1.0 Hardened Telemetry Backbone.
 
     Production guarantees:
       - WeakMethod for bound methods -> no memory leaks from dead UI.
@@ -289,7 +289,7 @@ class EventBus(QObject):
         if not event_name.startswith("ui.") and not event_name.startswith("sys.request"):
             return True # Facts don't need strict validation here
             
-        # Standardized Q-Vault v2.2 Schema Rules
+        # Standardized Q-Vault v1.0 Schema Rules
         if "request_launch" in event_name and "name" not in data:
             return False
         if "drag_update" in event_name and ("x" not in data or "y" not in data):

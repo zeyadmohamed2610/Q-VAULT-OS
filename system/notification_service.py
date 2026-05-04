@@ -30,7 +30,7 @@ class NotificationData:
 
 class NotificationService(QObject):
     """
-    v1.5 'System Soul' Layer: Persistent Notification Service.
+    v1.0 'System Soul' Layer: Persistent Notification Service.
     Handles queuing, deduplication, and JSON history (capped at 200).
     """
     new_notification = pyqtSignal(dict)
@@ -47,7 +47,7 @@ class NotificationService(QObject):
 
     def notify(self, message: str, title: str = "System", level: str = NotificationLevel.INFO, actions: list = None, notif_id: str = None):
         """
-        v2.0 Active Feedback API with structured model.
+        v1.0 Active Feedback API with structured model.
         """
         # Deduplication logic (Don't spam identical critical warnings)
         now = time.time()

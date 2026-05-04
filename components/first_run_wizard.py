@@ -36,7 +36,7 @@ class FirstRunWizard(QDialog):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Q-VAULT OS v1.2.0 - Setup Wizard")
+        self.setWindowTitle("Q-VAULT OS v1.0 - Setup Wizard")
         self.setMinimumSize(700, 500)
         self.setModal(True)
         self.setWindowFlags(Qt.Dialog | Qt.WindowCloseButtonHint)

@@ -5,8 +5,8 @@ logger = logging.getLogger(__name__)
 
 class SystemSettings:
     """
-    v3.6.3 Stateful Settings Infrastructure.
-    Features Shadow Mode, v4.0 Readiness Tracking, and Professional Silence Calibration.
+    v1.0 Stateful Settings Infrastructure.
+    Features Shadow Mode, v1.0 Readiness Tracking, and Professional Silence Calibration.
     """
     _instance = None
 
@@ -16,12 +16,12 @@ class SystemSettings:
             cls._instance._dnd = False
             cls._instance._volume = 50
             
-            # v3.6.3 Shadow Mode (Soft Launch)
+            # v1.0 Shadow Mode (Soft Launch)
             cls._instance._shadow_mode = True
             cls._instance._shadow_start_time = time.time()
             cls._instance._v4_ready = False
             
-            # v4.0 Debug/Dev Mode
+            # v1.0 Debug/Dev Mode
             cls._instance._debug_mode = True  # Enable by default for current dev phase
             
         return cls._instance

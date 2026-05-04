@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 
 class WindowAnimationController(QObject):
     """
-    v2.2 Stress-Hardened Animation Orchestrator.
-    Key changes vs v2.1:
+    v1.0 Stress-Hardened Animation Orchestrator.
+    Key changes vs v1.0:
       - O(1) fast-path reject for events targeting OTHER windows
       - _animate_open uses 150ms fade (not full MotionController spawn)
       - _animate_close is instant (no fade-out race conditions)

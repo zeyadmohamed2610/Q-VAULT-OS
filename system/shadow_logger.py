@@ -4,7 +4,7 @@ from datetime import datetime
 
 class ShadowLogger:
     """
-    v2.0 Discrete Event Recording System.
+    v1.0 Discrete Event Recording System.
     Logs system decisions and AI reasoning without cluttering main logs.
     """
     def __init__(self):

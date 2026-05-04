@@ -761,9 +761,13 @@ class InterruptLogWidget(QWidget):
                 item.widget().deleteLater()
 
         # Auto-scroll
-        QTimer.singleShot(50, lambda: self._list.verticalScrollBar().setValue(
-            self._list.verticalScrollBar().maximum()
-        ))
+        QTimer.singleShot(50, self._do_scroll)
+
+    def _do_scroll(self) -> None:
+        try:
+            self._list.verticalScrollBar().setValue(self._list.verticalScrollBar().maximum())
+        except RuntimeError:
+            pass
 
 
 # ═══════════════════════════════════════════════════════════════

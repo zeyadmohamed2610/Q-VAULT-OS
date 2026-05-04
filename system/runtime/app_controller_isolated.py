@@ -23,7 +23,7 @@ class RuntimeState(Enum):
 
 class IsolatedAppController(QObject):
     """
-    Non-UI High-Performance Controller for Isolated Applications (v1.2).
+    Non-UI High-Performance Controller for Isolated Applications (v1.0).
     Handles IPC, Governance, and Lifecycle in a background thread.
     """
     # Signals for UI Layer

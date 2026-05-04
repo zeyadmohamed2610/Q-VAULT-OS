@@ -12,7 +12,7 @@ logger = logging.getLogger("system.ipc")
 
 class IPCProtocol:
     """
-    Standard Logic for the Q-Vault IPC Protocol (v1.3 Ultimate).
+    Standard Logic for the Q-Vault IPC Protocol (v1.0 Ultimate).
     Includes HMAC-based signing and identity-bound handshakes.
     """
     TYPE_CALL  = "CALL"

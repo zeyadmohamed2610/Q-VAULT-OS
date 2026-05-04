@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class NotificationContainer(QWidget):
     """
-    v2.0 Notification Director.
+    v1.0 Notification Director.
     Manages stacking, queueing, and lifecycle of NotificationToasts.
     """
     MAX_VISIBLE = 3

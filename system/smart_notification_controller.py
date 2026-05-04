@@ -44,7 +44,7 @@ _EVENT_NOTIFICATION_MAP: Dict[SystemEvent, dict] = {
 
 class SmartNotificationController(QObject):
     """
-    v3.0 Event-Driven Smart Notification Router.
+    v1.0 Event-Driven Smart Notification Router.
 
     Subscribes to EventBus Facts and translates them into user-facing
     toasts via the NotificationService. Handles:

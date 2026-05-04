@@ -62,7 +62,7 @@ class AppIconWidget(QFrame):
 
 class ModernLauncher(QWidget):
     """
-    v4.0 Production Launcher Overlay.
+    v1.0 Production Launcher Overlay.
     Deep Matte Black with neon accents and intelligent filtering.
     """
     app_launched = pyqtSignal(object)

@@ -32,7 +32,7 @@ class WindowState(enum.Enum):
 class WindowManager(QObject):
     """
     WindowManager for maintaining desktop OSWindow frames.
-    v2.0 Passive Executor — Event-Driven Architecture.
+    v1.0 Passive Executor — Event-Driven Architecture.
     """
 
     def __init__(self):

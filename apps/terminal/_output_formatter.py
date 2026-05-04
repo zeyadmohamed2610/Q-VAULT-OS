@@ -45,7 +45,7 @@ class OutputFormatter:
         return (
             "\n" + logo + "\n"
             "  -------------------------------------------------\n"
-            "  Secure AI-Powered OS Terminal  |  Q-Vault v1.0.0\n"
+            "  Secure AI-Powered OS Terminal  |  Q-Vault v1.0\n"
             "  Rust Security Core Active  |  Session Encrypted  \n"
             "  -------------------------------------------------\n"
             "\n"

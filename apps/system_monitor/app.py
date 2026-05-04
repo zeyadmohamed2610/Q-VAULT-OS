@@ -195,7 +195,7 @@ class ExplanationDialog(QDialog):
         layout.addWidget(btn_close)
 
 class LaunchControlPanel(QFrame):
-    """v3.6.3 Mission Control for v4.0 Activation."""
+    """v1.0 Mission Control for v1.0 Activation."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedHeight(140)
@@ -231,7 +231,7 @@ class LaunchControlPanel(QFrame):
         self.status_lbl.setStyleSheet(f"color: {THEME['text_dim']}; font-style: italic;")
         lo.addWidget(self.status_lbl)
         
-        self.launch_btn = QPushButton("ACTIVATE Q-VAULT v4.0 (PROMPT READINESS: 12%)")
+        self.launch_btn = QPushButton("ACTIVATE Q-VAULT v1.0 (PROMPT READINESS: 12%)")
         self.launch_btn.setObjectName("LaunchBtn")
         self.launch_btn.setEnabled(False)
         self.launch_btn.clicked.connect(self._activate_v4)
@@ -242,10 +242,10 @@ class LaunchControlPanel(QFrame):
         elapsed = SETTINGS.get_shadow_elapsed_hours()
         ready_pct = int(min(1.0, elapsed / 48.0) * 100)
         
-        self.launch_btn.setText(f"ACTIVATE Q-VAULT v4.0 (STABILITY: {ready_pct}%)")
+        self.launch_btn.setText(f"ACTIVATE Q-VAULT v1.0 (STABILITY: {ready_pct}%)")
         if SETTINGS.is_v4_ready():
             self.launch_btn.setEnabled(True)
-            self.launch_btn.setText("ACTIVATE Q-VAULT v4.0 (EXIT SHADOW MODE)")
+            self.launch_btn.setText("ACTIVATE Q-VAULT v1.0 (EXIT SHADOW MODE)")
 
     def _activate_v4(self):
         """The Switch: Final transition to Production Mode."""
@@ -261,11 +261,11 @@ class LaunchControlPanel(QFrame):
         
         # 3. Notification
         NOTIFICATION_SERVICE.notify(
-            title="Q-VAULT v4.0 ACTIVE",
+            title="Q-VAULT v1.0 ACTIVE",
             message="Professional Shadowing period complete. Active Engineering Partner online.",
             level=NotificationLevel.INFO
         )
-        self.launch_btn.setText("Q-VAULT v4.0 PRODUCTION ACTIVE")
+        self.launch_btn.setText("Q-VAULT v1.0 PRODUCTION ACTIVE")
         self.launch_btn.setEnabled(False)
         self.status_lbl.setText("STATUS: PRODUCTION ACTIVE (SOVEREIGN MODE)")
 
@@ -322,7 +322,7 @@ class SystemMonitorWidget(BaseApp, QWidget):
         
         root.addWidget(diag_row)
 
-        # v3.6.3 Launch Control (Top of main content)
+        # v1.0 Launch Control (Top of main content)
         self.launch_control = LaunchControlPanel()
         root.addWidget(self.launch_control)
 
@@ -541,7 +541,7 @@ class SystemMonitorWidget(BaseApp, QWidget):
                 self._cooldown_lbl.hide()
                 self._pressure_lbl.setStyleSheet(f"color: {theme.TEXT_DIM}; font-family: {theme.FONT_MONO}; font-size: 11px;")
             
-            # v3.6.3 UI Updates
+            # v1.0 UI Updates
             if hasattr(self, 'launch_control'):
                 self.launch_control.update_stats()
 

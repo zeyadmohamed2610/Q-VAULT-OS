@@ -13,21 +13,21 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PatternMetadata:
-    """v2.2 Judgment Metadata with Recency & Preference."""
+    """v1.0 Judgment Metadata with Recency & Preference."""
     count: int = 0
     accept_count: int = 0
     reject_count: int = 0
     last_suggested: float = 0
     last_used_at: float = 0
-    preference_weight: float = 1.0 # v2.2 User Preference learning
-    cooldown_until: float = 0 # v2.2 Penalty Logic
+    preference_weight: float = 1.0 # v1.0 User Preference learning
+    cooldown_until: float = 0 # v1.0 Penalty Logic
     is_pinned: bool = False
     is_ignored: bool = False
     stability_score: float = 0.0
 
 class IntentEngine:
     """
-    v2.3 Personality-Aware Decision Engine.
+    v1.0 Personality-Aware Decision Engine.
     Features: Stability Dampening (Hysteresis), Continuity Boost, Personality Scaling.
     """
     def __init__(self):
@@ -35,7 +35,7 @@ class IntentEngine:
         self._max_graph_size = 30
         self._patterns: Dict[str, PatternMetadata] = {}
         self._active_suggestions: Dict[str, Dict] = {}
-        self._last_winner_id: Optional[str] = None # v2.3 Hysteresis anchor
+        self._last_winner_id: Optional[str] = None # v1.0 Hysteresis anchor
         
         # Calibration Parameters (Base)
         self.HALF_LIFE_RECENCY = 6 * 3600
@@ -64,7 +64,7 @@ class IntentEngine:
         if payload.type == SystemEvent.ACTION_CLICKED:
             self._handle_action_feedback(payload)
 
-        # v2.2/2.3 Penalty Loop
+        # v1.0/2.3 Penalty Loop
         if payload.type == SystemEvent.UNDO_REQUESTED:
             self._apply_undo_penalty()
 
@@ -82,7 +82,7 @@ class IntentEngine:
 
         if not candidates: return
 
-        # 1. Ranking Competition (v2.3)
+        # 1. Ranking Competition (v1.0)
         ranked = []
         for p_id, plan in candidates:
             if not plan: continue
@@ -126,10 +126,10 @@ class IntentEngine:
         
         pref = p.preference_weight
         
-        # v2.4/2.5 Situational Context Factor (20%)
+        # v1.0/2.5 Situational Context Factor (20%)
         ctx_score, ctx_br, is_learned = CONTEXT_ENGINE.get_context_score(p_id, plan.category)
         
-        # v2.6 Preemptive Intelligence (Sequence Boost)
+        # v1.0 Preemptive Intelligence (Sequence Boost)
         pred_boost = 0.0
         is_predicted = False
         # Gate: Only predict if STABLE and not in transition
@@ -142,10 +142,10 @@ class IntentEngine:
                 if time.time() - SEQUENCE_ENGINE.last_suggestion_time > 30:
                     SEQUENCE_ENGINE.notify_suggestion_made(p_id)
         
-        # v2.3 Dynamic Continuity Boost
+        # v1.0 Dynamic Continuity Boost
         boost = PERSONALITY_MANAGER.get_continuity_boost(p_id, plan.category)
         
-        # v2.6 Master Formula (Base + Context + Sequence + Personality)
+        # v1.0 Master Formula (Base + Context + Sequence + Personality)
         score = (conf_score * 0.3) + (health * 0.25) + (recency * 0.15) + (pref * 0.1) + (ctx_score * 0.2) + boost + pred_boost
         
         if time.time() < p.cooldown_until: score *= 0.1
@@ -162,7 +162,7 @@ class IntentEngine:
         
         from system.personality_manager import PERSONALITY_MANAGER
         
-        # v2.3 Personality-Driven Thresholds
+        # v1.0 Personality-Driven Thresholds
         auto_threshold = PERSONALITY_MANAGER.get_thresholds(plan.category)
 
         if score >= auto_threshold and AUTOMATION_ENGINE.mode == AutomationMode.AUTONOMOUS:

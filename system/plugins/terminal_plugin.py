@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 class TerminalPlugin(BasePlugin):
     """
-    v3.1 Execution Bridge to the system shell.
+    v1.0 Execution Bridge to the system shell.
     Handles background command execution and output capturing.
     """
     def on_activate(self):
@@ -38,7 +38,7 @@ class TerminalPlugin(BasePlugin):
 
         logger.info(f"TerminalPlugin: Executing '{cmd_to_run}'")
         try:
-            # v3.1: Always run in background shell
+            # v1.0: Always run in background shell
             result = subprocess.run(cmd_to_run, shell=True, capture_output=True, text=True, timeout=10)
             
             success = result.returncode == 0

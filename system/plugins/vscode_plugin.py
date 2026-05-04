@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class VSCodePlugin(BasePlugin):
     """
-    v3.3 Pilot Workflow Plugin.
+    v1.0 Pilot Workflow Plugin.
     Monitors workspace activity and guides the 'Focus-to-Sync' transition.
     """
     def __init__(self):

@@ -75,7 +75,7 @@ class PhysicsController(QObject):
         # Move window
         self.window.move(pos)
         
-        # ── v2.2 Constraint Guard ──
+        # ── v1.0 Constraint Guard ──
         from system.window_manager import get_window_manager
         get_window_manager().constrain_to_workspace(self.window)
         

@@ -265,7 +265,7 @@ def launch() -> None:
     step("Step 6 — Launching Q-Vault OS")
     print()
     print(f"  {C}{'='*48}{RS}")
-    print(f"  {B}{C}  Q-Vault OS v1.0.0  --  Starting...{RS}")
+    print(f"  {B}{C}  Q-Vault OS v1.0  --  Starting...{RS}")
     print(f"  {C}{'='*48}{RS}")
     print()
 

@@ -17,7 +17,7 @@ class RiskTier:
 
 class ReasoningEngine:
     """
-    v3.6.2 Psychological Calibration.
+    v1.0 Psychological Calibration.
     Implements Security Sovereignty, Directional Advice, and Professional Silence.
     """
     SENSITIVITY_MAP = {
@@ -44,13 +44,13 @@ class ReasoningEngine:
         
         added_lines = [line[1:].strip() for line in diff.split('\n') if line.startswith('+') and not line.startswith('+++')]
         
-        # v3.6.2: Expanded Security & Intent Override
+        # v1.0: Expanded Security & Intent Override
         is_security_fix = context.get('is_security') or any(kw in str(added_lines).lower() for kw in ['security', 'bypass', 'interdict', 'safe', 'guard', 'permission', 'forbidden', 'unauthorized'])
         
         # Determine Impact Label
         impact_level = impact_eval['level']
         
-        # v3.6.4: Risk Sovereignty
+        # v1.0: Risk Sovereignty
         if any(r['tier'] == RiskTier.CRITICAL for r in risks):
             impact_level = 'HIGH'
         elif risks and impact_level == 'LOW':
@@ -58,11 +58,11 @@ class ReasoningEngine:
             
         if is_security_fix: impact_level = "HIGH"
         
-        # Professional Silence Check (v3.6.2: Final Calibration)
+        # Professional Silence Check (v1.0: Final Calibration)
         # Threshold raised to 0.42 to safely silence doc-edits in core files
         is_silent = (impact_level == 'LOW' and not risks and impact_eval['score'] < 0.42)
         
-        # v3.6.8 Logic Override: Never silent on new structure
+        # v1.0 Logic Override: Never silent on new structure
         if any(kw in str(added_lines) for kw in ['def ', 'class ']):
             is_silent = False
             if impact_level == 'LOW': impact_level = 'MEDIUM'
@@ -100,7 +100,7 @@ class ReasoningEngine:
         if any(kw in str(added_lines).lower() for kw in ['fix', 'bug', 'error', 'resolve']):
             verb = "Fix"
             
-        # v3.6.2: Clean Message (No [IMPACT] prefix)
+        # v1.0: Clean Message (No [IMPACT] prefix)
         filenames = context.get('filenames', [])
         msg = f"{verb} "
         if len(filenames) == 1: msg += f"{filenames[0]} logic"
@@ -130,14 +130,14 @@ class ReasoningEngine:
         size_impact = min(0.5, lines_changed / 500) 
         score += size_impact
         
-        # v3.6 Refined Logic Filter (Exclude comments strictly)
+        # v1.0 Refined Logic Filter (Exclude comments strictly)
         added_lines = [l for l in diff.split('\n') if l.startswith('+') and not re.match(r'^\+?\s*(#|//|\*|""")', l)]
         logic_lines = [l for l in added_lines if any(c in l for c in ['=', '(', ':', '{', 'def ', 'class '])]
         
         logic_ratio = len(logic_lines) / (len(added_lines) + 1)
-        score *= (0.35 + logic_ratio * 0.4) # v3.6.7 Final Calibration
+        score *= (0.35 + logic_ratio * 0.4) # v1.0 Final Calibration
 
-        # v3.6.3 Annoyance Calculation (Stable Refinement)
+        # v1.0 Annoyance Calculation (Stable Refinement)
         # High impact intervention for low logic changes = High Annoyance
         annoyance = score * (1 - logic_ratio)
 
@@ -164,7 +164,7 @@ class ReasoningEngine:
                         "recommendation": "Review and remove debug prints containing credentials."
                     })
 
-        # v3.6 Directional Structural Advice
+        # v1.0 Directional Structural Advice
         filenames = context.get('filenames', [])
         if any(f.endswith(('.py', '.js')) for f in filenames) and not any('test' in f.lower() for f in filenames):
             if len(added_lines) > 20:

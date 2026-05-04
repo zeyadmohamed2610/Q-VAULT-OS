@@ -31,7 +31,7 @@ class AIController:
         EVENT_BUS.subscribe(SystemEvent.EVT_ERROR, self._handle_anomaly)
         EVENT_BUS.subscribe(SystemEvent.APP_LAUNCHED, lambda p: self.memory.record_app_launch(p.data.get("module", "unknown")))
         
-        logger.info("[AI_CONTROLLER] Intelligence Engine v3.0 (Multi-Step) Active.")
+        logger.info("[AI_CONTROLLER] Intelligence Engine v1.0 (Multi-Step) Active.")
 
     def _process_request(self, payload):
         """Main entry point for AI reasoning."""

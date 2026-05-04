@@ -33,7 +33,7 @@ class OrchestrationPlan:
 
 class OrchestrationEngine:
     """
-    v2.1 System Orchestration Core.
+    v1.0 System Orchestration Core.
     Featuring Plan Ecosystem management, Telemetry, and Health Scoring.
     """
     def __init__(self):
