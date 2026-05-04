@@ -124,7 +124,6 @@ class OSWindow(QWidget):
         self.title_bar = OSTitleBar()
         self.title_bar.setObjectName("TitleBar")
         self.title_bar.setFixedHeight(30)
-        self.title_bar.setCursor(Qt.ArrowCursor)  # Prevent inheriting resize cursor
         self.title_bar.double_clicked.connect(lambda: self._snap_ctrl.toggle_maximize())
         
         tb_layout = QHBoxLayout(self.title_bar)
@@ -181,17 +180,15 @@ class OSWindow(QWidget):
 
         # ───── CONTENT AREA ─────
         self.content_widget = content_widget
-        content_container = QWidget()
-        content_container.setObjectName("WindowContent")
-        content_container.setAttribute(Qt.WA_StyledBackground, True)
-        content_container.setCursor(Qt.ArrowCursor)  # Prevent inheriting resize cursor
-        self.content_layout = QVBoxLayout(content_container)
+        self.content_container = QWidget()
+        self.content_container.setObjectName("OSContent")
+        self.content_layout = QVBoxLayout(self.content_container)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
         if content_widget is not None:
             self.content_layout.addWidget(content_widget)
 
         self.main_layout.addWidget(self.title_bar)
-        self.main_layout.addWidget(content_container, stretch=1)
+        self.main_layout.addWidget(self.content_container, stretch=1)
         
         # ── PHYSICS CONTROLLER (Temporarily Disabled for Stability) ──
         self.physics_controller = None
@@ -286,6 +283,8 @@ class OSWindow(QWidget):
                 self._resize_dir = direction
                 self._resize_start_pos = event.globalPos()
                 self._resize_start_geom = self.geometry()
+                # Set the resize cursor immediately
+                self.setCursor(self._CURSOR_MAP.get(direction, Qt.ArrowCursor))
                 event.accept()
                 return
         # ── v1.0 Focus Layer (stays in OSWindow — UI concern) ──
@@ -309,7 +308,8 @@ class OSWindow(QWidget):
         if self._resizing:
             self._resizing = False
             self._resize_dir = None
-            self.setCursor(Qt.ArrowCursor)
+            if self.cursor().shape() != Qt.ArrowCursor:
+                self.setCursor(Qt.ArrowCursor)
             get_window_manager().request_geometry(self.window_id, self.x(), self.y(), self.width(), self.height())
             event.accept()
             return

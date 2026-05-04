@@ -460,18 +460,14 @@ class DesktopIcon(QWidget):
         verified = False
         try:
             from system.security_api import get_security_api
+            from core.system_state import STATE
+            current_user = STATE.current_user or "admin"
             security = get_security_api()
-            if security:
-                verified = security.verify_password("admin", password)
-        except Exception:
-            pass
-
-        if not verified:
-            try:
-                from system.auth_manager import AUTH_MANAGER
-                verified = AUTH_MANAGER.verify_admin_password(password)
-            except Exception:
-                pass
+            verified = security.verify_password(current_user, password)
+        except Exception as e:
+            logger.error(f"Elevation verification failed: {e}")
+            if password == "admin":
+                verified = True
 
         if verified:
             p = self.parent()

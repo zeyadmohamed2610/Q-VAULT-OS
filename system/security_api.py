@@ -65,6 +65,18 @@ class SecurityAPI:
             logger.warning(f"Login failed: {result.get('code')}")
             return result
 
+    def verify_password(self, username: str, password: str) -> bool:
+        """
+        Verify credentials via Rust WITHOUT changing the current session token or state.
+        Used for elevation (SUDO) prompts.
+        """
+        try:
+            result = safe_call(self._rust_engine.login, username, password)
+            return result.get("success", False)
+        except Exception as e:
+            logger.error(f"SecurityAPI: verify_password error: {e}")
+            return False
+
     def logout(self) -> None:
         """Call Rust to invalidate the session token."""
         if self._token:

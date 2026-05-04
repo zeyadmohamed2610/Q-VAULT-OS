@@ -39,18 +39,23 @@ At its heart lies the **Q-Vault Security Core**, a native Rust implementation th
 ## 🚀 Key Pillars of Excellence {#key-pillars-of-excellence}
 
 ### 🦀 Rust-Hardened Kernel
+
 Leveraging `PyO3`, the security-critical logic is offloaded to a native Rust binary.
+
 - **Zero-Knowledge Architecture**: Encryption keys never touch the Python memory space.
 - **AES-256-GCM Encryption**: Every file in the virtual filesystem is encrypted at rest.
 - **Argon2id KDF**: Industrial-grade password hashing and key derivation.
 
 ### 🧠 AI-Native Governance
+
 Q-Vault is built for the age of AI. The **Runtime Intelligence Manager** monitors application behavior in real-time.
+
 - **Dynamic Trust Scores**: Apps are assigned trust levels based on their API call patterns.
 - **Automated Quarantine**: Any anomalous behavior triggers an immediate system-level freeze.
 - **Context-Aware Terminal**: A specialized shell with ghost-text suggestions and state-aware logic.
 
 ### 🖥️ Pro-Level UI/UX (New in v1.0)
+
 - **Interactive Window Management**: Dynamic mouse cursors for resizing and snapping that feel native and responsive.
 - **Native File Icons**: Professional-grade icon rendering using the host system's native icon provider for 100% clarity.
 - **Administrative Elevation**: Seamless "Run as Administrator" context menus with secure password verification.
@@ -98,6 +103,7 @@ graph TD
 ## 🎨 Immersive Experience {#immersive-experience}
 
 Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form and function:
+
 - **ASCII Boot Sequence**: A high-fidelity, gradient-colored boot banner that signals system readiness.
 - **Ghost-Text suggestions**: Intelligent command completion based on history and local filesystem context.
 - **Dynamic Mouse Interaction**: Cursors update in real-time based on window zones (resize, drag, hover).
@@ -108,12 +114,14 @@ Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form an
 ## ⚡ Quick Deployment {#quick-deployment}
 
 ### Prerequisites
+
 - **Python 3.10+**
 - **Rust Toolchain** (latest stable)
 - **.NET 9.0 Runtime** (Required for the Security Mediator)
 - **Git**
 
 ### Installation
+
 ```bash
 # Clone the repository
 git clone https://github.com/zeyadmohamed2610/Q-VAULT-OS.git
@@ -128,6 +136,7 @@ python run.py
 ## 🔒 Security Model {#security-model}
 
 The simulation operates on the **Principle of Least Privilege (PoLP)**:
+
 1. **Isolated Widgets**: Each application runs as an isolated proxy.
 2. **Administrative Elevation**: Secure sudo-based elevation for privileged operations (Terminal, System Config).
 3. **Permissioned API**: No application can access the host filesystem without explicit tokens.
@@ -138,11 +147,24 @@ The simulation operates on the **Principle of Least Privilege (PoLP)**:
 ## 🛠️ Developer Guide {#developer-guide}
 
 ### Project Structure
+
 - **`kernel/`**: System orchestration and resource management.
 - **`apps/`**: Source code for integrated subsystems (Terminal, Files, etc.).
 - **`components/`**: UI building blocks (OSWindow, Desktop, Taskbar).
 - **`system/`**: Core OS logic (AppFactory, WindowManager, SecurityAPI).
 - **`assets/`**: Design tokens, themes, and icons.
+
+---
+
+## 🤝 Contributing {#contributing}
+
+We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation:
+
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
 
 ---
 
