@@ -1,0 +1,262 @@
+/* ═══════════════════════════════════════════════════════════════
+   Q-VAULT EXPERIENCE — Global Styles
+   ═══════════════════════════════════════════════════════════════ */
+
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+/* ── Base Reset ── */
+
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: auto; /* GSAP ScrollTrigger controls scrolling */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  cursor: none;
+}
+
+body {
+  background-color: var(--void);
+  color: var(--text);
+  font-family: var(--font-display);
+  overflow: hidden;
+  cursor: none;
+}
+
+/* ── Selection ── */
+
+::selection {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--text);
+}
+
+/* ── Scrollbar ── */
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--void);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--cyan-dim);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cyan);
+}
+
+/* ── R3F Canvas Layer ── */
+
+.r3f-canvas {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.r3f-canvas canvas {
+  pointer-events: none;
+}
+
+/* ── Scroll Surface ── */
+
+.scroll-surface {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.scroll-surface > * {
+  pointer-events: auto;
+}
+
+/* ── HUD Overlay ── */
+
+.hud-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.hud-overlay > * {
+  pointer-events: auto;
+}
+
+/* ── Scene Debug Markers ── */
+
+.scene-trigger {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* ── Reduced Motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Mono Text Utility ── */
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ── Glass Panel ── */
+
+.glass-panel {
+  background: var(--glass-bg);
+  border: var(--glass-border);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Scene 0: Scanline Animation ── */
+
+@keyframes scanlineShift {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(5px); }
+}
+
+/* ── Phase XI: Cinematic Mastering Animations ── */
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-slow {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes title-reveal {
+  from { opacity: 0; letter-spacing: 0.5em; }
+  to   { opacity: 1; letter-spacing: 0.15em; }
+}
+
+@keyframes crt-flicker {
+  0%, 100% { opacity: 1; }
+  92%       { opacity: 1; }
+  93%       { opacity: 0.85; }
+  94%       { opacity: 1; }
+  96%       { opacity: 0.9; }
+  97%       { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.animate-fade-in-slow {
+  animation: fade-in-slow 1.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.animate-title-reveal {
+  animation: title-reveal 1.2s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.animate-crt-flicker {
+  animation: crt-flicker 4s infinite;
+}
+
+/* ── OLED-safe HUD brightness ── */
+/* Never exceed 160/255 (~63%) on pure-white elements */
+.hud-text {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.hud-text-accent {
+  color: rgba(0, 230, 255, 0.75);
+}
+
+/* ── Tactical line rendering ── */
+.tactical-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 30%,
+    rgba(255, 255, 255, 0.2) 70%,
+    transparent 100%
+  );
+}
+
+/* ── Anti-flicker: GPU compositing hint ── */
+.hud-overlay,
+.hud-overlay > * {
+  will-change: opacity, transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* ── Phase XV: Institutional Design System (Executive Mode) ── */
+
+[data-mode="executive"] {
+  --text: rgba(255, 255, 255, 0.9);
+  --cyan: #ffffff;
+  --cyan-dim: rgba(255, 255, 255, 0.4);
+}
+
+[data-mode="executive"] body {
+  background-color: #000000;
+  letter-spacing: 0.05em;
+}
+
+[data-mode="executive"] .hud-text-accent {
+  color: white;
+  font-weight: bold;
+}
+
+/* Institutional Grid System */
+[data-mode="executive"]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: 
+    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+  background-size: 100px 100px;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* High-Authority Typography */
+[data-mode="executive"] h1, 
+[data-mode="executive"] .title {
+  text-transform: uppercase;
+  letter-spacing: 0.8em;
+  font-weight: 300;
+}
+
+/* Reduced HUD Noise */
+[data-mode="executive"] .glass-panel {
+  background: rgba(0,0,0,0.8);
+  border: 1px solid rgba(255,255,255,0.1);
+  backdrop-filter: blur(20px);
+}

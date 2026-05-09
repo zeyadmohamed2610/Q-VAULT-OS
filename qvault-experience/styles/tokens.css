@@ -1,0 +1,54 @@
+/* ═══════════════════════════════════════════════════════════════
+   Q-VAULT EXPERIENCE — CSS Design Token System
+   Extracted from Q-Vault OS design_tokens.py & theme.py
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Backgrounds */
+  --void: #01020e;
+  --base: #040f22;
+  --surface: #0b162d;
+  --elevated: #0f2842;
+  --overlay: #243558;
+
+  /* Brand (Institutional White/Steel) */
+  --cyan: #ffffff;
+  --cyan-bright: #ffffff;
+  --cyan-dim: rgba(255, 255, 255, 0.4);
+  --purple: #9c27ff;
+  --pink: #ff2fd1;
+  --steel: #2f6183;
+
+  /* Semantic */
+  --success: #00ff88;
+  --warning: #ffaa00;
+  --danger: #ff3333;
+
+  /* Text */
+  --text: #e6f7ff;
+  --text-dim: #9ec0d5;
+  --text-muted: #4a6880;
+
+  /* Effects */
+  --glow-cyan: 0 0 12px rgba(255, 255, 255, 0.1);
+  --glow-purple: 0 0 12px rgba(255, 255, 255, 0.05);
+  --glass-bg: rgba(0, 0, 0, 0.8);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+  --glass-border-active: 1px solid rgba(255, 255, 255, 0.2);
+
+  /* Motion */
+  --motion-instant: 100ms;
+  --motion-snappy: 150ms;
+  --motion-smooth: 300ms;
+  --motion-cinematic: 600ms;
+  --motion-dramatic: 1200ms;
+
+  /* Typography */
+  --font-display: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', monospace;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+}
