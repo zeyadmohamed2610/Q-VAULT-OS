@@ -87,8 +87,13 @@ body {
   transform: translateZ(0);
   opacity: 0;
   transition: opacity 1.2s var(--ease-out);
+  /* Suppress native browser video chrome */
+  display: block;
+  pointer-events: none;
 }
 .hero-video.loaded { opacity: 1; }
+.hero-video::-webkit-media-controls { display: none !important; }
+.hero-video::-webkit-media-controls-enclosure { display: none !important; }
 
 /* Cinematic overlay layers — pure CSS, zero GPU shaders */
 .hero-overlay-top {
@@ -108,11 +113,12 @@ body {
 .hero-overlay-bottom {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  height: 55%;
+  height: 60%;
   background: linear-gradient(
     to top,
-    rgba(0,0,0,0.95) 0%,
-    rgba(0,0,0,0.60) 40%,
+    rgba(0,0,0,1.00) 0%,
+    rgba(0,0,0,0.88) 18%,
+    rgba(0,0,0,0.60) 42%,
     transparent 100%
   );
   pointer-events: none;
@@ -374,9 +380,11 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1px;
-  background: var(--c-border);
+  background: rgba(127,232,255,0.06);
   margin-top: var(--sp-xl);
-  border: 1px solid var(--c-border);
+  border: 1px solid rgba(127,232,255,0.10);
+  border-radius: 2px;
+  overflow: hidden;
 }
 
 .feature-card {
