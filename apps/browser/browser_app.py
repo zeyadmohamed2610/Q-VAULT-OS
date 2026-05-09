@@ -31,6 +31,9 @@ _HOME = {
     "DuckDuckGo": "https://duckduckgo.com",
 }
 
+# ── Default startup page (overrides search-engine homepage) ───
+_DEFAULT_HOME = "https://github.com/zeyadmohamed2610"
+
 # ── Stylesheets ───────────────────────────────────────────────
 _TOOLBAR_STYLE = (
     "QWidget#browser_toolbar{"
@@ -265,12 +268,13 @@ class BrowserApp(QWidget):
             self._view.setUrl(url)
 
     def _go_home(self):
+        """Navigate to the default home page (GitHub profile)."""
         if self._view:
-            self._view.setUrl(QUrl(_HOME.get(self._engine, "https://www.google.com")))
+            self._view.setUrl(QUrl(_DEFAULT_HOME))
 
     def _on_engine_changed(self, engine: str):
         self._engine = engine
-        self._go_home()
+        # Engine change only affects search queries — don't redirect home
 
     # ── WebView signals ───────────────────────────────────────
 
