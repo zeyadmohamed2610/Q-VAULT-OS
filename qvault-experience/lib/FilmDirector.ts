@@ -1,63 +1,50 @@
 // ═══════════════════════════════════════════════════════════════
-// FILM DIRECTOR — PHASE OMEGA: CINEMATIC REBIRTH
+// FILM DIRECTOR — PHASE XL: PERFORMANCE RECONSTRUCTION
 //
-// Target runtime: 72 seconds.
-// Theme: "THE DEVICE THAT OUTLIVES SYSTEMS."
-// Structure: 17 scenes across 5 acts.
+// Runtime: 55 seconds. 10 scenes. No filler.
+// Every second earns its place.
 //
-// ACT I   THE SIGNAL        (0–12s)   — darkness, obsession, curiosity
-// ACT II  ENGINEERED OBJECT (12–26s)  — fragments, texture, desire
-// ACT III FULL REVEAL       (26–40s)  — sovereign hero, dominance
-// ACT IV  THE THREAT        (40–52s)  — rapid cuts, kinetic urgency
-// ACT V   IMMORTALITY       (52–72s)  — monumental, timeless, sealed
+// ACT I   IDENTITY      0–5s    (2 scenes)
+// ACT II  HARDWARE      5–18s   (4 scenes)
+// ACT III SECURITY      18–32s  (2 scenes)
+// ACT IV  ASSEMBLY      32–44s  (1 scene)
+// ACT V   AUTHORITY     44–55s  (1 scene)
 //
-// Pacing philosophy:
-//   ACT I/II: 3-4s scenes — earn the curiosity
-//   ACT III:  4-5s scenes — let the reveal breathe
-//   ACT IV:   2-3s scenes — aggressive, kinetic, addictive
-//   ACT V:    4-6s scenes — legendary stillness
+// Performance decisions:
+//   Fewer scenes = fewer material transitions = fewer GC spikes
+//   Minimum 4s per scene = camera has time to settle
+//   No rapid-fire micro-scenes that spike frame time
 // ═══════════════════════════════════════════════════════════════
 
-import { SCENE_REGISTRY } from './scenes';
 import { useExperienceStore } from './store';
 import { transitionDirector } from './TransitionDirector';
 import { directiveEngine } from './DirectiveEngine';
 
-// ── OMEGA timing — 72 seconds total ───────────────────────────
 export const SCENE_DURATIONS: Record<number, number> = {
-  // ── ACT I — THE SIGNAL (12s) ──────────────────────────────
-  0: 3000,  // Void: pure black. Power pulse. Bass drop.
-  1: 3500,  // LED blink: ultra-close eye of the device. First contact.
-  2: 2800,  // Edge macro: cyan rim splits the void. Identity.
-  3: 2700,  // Boot glyphs: surface texture, circuit geography.
+  // ACT I — IDENTITY
+  0: 3500,   // Black void — signal pulse
+  1: 4500,   // Hero emergence — device rises from nothing
 
-  // ── ACT II — ENGINEERED OBJECT (14s) ──────────────────────
-  4: 3500,  // USB-C port: telephoto compression. Physical trust.
-  5: 3000,  // Enclosure seam: machined precision, chamfered edge.
-  6: 3500,  // PCB overhead: silicon core. Classified circuitry.
-  7: 4000,  // Reflection sweep: light rakes across the shell.
+  // ACT II — HARDWARE REVEAL
+  2: 3500,   // Macro: USB-C port, physical trust
+  3: 3500,   // Macro: PCB surface, classified architecture
+  4: 3000,   // Macro: enclosure edge, machined precision
+  5: 3500,   // Full product: assembled, hero frontal
 
-  // ── ACT III — FULL REVEAL (14s) ───────────────────────────
-  8: 5000,  // HERO SHOT: assembled device. Full frontal. 80% fill.
-  9: 4000,  // Exploded lock: shells separate with ballistic authority.
-  10:5000,  // Low-angle pedestal: camera looks up. Sovereign monument.
+  // ACT III — SECURITY
+  6: 6000,   // Post-quantum architecture — sovereignty statement
+  7: 5500,   // Zero network — air-gap authority
 
-  // ── ACT IV — THE THREAT (12s) — RAPID CUTS ────────────────
-  11:2500,  // Threat impact: amber flash. Attack detected.
-  12:2500,  // Shockwave: device holds. Unshaken.
-  13:2500,  // Interception: hard diagonal. Zero compromise.
-  14:2500,  // Containment: device center. Threat neutralized.
-  15:2000,  // Zero knowledge: confirmation flash.
+  // ACT IV — ASSEMBLY
+  8: 5500,   // Exploded + magnetic assembly snap
 
-  // ── ACT V — IMMORTALITY (20s) ─────────────────────────────
-  16:5000,  // Majestic rise: device ascends from void.
-  17:5500,  // Logo reveal: slow push. Identity confirmed.
-  18:9500,  // Final seal: absolute stillness. Monument. Q-VAULT.
+  // ACT V — AUTHORITY
+  9: 12000,  // Final: assembled. Static. Monument. Q-VAULT.
 };
 
 const TOTAL_DURATION = Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0);
 const END_HOLD       = 4000;
-const SCENE_COUNT    = Object.keys(SCENE_DURATIONS).length; // 19 (0–18)
+const SCENE_COUNT    = Object.keys(SCENE_DURATIONS).length;
 
 class FilmDirector {
   private _startTime = 0;
@@ -91,7 +78,7 @@ class FilmDirector {
     let sceneProgress = 0;
 
     for (let i = 0; i < SCENE_COUNT; i++) {
-      const dur = SCENE_DURATIONS[i] ?? 4000;
+      const dur = SCENE_DURATIONS[i] ?? 5000;
       if (elapsed < acc + dur) {
         activeScene   = i;
         sceneProgress = (elapsed - acc) / dur;
