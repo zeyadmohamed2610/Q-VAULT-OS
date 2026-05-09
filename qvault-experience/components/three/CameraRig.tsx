@@ -1,15 +1,24 @@
 'use client';
 
 // ═══════════════════════════════════════════════════════════════
-// CAMERA RIG — PHASE XXXIII: COMMERCIAL ENERGY
+// CAMERA RIG — PHASE OMEGA: CINEMATIC REBIRTH
 //
-// Motion philosophy:
-//   - Heavy spring-damper with deliberate speed boost
-//   - Arc motion per scene (camera orbits slightly during hold)
-//   - Push-in on hero reveal (z slowly decreases during scene)
-//   - FOV breathing: 0.8° ± — lens feels alive
-//   - Micro-drift: 0.3% sinusoidal parallax per axis
-//   - Scene switch: fast jump then settle (interrupt spring)
+// Motion philosophy: "The camera costs $50,000."
+//
+// Shot types by act:
+//   ACT I (0-3):   robotic dolly push-in, slow macro drift
+//   ACT II (4-7):  telephoto compression, minimal arc
+//   ACT III (8-10): authority push-in, gentle vertical rise
+//   ACT IV (11-15): AGGRESSIVE — fast spring, diagonal sweeps,
+//                   camera shake impulses on each threat cut
+//   ACT V (16-18): cinematic slowdown, majestic rise, seal lock
+//
+// Technical:
+//   Spring-damper system — high energy, cinematic settling
+//   Velocity impulse on scene change → "snap and settle" feel
+//   Arc motion per scene (sinusoidal drift = alive camera)
+//   Push-in dolly during hero and immortality scenes
+//   FOV breathing: ±1.2° on threat, ±0.6° on hero
 // ═══════════════════════════════════════════════════════════════
 
 import { useRef, useEffect } from 'react';
@@ -20,28 +29,23 @@ import { useExperienceStore } from '@/lib/store';
 import * as THREE from 'three';
 
 // ── Spring constants ──────────────────────────────────────────
-// Increased from Phase XXXI (was POS_SPRING=6) → more energy
-const POS_SPRING   = 9.0;   // Snappier position settling
-const POS_DAMPING  = 5.0;
-const LOOK_SPRING  = 11.0;  // Faster gaze tracking
-const LOOK_DAMPING = 5.5;
-const FOV_SPEED    = 3.5;
+const POS_SPRING   = 10.0;   // Snappy position settling
+const POS_DAMPING  = 5.5;
+const LOOK_SPRING  = 13.0;   // Fast gaze tracking
+const LOOK_DAMPING = 6.0;
+const FOV_SPEED    = 4.0;
 
-// ── Arc motion — camera orbits slightly during hold ───────────
-// Each scene: camera traces a slow arc (sinusoidal X/Y offset)
-// Makes the static shot feel alive without being obvious
-const ARC_AMP   = 0.08;  // world units — subtle lateral drift
-const ARC_HZ    = 0.18;  // cycles/sec — very slow arc
+// ── Arc motion ────────────────────────────────────────────────
+const ARC_AMP = 0.09;  // world units lateral drift
+const ARC_HZ  = 0.16;  // cycles/sec — premium slow
 
-// ── FOV breathing — lens feels alive ─────────────────────────
-const FOV_BREATH_AMP = 0.8;  // ±0.8° (was ±0.4°)
-const FOV_BREATH_HZ  = 0.4;
+// ── FOV breathing ─────────────────────────────────────────────
+const FOV_BREATH_HZ = 0.38;
 
-// ── Push-in — hero shots dolly forward during scene ───────────
-// sceneProgress 0→1: camera moves 0.3wu closer
-const PUSH_IN_AMOUNT = 0.3; // wu — subtle forward motion
+// ── Push-in dolly ─────────────────────────────────────────────
+const PUSH_IN_AMOUNT = 0.35; // world units
 
-// ── Pre-allocated — no GC per frame ──────────────────────────
+// ── Pre-allocated vectors — no GC per frame ───────────────────
 const _tPos    = new THREE.Vector3();
 const _tLook   = new THREE.Vector3();
 const _pVel    = new THREE.Vector3();
@@ -52,27 +56,39 @@ const _lookRef = new THREE.Vector3(0, 0, 0);
 const _arcOff  = new THREE.Vector3();
 const _fwdDir  = new THREE.Vector3();
 
-// ── Scene arc config — unique motion per scene ───────────────
-// [arcPhaseX, arcPhaseY, arcSpeedMult, pushInEnabled]
-// ACT I/II macro scenes: minimal arc (camera already extreme close)
-// ACT III hero: gentle rise, push-in for reveal
-// ACT IV threat: maximum speed urgency
-// ACT V: slow celestial motion
-type ArcCfg = [number, number, number, boolean];
+// ── Scene arc config ──────────────────────────────────────────
+// [arcPhaseX, arcPhaseY, arcSpeedMult, pushInEnabled, breathAmp, shakeOnEnter]
+// shakeOnEnter → injects velocity impulse for kinetic "cut" feel
+type ArcCfg = [number, number, number, boolean, number, boolean];
 const SCENE_ARC: Record<number, ArcCfg> = {
-  0:  [0.00, 0.00, 0.0,  false], // Void — absolute stillness
-  1:  [0.20, 0.10, 0.5,  true],  // Edge macro — very slow drift, push in
-  2:  [0.40, 0.20, 0.6,  true],  // Silhouette — slow arc right
-  3:  [0.00, 0.00, 0.3,  false], // USB-C macro — barely moves (already extreme)
-  4:  [0.30, 0.10, 0.4,  false], // Corner macro — tiny lateral
-  5:  [0.10, 0.00, 0.3,  false], // PCB overhead — micro drift
-  6:  [0.00, 0.40, 0.5,  true],  // HERO REVEAL — gentle vertical rise + push in
-  7:  [0.20, 0.50, 0.7,  false], // Exploded — diagonal arc
-  8:  [0.60, 0.10, 0.8,  true],  // Authority — slow right arc + push
-  9:  [0.10, 0.20, 1.5,  true],  // Threat — fast urgency push
-  10: [0.40, 0.30, 1.6,  true],  // Intercept — aggressive diagonal
-  11: [0.00, 0.80, 0.6,  true],  // Majestic — slow celestial rise
-  12: [0.00, 0.00, 0.0,  false], // Sealed — locked still, final monument
+  // ── ACT I — slow, deliberate, cinematic push ──────────────
+  0:  [0.00, 0.00, 0.0,  false, 0.4,  false], // Void — absolute stillness
+  1:  [0.15, 0.10, 0.4,  true,  0.5,  false], // LED — slow macro drift
+  2:  [0.25, 0.15, 0.5,  true,  0.5,  false], // Edge — gentle push
+  3:  [0.40, 0.20, 0.5,  true,  0.5,  false], // Texture — slow diagonal
+
+  // ── ACT II — telephoto hold, minimal arc ──────────────────
+  4:  [0.00, 0.00, 0.25, false, 0.4,  false], // USB-C — almost locked
+  5:  [0.20, 0.10, 0.35, false, 0.4,  false], // Seam — tiny lateral
+  6:  [0.10, 0.00, 0.25, false, 0.4,  false], // PCB — micro drift only
+  7:  [0.50, 0.25, 0.55, true,  0.5,  false], // Reflection — sweeping arc
+
+  // ── ACT III — authority push, vertical rise ───────────────
+  8:  [0.00, 0.35, 0.45, true,  0.7,  false], // HERO — gentle rise + push
+  9:  [0.20, 0.45, 0.65, false, 0.6,  false], // Exploded — diagonal arc
+  10: [0.55, 0.10, 0.75, true,  0.7,  false], // Pedestal — side sweep + push
+
+  // ── ACT IV — AGGRESSIVE, KINETIC, ADDICTIVE ───────────────
+  11: [0.10, 0.20, 2.0,  true,  1.4,  true ], // Threat — fast urgency + shake
+  12: [0.45, 0.35, 2.2,  true,  1.5,  true ], // Shockwave — diagonal + shake
+  13: [0.20, 0.50, 2.3,  true,  1.4,  true ], // Intercept — aggressive
+  14: [0.35, 0.15, 1.8,  true,  1.2,  true ], // Containment — heavy + shake
+  15: [0.00, 0.00, 1.2,  false, 0.8,  false], // ZK — settling, breath
+
+  // ── ACT V — majestic slowdown, monument ───────────────────
+  16: [0.00, 0.75, 0.55, true,  0.6,  false], // Majestic — celestial rise
+  17: [0.00, 0.30, 0.40, true,  0.5,  false], // Logo — slow push in
+  18: [0.00, 0.00, 0.0,  false, 0.0,  false], // SEAL — locked forever
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -83,7 +99,7 @@ export function CameraRig() {
   const progress    = useExperienceStore((s) => s.sceneProgress);
   const prevScene   = useRef(-1);
 
-  // Initialize camera at scene 0 immediately
+  // Initialize camera at scene 0
   useEffect(() => {
     const cfg = SCENE_REGISTRY[0];
     if (!cfg) return;
@@ -101,68 +117,83 @@ export function CameraRig() {
     const cfg = SCENE_REGISTRY[idx];
     if (!cfg) return;
 
-    // ── Detect scene change → inject velocity for snappy entry ─
+    // ── Scene change: velocity impulse for cinematic snap ────
     if (prevScene.current !== activeScene) {
       prevScene.current = activeScene;
-      // Impulse: slight velocity kick toward new position
-      // creates that "camera snaps and settles" luxury feel
+
       _tPos.set(...cfg.camPos);
       _diff.subVectors(_tPos, camera.position);
-      _pVel.copy(_diff).multiplyScalar(0.35); // 35% impulse
+
+      const arc = SCENE_ARC[idx] ?? [0, 0, 0.8, false, 0.5, false];
+      const shake = arc[5] as boolean;
+
+      if (shake) {
+        // Threat cuts: inject directional impulse for "shockwave" feel
+        _pVel.set(
+          (Math.random() - 0.5) * 1.8,
+          (Math.random() - 0.5) * 1.2,
+          (Math.random() - 0.5) * 0.6
+        );
+        // Strong toward target
+        _pVel.addScaledVector(_diff.normalize(), 2.0);
+      } else {
+        // Standard: 30% impulse toward new position
+        _pVel.copy(_diff).multiplyScalar(0.30);
+      }
     }
 
-    // 1. Base target position from scene registry
+    // ── 1. Base target from scene registry ───────────────────
     _tPos.set(...cfg.camPos);
     _tLook.set(...cfg.camLook);
 
-    // 2. Arc motion — sinusoidal drift during scene hold
-    const arc = SCENE_ARC[idx] ?? [0, 0, 0.8, false];
-    const arcPhX = arc[0], arcPhY = arc[1], arcSpd = arc[2], pushIn = arc[3];
+    // ── 2. Arc motion — sinusoidal drift ─────────────────────
+    const arc = SCENE_ARC[idx] ?? [0, 0, 0.8, false, 0.5, false];
+    const [arcPhX, arcPhY, arcSpd, pushIn, breathAmp] = arc;
     if (arcSpd > 0) {
       const tx = Math.sin((t * ARC_HZ * arcSpd + arcPhX) * Math.PI * 2) * ARC_AMP;
-      const ty = Math.sin((t * ARC_HZ * arcSpd * 0.7 + arcPhY) * Math.PI * 2) * ARC_AMP * 0.6;
+      const ty = Math.sin((t * ARC_HZ * arcSpd * 0.7 + arcPhY) * Math.PI * 2) * ARC_AMP * 0.65;
       _arcOff.set(tx, ty, 0);
       _tPos.add(_arcOff);
     }
 
-    // 3. Push-in — camera slowly dolls forward during hero shots
+    // ── 3. Push-in dolly ─────────────────────────────────────
     if (pushIn) {
-      // Smoothstep the progress for elegant easing
-      const sp = progress * progress * (3 - 2 * progress);
+      const sp = progress * progress * (3 - 2 * progress); // smoothstep
       _fwdDir.subVectors(_tLook, _tPos).normalize();
       _tPos.addScaledVector(_fwdDir, sp * PUSH_IN_AMOUNT);
     }
 
-    // 4. SafeCompositionSystem — auto-compensate if product too small
-    const minFill = idx <= 1 ? 0 : idx <= 4 ? COMPOSITION.HERO_MIN : COMPOSITION.ENGINEERING_MIN;
+    // ── 4. SafeCompositionSystem compensation ─────────────────
+    const minFill = idx <= 3 ? 0 : idx <= 7 ? COMPOSITION.HERO_MIN : COMPOSITION.ENGINEERING_MIN;
     const compensation = safeComposition.getCameraCompensation(minFill);
     if (Math.abs(compensation) > 0.01) {
       _fwdDir.subVectors(_tPos, _tLook).normalize();
       _tPos.addScaledVector(_fwdDir, compensation);
     }
 
-    // 5. Spring-damper position
+    // ── 5. Spring-damper position ─────────────────────────────
     _diff.subVectors(_tPos, camera.position);
     _accel.copy(_diff).multiplyScalar(POS_SPRING);
     _accel.addScaledVector(_pVel, -POS_DAMPING);
     _pVel.addScaledVector(_accel, dt);
     camera.position.addScaledVector(_pVel, dt);
 
-    // 6. Spring-damper lookAt
+    // ── 6. Spring-damper lookAt ───────────────────────────────
     _diff.subVectors(_tLook, _lookRef);
     _accel.copy(_diff).multiplyScalar(LOOK_SPRING);
     _accel.addScaledVector(_lVel, -LOOK_DAMPING);
     _lVel.addScaledVector(_accel, dt);
     _lookRef.addScaledVector(_lVel, dt);
 
-    // 7. FOV — lerp + breathing. Sealed scene: holds perfectly still.
-    const breathAmp = idx === 12 ? 0 : FOV_BREATH_AMP;
-    const breath    = Math.sin(t * FOV_BREATH_HZ * Math.PI * 2) * breathAmp;
-    const targetFov = cfg.fov + breath;
+    // ── 7. FOV breathing ─────────────────────────────────────
+    // Final seal (18): locked. Threat scenes: exaggerated breath.
+    const fovBreathAmp = idx === 18 ? 0 : (breathAmp as number) * 0.6;
+    const breath       = Math.sin(t * FOV_BREATH_HZ * Math.PI * 2) * fovBreathAmp;
+    const targetFov    = cfg.fov + breath;
     camera.fov += (targetFov - camera.fov) * dt * FOV_SPEED;
     camera.updateProjectionMatrix();
 
-    // 8. Apply lookAt — ALWAYS last
+    // ── 8. LookAt — always last ───────────────────────────────
     camera.lookAt(_lookRef);
 
     invalidate();

@@ -1,15 +1,21 @@
 // ═══════════════════════════════════════════════════════════════
-// FILM DIRECTOR — PHASE XXXV: CINEMATIC RE-DIRECTION
+// FILM DIRECTOR — PHASE OMEGA: CINEMATIC REBIRTH
 //
-// Target runtime: 57 seconds.
-// Structure: 13 scenes across 5 acts.
-// Philosophy: the viewer EARNS the full product reveal.
+// Target runtime: 72 seconds.
+// Theme: "THE DEVICE THAT OUTLIVES SYSTEMS."
+// Structure: 17 scenes across 5 acts.
 //
-// ACT I   THE SIGNAL      (0–10.5s)  — darkness, curiosity
-// ACT II  THE OBJECT     (10.5–21s)  — partial macro reveals
-// ACT III THE SYSTEM     (21–34s)   — FIRST FULL REVEAL
-// ACT IV  THE THREAT     (34–40.5s) — urgency, defense
-// ACT V   IMMORTALITY    (40.5–57s) — legend, final seal
+// ACT I   THE SIGNAL        (0–12s)   — darkness, obsession, curiosity
+// ACT II  ENGINEERED OBJECT (12–26s)  — fragments, texture, desire
+// ACT III FULL REVEAL       (26–40s)  — sovereign hero, dominance
+// ACT IV  THE THREAT        (40–52s)  — rapid cuts, kinetic urgency
+// ACT V   IMMORTALITY       (52–72s)  — monumental, timeless, sealed
+//
+// Pacing philosophy:
+//   ACT I/II: 3-4s scenes — earn the curiosity
+//   ACT III:  4-5s scenes — let the reveal breathe
+//   ACT IV:   2-3s scenes — aggressive, kinetic, addictive
+//   ACT V:    4-6s scenes — legendary stillness
 // ═══════════════════════════════════════════════════════════════
 
 import { SCENE_REGISTRY } from './scenes';
@@ -17,34 +23,41 @@ import { useExperienceStore } from './store';
 import { transitionDirector } from './TransitionDirector';
 import { directiveEngine } from './DirectiveEngine';
 
-// ── XXXV timing — 57 seconds total ────────────────────────────
-const SCENE_DURATIONS: Record<number, number> = {
-  // ACT I — THE SIGNAL (10.5s)
-  0: 3500,  // Void / boot signal — pure darkness, curiosity
-  1: 4000,  // Metal edge macro — cyan rim cuts the black
-  2: 3000,  // Logo silhouette — identity emerges
+// ── OMEGA timing — 72 seconds total ───────────────────────────
+export const SCENE_DURATIONS: Record<number, number> = {
+  // ── ACT I — THE SIGNAL (12s) ──────────────────────────────
+  0: 3000,  // Void: pure black. Power pulse. Bass drop.
+  1: 3500,  // LED blink: ultra-close eye of the device. First contact.
+  2: 2800,  // Edge macro: cyan rim splits the void. Identity.
+  3: 2700,  // Boot glyphs: surface texture, circuit geography.
 
-  // ACT II — THE OBJECT (10.5s)
-  3: 3500,  // USB-C port macro — physical trust interface
-  4: 3500,  // Enclosure corner — machined precision
-  5: 3500,  // PCB overhead — silicon core reveal
+  // ── ACT II — ENGINEERED OBJECT (14s) ──────────────────────
+  4: 3500,  // USB-C port: telephoto compression. Physical trust.
+  5: 3000,  // Enclosure seam: machined precision, chamfered edge.
+  6: 3500,  // PCB overhead: silicon core. Classified circuitry.
+  7: 4000,  // Reflection sweep: light rakes across the shell.
 
-  // ACT III — THE SYSTEM (13s)
-  6: 5000,  // FIRST FULL HERO REVEAL — assembled product
-  7: 4000,  // Exploded view — mechanical authority
-  8: 4000,  // Low-angle authority — sovereign form
+  // ── ACT III — FULL REVEAL (14s) ───────────────────────────
+  8: 5000,  // HERO SHOT: assembled device. Full frontal. 80% fill.
+  9: 4000,  // Exploded lock: shells separate with ballistic authority.
+  10:5000,  // Low-angle pedestal: camera looks up. Sovereign monument.
 
-  // ACT IV — THE THREAT (6.5s)
-  9: 3500,  // Threat close — amber urgency
-  10:3000,  // Interception — contained, controlled
+  // ── ACT IV — THE THREAT (12s) — RAPID CUTS ────────────────
+  11:2500,  // Threat impact: amber flash. Attack detected.
+  12:2500,  // Shockwave: device holds. Unshaken.
+  13:2500,  // Interception: hard diagonal. Zero compromise.
+  14:2500,  // Containment: device center. Threat neutralized.
+  15:2000,  // Zero knowledge: confirmation flash.
 
-  // ACT V — IMMORTALITY (11.5s)
-  11:5000,  // Majestic celestial — the device transcends
-  12:6500,  // Final seal — legend, fade to black
+  // ── ACT V — IMMORTALITY (20s) ─────────────────────────────
+  16:5000,  // Majestic rise: device ascends from void.
+  17:5500,  // Logo reveal: slow push. Identity confirmed.
+  18:9500,  // Final seal: absolute stillness. Monument. Q-VAULT.
 };
 
 const TOTAL_DURATION = Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0);
-const END_HOLD       = 3500;
+const END_HOLD       = 4000;
+const SCENE_COUNT    = Object.keys(SCENE_DURATIONS).length; // 19 (0–18)
 
 class FilmDirector {
   private _startTime = 0;
@@ -77,7 +90,7 @@ class FilmDirector {
     let activeScene   = 0;
     let sceneProgress = 0;
 
-    for (let i = 0; i < SCENE_REGISTRY.length; i++) {
+    for (let i = 0; i < SCENE_COUNT; i++) {
       const dur = SCENE_DURATIONS[i] ?? 4000;
       if (elapsed < acc + dur) {
         activeScene   = i;
@@ -85,7 +98,7 @@ class FilmDirector {
         break;
       }
       acc += dur;
-      if (i === SCENE_REGISTRY.length - 1) {
+      if (i === SCENE_COUNT - 1) {
         activeScene   = i;
         sceneProgress = 1.0;
         if (elapsed >= acc + END_HOLD && !this._ended) this._onEnd();
@@ -109,7 +122,8 @@ class FilmDirector {
 
   get isEnded()       { return this._ended; }
   get totalDuration() { return TOTAL_DURATION; }
-  get info()          { return `${Math.round(TOTAL_DURATION / 1000)}s / ${SCENE_REGISTRY.length} scenes`; }
+  get sceneCount()    { return SCENE_COUNT; }
+  get info()          { return `${Math.round(TOTAL_DURATION / 1000)}s / ${SCENE_COUNT} scenes`; }
 }
 
 export const filmDirector = new FilmDirector();

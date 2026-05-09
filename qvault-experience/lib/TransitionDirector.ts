@@ -30,21 +30,30 @@ class TransitionDirector {
   private _rafId: number | null = null;
   private _lastTime = 0;
 
-  // Transition duration per scene (seconds). Short, visible, and continuous.
+  // Transition duration per scene (seconds).
+  // ACT IV threat cuts: ultra-fast (0.25s) for kinetic urgency.
+  // ACT III hero: 0.80s — gravitas.
+  // ACT V final: 1.20s — monumental.
   private readonly DURATIONS: Record<number, number> = {
-    0:  0.55,
-    1:  0.55,
-    2:  0.70,
-    3:  0.60,
-    4:  0.50,
-    5:  0.50,
-    6:  0.65,
-    7:  0.60,
-    8:  0.55,
-    9:  0.55,
-    10: 0.60,
-    11: 0.65,
-    12: 0.75,
+    0:  0.55,   // Void boot
+    1:  0.50,   // LED blink
+    2:  0.55,   // Edge macro
+    3:  0.50,   // Boot texture
+    4:  0.45,   // USB-C
+    5:  0.45,   // Seam
+    6:  0.55,   // PCB core
+    7:  0.50,   // Reflection sweep
+    8:  0.80,   // HERO REVEAL — gravitas
+    9:  0.55,   // Exploded
+    10: 0.60,   // Pedestal
+    11: 0.25,   // Threat cut — kinetic
+    12: 0.25,
+    13: 0.25,
+    14: 0.25,
+    15: 0.35,   // ZK — slight settle
+    16: 0.70,   // Majestic rise
+    17: 0.65,   // Logo reveal
+    18: 1.20,   // Final seal — monumental
   };
 
   constructor() {
