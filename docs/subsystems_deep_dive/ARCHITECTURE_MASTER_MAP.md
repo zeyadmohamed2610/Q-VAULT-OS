@@ -5,6 +5,11 @@ This document serves as the high-level map of the Q-Vault architecture. It is de
 
 ---
 
+### 🏛️ SECURITY PHILOSOPHY STATEMENT
+> "Q-Vault is not intended to replace a kernel-level operating system. It is a **Governed Secure Runtime Layer** focused on behavioral mediation, forensic explainability, and application isolation within a managed desktop environment. Every engineering decision is optimized for mandatory mediation and zero-trust integrity."
+
+---
+
 ### 1. FULL SYSTEM TOPOLOGY
 The Q-Vault architecture follows a **Mediated Micro-Kernel** approach where the core system logic is decoupled from both the UI and the Application execution space.
 

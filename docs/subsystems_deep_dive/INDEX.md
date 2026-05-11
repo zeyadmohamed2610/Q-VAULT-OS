@@ -27,6 +27,10 @@ This directory contains the forensic architectural documentation for the Q-Vault
 14. **GOVERNANCE_STATES:** Adaptive system postures (Stable to Interdiction).
 15. **PRESSURE_MANAGEMENT:** Resource starvation defense and backpressure.
 
+## 📁 [SYSTEM_AUDIT.md]
+16. **[THREAT_MODEL.md](file:///c:/Users/eltmsah/Desktop/Github/Q-Vault/docs/subsystems_deep_dive/THREAT_MODEL.md)**: Security boundaries and mitigation analysis.
+17. **[PERFORMANCE_ENVELOPE.md](file:///c:/Users/eltmsah/Desktop/Github/Q-Vault/docs/subsystems_deep_dive/PERFORMANCE_ENVELOPE.md)**: Operational limits and resource footprint.
+
 ---
 
 **Auditor Note:** These documents are intended to demonstrate the architectural rationale and forensic integrity of the Q-Vault OS platform. They map the "Why" and "How" of every core system decision.
