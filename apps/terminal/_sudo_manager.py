@@ -91,9 +91,9 @@ class SudoManager:
     def verify_password(self, text: str) -> bool:
         """
         Verify password. Strategy:
-          1. If file-based auth is set up (qsu was run), use it.
+          1. If file-based auth is set up, use it.
           2. Otherwise, fallback to the Rust core login() with 'admin' user.
-        This ensures sudo works whether the user set up via qsu or the Lock Screen.
+        This ensures sudo works seamlessly.
         """
         import logging
         _log = logging.getLogger("terminal.sudo")

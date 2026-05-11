@@ -11,7 +11,7 @@ What /proc is (Linux reference)
 processes a window into kernel data structures.  It is never stored on disk;
 its contents are generated on demand.
 
-Key files simulated here
+Key governance endpoints available via /proc
 ─────────────────────────
   /proc/uptime         — system uptime in seconds since boot
   /proc/meminfo        — memory statistics (MemTotal, MemFree, …)
@@ -52,7 +52,7 @@ if TYPE_CHECKING:
     from core.filesystem import Meta
 
 
-# ── Boot time (module load = system boot for simulation purposes) ─────────
+# ── Runtime Initialization (Boot Clock) ─────────
 _BOOT_TIME: float = time.time()
 
 
@@ -63,7 +63,7 @@ class ProcFSHandler:
     All methods are classmethods — no instantiation needed.
     """
 
-    # Simulated hardware constants — realistic for a small VM
+    # Defined hardware specifications for the Q-Vault Secure Runtime
     _CPU_MODEL:   str = "Intel(R) Core(TM) i7-9750H CPU @ 2.60GHz"
     _CPU_CORES:   int = 6
     _MEM_TOTAL_KB: int = 16_384_000   # 16 GB RAM
@@ -95,7 +95,7 @@ class ProcFSHandler:
             # Each running process contributes a rough RSS estimate
             try:
                 for proc in pm.all_procs():
-                    # 64 MB per process is a rough simulation
+                    # 64 MB per process allocation baseline
                     used_kb += 65_536
             except Exception:
                 pass

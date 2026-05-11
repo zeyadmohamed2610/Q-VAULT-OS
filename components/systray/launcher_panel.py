@@ -80,7 +80,7 @@ class LauncherPanel(QWidget):
         lay.setSpacing(8)
 
         # Header
-        title = QLabel("Q-Vault OS")
+        title = QLabel("[ ⚛ ] Q-Vault OS")
         title.setFont(QFont("Segoe UI Semibold", 13))
         title.setStyleSheet("color:#54b1c6; background:transparent;")
         title.setAlignment(Qt.AlignCenter)
@@ -105,8 +105,8 @@ class LauncherPanel(QWidget):
 
         # Session buttons
         for label, fn, style in [
-            ("🔒  Lock Screen", self._lock,    _BTN),
-            ("💤  Sleep",       self._sleep,   _BTN),
+            ("[ ⊗ ] Lock Session", self._lock,    _BTN),
+            ("[ ∿ ] Standby",      self._sleep,   _BTN),
         ]:
             btn = QPushButton(label)
             btn.setStyleSheet(style)
@@ -117,8 +117,8 @@ class LauncherPanel(QWidget):
 
         # System buttons
         for label, fn, style in [
-            ("↺  Restart",   self._restart,  _BTN),
-            ("⏻  Shut Down", self._shutdown, _BTN_DANGER),
+            ("[ ↺ ] Kernel Reboot", self._restart,  _BTN),
+            ("[ ⏻ ] Decommission",  self._shutdown, _BTN_DANGER),
         ]:
             btn = QPushButton(label)
             btn.setStyleSheet(style)

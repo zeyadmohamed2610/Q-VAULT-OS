@@ -162,7 +162,7 @@ def check_kernel_imports():
 
 def boot_kernel():
     """
-    Phase: Initialize Kernel Simulation Layer.
+    Phase: Initialize Kernel Runtime Governance.
 
     Startup order (strict — later stages depend on earlier ones):
       1. Memory Manager   — RAM must exist before processes spawn
@@ -171,7 +171,7 @@ def boot_kernel():
       4. Dispatcher       — listens for PROC_SCHEDULED
       5. Multicore Engine — listens for CLOCK_TICK (utilization)
       6. Deadlock Manager — listens for CLOCK_TICK (auto-detect)
-      7. Simulation Clock — started LAST; its tick drives everything
+      7. System Clock — started LAST; its tick drives everything
 
     Configuration applied:
       • Scheduler  → ROUND_ROBIN algorithm, quantum = 3 ticks
@@ -223,8 +223,8 @@ def boot_kernel():
     clock = _get_clock()
     clock.start()
 
-    print("  [KERNEL] Kernel Simulation Layer: ONLINE")
-    print(f"  [KERNEL] Clock started  — interval: {clock.tick_interval_ms}ms/tick")
+    print("  [KERNEL] Kernel Runtime Governance: ONLINE")
+    print(f"  [KERNEL] System Clock    — interval: {clock.tick_interval_ms}ms/tick")
     print(f"  [KERNEL] Scheduler      — algorithm: {sched.algorithm}")
     print(f"  [KERNEL] Memory         — {mm.total_size}u FIRST_FIT")
     print(f"  [KERNEL] Multicore      — {mce.core_count} cores")

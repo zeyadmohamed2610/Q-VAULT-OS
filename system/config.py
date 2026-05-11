@@ -13,6 +13,14 @@ def get_qvault_home() -> str:
         home.mkdir(parents=True, exist_ok=True)
     return str(home)
 
+def mask_path(path: str | Path) -> str:
+    """Converts a real host path to a virtual Q-Vault path for logs."""
+    p_str = str(path)
+    home = get_qvault_home()
+    if p_str.startswith(home):
+        return p_str.replace(home, "/secure").replace("\\", "/")
+    return p_str.replace("\\", "/")
+
 def init_environment():
     """Ensures all required system directories exist."""
     home = Path(get_qvault_home())

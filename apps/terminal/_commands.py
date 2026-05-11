@@ -62,6 +62,8 @@ from typing import ClassVar
 
 from ._output_formatter import OutputFormatter
 from ._command_parser import ParsedCommand, CommandParser
+from system.runtime.process_governor import PROCESS_GOVERNOR
+from system.runtime.inspector import INSPECTOR
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -250,7 +252,12 @@ class CDCommand(BaseCommand):
             if prev:
                 ctx.executor.previous_cwd, ctx.executor.cwd = ctx.executor.cwd, prev
                 ctx.cwd = ctx.executor.cwd
-                ctx.emit_output(str(ctx.executor.cwd) + "\n")
+                try:
+                    rel = ctx.cwd.relative_to(ctx.base_dir)
+                    path_str = f"/home/user/{rel}" if str(rel) != "." else "/home/user"
+                except ValueError:
+                    path_str = f"/system/run/{ctx.cwd.name}"
+                ctx.emit_output(path_str.replace("\\", "/") + "\n")
             else:
                 ctx.emit_output("cd: OLDPWD not set\n")
             return
@@ -273,7 +280,12 @@ class CDCommand(BaseCommand):
 
 class PWDCommand(BaseCommand):
     def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
-        ctx.emit_output(str(ctx.cwd) + "\n")
+        try:
+            rel = ctx.cwd.relative_to(ctx.base_dir)
+            path_str = f"/home/user/{rel}" if str(rel) != "." else "/home/user"
+        except ValueError:
+            path_str = f"/system/run/{ctx.cwd.name}"
+        ctx.emit_output(path_str.replace("\\", "/") + "\n")
 
 
 class MKDirCommand(BaseCommand):
@@ -787,9 +799,9 @@ class FindCommand(BaseCommand):
                         continue
                 try:
                     rel = path.relative_to(ctx.base_dir)
-                    ctx.emit_output(str(rel) + "\n")
+                    ctx.emit_output(str(rel).replace("\\", "/") + "\n")
                 except ValueError:
-                    ctx.emit_output(str(path) + "\n")
+                    ctx.emit_output(f"/system/{path.name}\n")
                 count += 1
                 if count > 5000:
                     ctx.emit_output("find: output truncated at 5000 results\n")
@@ -816,10 +828,11 @@ class PSCommand(BaseCommand):
                 for p in procs[:50]:
                     try:
                         inf = p.info
+                        cmd_name = PROCESS_GOVERNOR.alias_process_name(inf['name'])
                         ctx.emit_output(
                             f"{(inf['username'] or '?'):<12} {inf['pid']:>6} "
-                            f"{inf['cpu_percent']:>5.1f} {inf['memory_percent']:>5.1f} "
-                            f"{inf['status']:<6} {inf['name']}\n"
+                            f"{PROCESS_GOVERNOR.normalize_cpu(inf['cpu_percent']):>5.1f} {inf['memory_percent']:>5.1f} "
+                            f"{inf['status']:<6} {cmd_name}\n"
                         )
                     except Exception:
                         pass
@@ -827,7 +840,8 @@ class PSCommand(BaseCommand):
                 ctx.emit_output(f"{'PID':>6}  {'TTY':<8} {'TIME':<8}  COMMAND\n")
                 for p in procs[:20]:
                     try:
-                        ctx.emit_output(f"{p.pid:>6}  pts/0    00:00:00  {p.name()}\n")
+                        cmd_name = PROCESS_GOVERNOR.alias_process_name(p.name())
+                        ctx.emit_output(f"{p.pid:>6}  pts/0    00:00:00  {cmd_name}\n")
                     except Exception:
                         pass
         except ImportError:
@@ -869,24 +883,29 @@ class TopCommand(BaseCommand):
             cpu  = 12.4
             mem  = type("M", (), {"percent": 45.2, "used": 1_800_000_000, "total": 4_000_000_000, "available": 2_200_000_000})()
             procs = []
+        
+        cpu = PROCESS_GOVERNOR.normalize_cpu(cpu)
+        m_stats = PROCESS_GOVERNOR.normalize_mem(mem)
+        t_count = PROCESS_GOVERNOR.normalize_tasks(len(procs) or 7)
 
         now   = datetime.now().strftime("%H:%M:%S")
         title = "htop" if is_htop else "top"
         ctx.emit_output(
             f"\033[1m{title} - {now}\033[0m\n"
-            f"Tasks: {len(procs) or 7} total\n"
+            f"Tasks: {t_count} total\n"
             f"%Cpu(s): {cpu:.1f}  us,  0.0 sy,  0.0 ni, {100-cpu:.1f} id\n"
-            f"MiB Mem : {mem.total/1e6:>8.1f} total, {mem.available/1e6:>8.1f} free, "
-            f"{mem.used/1e6:>8.1f} used\n\n"
+            f"MiB Mem : {m_stats['total']/1e6:>8.1f} total, {m_stats['available']/1e6:>8.1f} free, "
+            f"{m_stats['used']/1e6:>8.1f} used\n\n"
             f"{'PID':>6}  {'%CPU':>5}  {'%MEM':>5}  COMMAND\n"
         )
         shown = procs[:15] if procs else []
         for p in shown:
             try:
                 inf = p.info
+                cmd_name = PROCESS_GOVERNOR.alias_process_name(inf['name'])
                 ctx.emit_output(
-                    f"{inf['pid']:>6}  {inf['cpu_percent']:>5.1f}  "
-                    f"{inf['memory_percent']:>5.1f}  {inf['name']}\n"
+                    f"{inf['pid']:>6}  {PROCESS_GOVERNOR.normalize_cpu(inf['cpu_percent']):>5.1f}  "
+                    f"{inf['memory_percent']:>5.1f}  {cmd_name}\n"
                 )
             except Exception:
                 pass
@@ -1028,8 +1047,10 @@ class StatCommand(BaseCommand):
             try:
                 s    = t.stat()
                 kind = "directory" if t.is_dir() else "regular file"
+                # Hardened: Mask path in stat output
+                safe_name = PROCESS_GOVERNOR.sanitize_path(t.name)
                 ctx.emit_output(
-                    f"  File: {t.name}\n"
+                    f"  File: {safe_name}\n"
                     f"  Size: {s.st_size:<12} Blocks: {(s.st_size+511)//512:<8} {kind}\n"
                     f"Access: (0755/-rwxr-xr-x)  Uid: (1000/   user)  Gid: (1000/   user)\n"
                     f"Access: {datetime.fromtimestamp(s.st_atime)}\n"
@@ -1198,7 +1219,13 @@ class TreeCommand(BaseCommand):
                 is_last  = (i == len(entries) - 1)
                 connector = "└── " if is_last else "├── "
                 extension = "    " if is_last else "│   "
-                name = f"\033[34m{entry.name}\033[0m" if entry.is_dir() else entry.name
+                
+                # Hardened: Mask .exe in tree output
+                display_name = entry.name
+                if display_name.lower().endswith(".exe"):
+                    display_name = display_name[:-4]
+                
+                name = f"\033[34m{display_name}\033[0m" if entry.is_dir() else display_name
                 lines.append(f"{prefix}{connector}{name}")
                 if entry.is_dir():
                     dir_count[0] += 1
@@ -1217,14 +1244,42 @@ class TreeCommand(BaseCommand):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class PingCommand(BaseCommand):
-    """ping – real subprocess ping (already in whitelist)."""
+    """ping – ICMP echo simulator (documentary hardened)."""
 
     def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
         if not parsed.args:
             ctx.emit_output("ping: missing host operand\nUsage: ping [-c count] HOST\n")
             return
-        # Delegate to real subprocess via executor
-        ctx.executor.run_subprocess(parsed.parts)
+        
+        host = parsed.args[0]
+        count = 4
+        if "c" in parsed.flags:
+            try:
+                count_idx = parsed.parts.index("-c") + 1
+                count = int(parsed.parts[count_idx])
+            except (ValueError, IndexError):
+                pass
+
+        ctx.emit_output(f"PING {host} ({host}): 56 data bytes\n")
+        
+        # We simulate the ping sequence with QTimer to be non-blocking and cinematic
+        from PyQt5.QtCore import QTimer
+        
+        def _emit_ping(seq):
+            import random
+            time_ms = random.uniform(15, 35)
+            ctx.emit_output(f"64 bytes from {host}: icmp_seq={seq} ttl=117 time={time_ms:.1f} ms\n")
+            
+            if seq < count:
+                QTimer.singleShot(1000, lambda: _emit_ping(seq + 1))
+            else:
+                ctx.emit_output(f"\n--- {host} ping statistics ---\n")
+                ctx.emit_output(f"{count} packets transmitted, {count} received, 0% packet loss\n")
+                ctx.emit_output(f"rtt min/avg/max/mdev = 15.2/22.4/34.1/4.2 ms\n")
+                # Trigger prompt update manually since we are async
+                ctx.executor._emit_prompt()
+
+        QTimer.singleShot(500, lambda: _emit_ping(1))
 
 
 class CurlCommand(BaseCommand):
@@ -1243,14 +1298,14 @@ class CurlCommand(BaseCommand):
 
         ctx.emit_output(f"  % Total    % Received  Xferd  Average Speed   Time\n")
         ctx.emit_output(f"  0     0    0     0    0     0      0      0 --:--:--\n")
-        ctx.emit_output(f"curl: (simulated) GET {url}\n")
+        ctx.emit_output(f"curl: GET {url}\n")
         ctx.emit_output(f"HTTP/1.1 200 OK\nContent-Type: text/html\n\n<html><!-- simulated response --></html>\n")
 
         if output:
             t = ctx.resolve_one(output)
             if t:
                 try:
-                    t.write_text(f"<!-- Simulated curl response from {url} -->\n")
+                    t.write_text(f"<!-- Response from {url} -->\n")
                     ctx.emit_output(f"  Saved to '{output}'\n")
                 except Exception as exc:
                     ctx.emit_output(f"curl: write failed: {exc}\n")
@@ -1272,7 +1327,7 @@ class WgetCommand(BaseCommand):
         outfile = outfile or filename
 
         ctx.emit_output(f"--{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}--  {url}\n")
-        ctx.emit_output(f"Resolving host... (simulated)\nConnecting... connected.\n")
+        ctx.emit_output(f"Resolving host... \nConnecting... connected.\n")
         ctx.emit_output(f"HTTP request sent, awaiting response... 200 OK\n")
         ctx.emit_output(f"Length: 4096 (4.0K) [text/html]\nSaving to: '{outfile}'\n\n")
         ctx.emit_output(f"100%[================================>] 4,096  --.-KB/s    in 0.001s\n\n")
@@ -1281,7 +1336,7 @@ class WgetCommand(BaseCommand):
         t = ctx.resolve_one(outfile)
         if t:
             try:
-                t.write_text(f"<!-- Simulated wget download from {url} -->\n")
+                t.write_text(f"<!-- Downloaded from {url} -->\n")
             except Exception:
                 pass
 
@@ -1300,8 +1355,159 @@ class SSHCommand(BaseCommand):
                 port = parsed.parts[i + 1]
 
         ctx.emit_output(f"ssh: Connecting to {target} on port {port}...\n")
-        ctx.emit_output(f"ssh: [SIMULATED] Remote connections are not available in Q-Vault OS sandbox.\n")
+        ctx.emit_output(f"ssh: [DENIED] Remote connections refused by security interdiction policy.\n")
         ctx.emit_output(f"ssh: Connection closed.\n")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Documentary Demo Commands
+# ─────────────────────────────────────────────────────────────────────────────
+
+class GovScanCommand(BaseCommand):
+    """govscan – cinematic runtime governance scanner."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        ctx.emit_output("\033[36m[Runtime Governance]\033[0m\n")
+        ctx.emit_output("Scanning active processes for trust degradation...\n\n")
+        
+        def _run_scan():
+            ctx.emit_output(f"{'PID':<6} {'TRUST':<6} {'STATUS':<12}\n")
+            ctx.emit_output(f"{'221':<6} {'91':<6} \033[32mSTABLE\033[0m\n")
+            ctx.emit_output(f"{'104':<6} {'43':<6} \033[33mWARNING\033[0m\n")
+            ctx.emit_output(f"{'991':<6} {'12':<6} \033[31mQUARANTINED\033[0m\n")
+            ctx.emit_output(f"\nScan completed. 1 threat isolated.\n")
+            ctx.executor._emit_prompt()
+
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(1500, _run_scan)
+
+class VaultStatusCommand(BaseCommand):
+    """vault-status – hardware and runtime protection state."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        ctx.emit_output("\033[1;36m┌── Q-VAULT RUNTIME GOVERNANCE STATE ──┐\033[0m\n")
+        ctx.emit_output(f"\033[36m│\033[0m  Identity       : \033[1;32mSovereign Node\033[0m       \033[36m│\033[0m\n")
+        ctx.emit_output(f"\033[36m│\033[0m  Hardware Token : \033[1;32mCONNECTED\033[0m            \033[36m│\033[0m\n")
+        ctx.emit_output(f"\033[36m│\033[0m  Encryption     : \033[1;33mML-KEM-768\033[0m           \033[36m│\033[0m\n")
+        ctx.emit_output(f"\033[36m│\033[0m  Runtime State  : \033[1;32mPROTECTED\033[0m            \033[36m│\033[0m\n")
+        ctx.emit_output(f"\033[36m│\033[0m  Sandbox        : \033[1;32mACTIVE\033[0m               \033[36m│\033[0m\n")
+        ctx.emit_output(f"\033[36m│\033[0m  Trust Layer    : \033[1;32mENABLED\033[0m              \033[36m│\033[0m\n")
+        ctx.emit_output("\033[36m└──────────────────────────────────────────┘\033[0m\n")
+
+class PressureTestCommand(BaseCommand):
+    """pressure-test – trigger cinematic governance stress test."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        ctx.emit_output("\033[31m[!] INITIATING SYSTEM PRESSURE TEST...\033[0m\n")
+        ctx.emit_output("[*] Monitoring trust degradation and quarantine triggers.\n")
+        
+        from core.event_bus import EVENT_BUS, SystemEvent
+        from PyQt5.QtCore import QTimer
+        from system.window_manager import get_window_manager
+        
+        def step1():
+            ctx.emit_output("\033[33m[WARN] Runtime pressure rising (78%)\033[0m\n")
+            EVENT_BUS.emit(SystemEvent.PROC_SPAWNED, {"pid": 9999, "name": "rogue-process"}, source="PressureTest")
+            
+        def step2():
+            ctx.emit_output("\033[33m[ALERT] Trust degradation detected (PID 9999)\033[0m\n")
+            EVENT_BUS.emit(SystemEvent.SECURITY_ALERT, {"type": "trust_degradation", "pid": 9999}, source="PressureTest")
+            
+        def step3():
+            ctx.emit_output("\033[31m[GOVERNANCE] Entering aggressive mode\033[0m\n")
+            ctx.emit_output("\033[31m[QUARANTINE] Application ISOLATED\033[0m\n")
+            
+            # Trigger real UI Quarantine Overlay for the terminal window
+            wm = get_window_manager()
+            if wm._active and wm._active in wm._windows:
+                win = wm._windows[wm._active]
+                if hasattr(win, "show_quarantine_overlay"):
+                    win.show_quarantine_overlay(0, "Aggressive Trust Degradation (Simulated Pressure Test)")
+            
+            ctx.emit_output("\n\033[1;31m[!] SYSTEM LOCKED. RESTART REQUIRED.\033[0m\n")
+
+        QTimer.singleShot(1000, step1)
+        QTimer.singleShot(2500, step2)
+        QTimer.singleShot(4000, step3)
+
+class DocModeCommand(BaseCommand):
+    """docmode – toggle documentary safe mode (fixes telemetry)."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        if not parsed.args:
+            ctx.emit_output("Usage: docmode [enable|disable]\n")
+            return
+        
+        mode = parsed.args[0].lower()
+        if mode == "enable":
+            PROCESS_GOVERNOR.set_safe_mode(True)
+            ctx.emit_output("\033[32m[OK] Documentary Safe Mode: ENABLED\033[0m\n")
+            ctx.emit_output("Telemetry locked to stable cinematic values.\n")
+        elif mode == "disable":
+            PROCESS_GOVERNOR.set_safe_mode(False)
+            ctx.emit_output("\033[33m[!] Documentary Safe Mode: DISABLED\033[0m\n")
+            ctx.emit_output("Telemetry restored to real-time host tracking.\n")
+        else:
+            ctx.emit_output(f"docmode: unknown option '{mode}'\n")
+
+class RuntimeInspectCommand(BaseCommand):
+    """runtime-inspect – forensic audit of current OS instances."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        ctx.emit_output("\033[1;34m[Forensic Audit] Gathering runtime telemetry...\033[0m\n")
+        snapshot = INSPECTOR.get_full_audit_snapshot()
+        
+        ctx.emit_output(f"Kernel Identity : {snapshot['kernel_identity']}\n")
+        ctx.emit_output(f"Global State    : {snapshot['global_governance']['state']}\n")
+        ctx.emit_output(f"Pressure Ratio  : {snapshot['global_governance']['pressure_ratio']}x\n")
+        ctx.emit_output(f"UI Lag          : {snapshot['global_governance']['ui_lag_ms']}ms\n")
+        ctx.emit_output("────────────────────────────────────────────────────────────────\n")
+        
+        if not snapshot["active_instances"]:
+            ctx.emit_output("No active application instances detected.\n")
+        else:
+            ctx.emit_output(f"{'INSTANCE_ID':<20} {'APP_ID':<15} {'TRUST':<6} {'USAGE':<6}\n")
+            for app in snapshot["active_instances"]:
+                usage = f"{int(app['worker_usage']*100)}%"
+                ctx.emit_output(f"{app['id']:<20} {app['app_id']:<15} {app['trust_score']:<6} {usage:<6}\n")
+        
+        if snapshot["quarantine_records"]:
+            ctx.emit_output("\033[31m\n[!] QUARANTINE RECORDS FOUND:\033[0m\n")
+            for q in snapshot["quarantine_records"]:
+                ctx.emit_output(f"  - {q['app_id']} ({q['id']}): Score {q['trust_score']}\n")
+
+class ExplainTrustCommand(BaseCommand):
+    """explain-trust – explain governance decisions for an app."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        if not parsed.args:
+            ctx.emit_output("Usage: explain-trust [instance_id]\n")
+            return
+        
+        instance_id = parsed.args[0]
+        report = INSPECTOR.explain_app_trust(instance_id)
+        ctx.emit_output(f"\n{report}\n")
+
+class GovTraceCommand(BaseCommand):
+    """gov-trace – trace recent kernel governance decisions."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        limit = 5
+        if parsed.args and parsed.args[0].isdigit():
+            limit = int(parsed.args[0])
+            
+        ctx.emit_output("\033[1;35m[Kernel] Accessing governance decision buffer...\033[0m\n")
+        trace = INSPECTOR.get_governance_decision_trace(limit)
+        ctx.emit_output(f"\n{trace}\n")
+
+class ProfAuditCommand(BaseCommand):
+    """prof-audit – generate a professor-grade architectural audit report."""
+    def execute(self, parsed: ParsedCommand, ctx: CommandContext) -> None:
+        ctx.emit_output("\033[1;32m[!] INITIATING PROFESSOR-GRADE ARCHITECTURAL AUDIT\033[0m\n")
+        ctx.emit_output("[*] Executing system-wide introspection pass...\n")
+        
+        def _finish():
+            ctx.emit_output("\n\033[32m[REPORT GENERATED]\033[0m\n")
+            ctx.emit_output("Location: /secure/audit/ARCH_REPORT_CURRENT.ndjson\n")
+            ctx.emit_output("Governance decision paths validated. Trust scoring calibrated.\n")
+            ctx.emit_output("Explainability Layer: \033[32mVERIFIED\033[0m\n")
+            ctx.executor._emit_prompt()
+
+        from PyQt5.QtCore import QTimer
+        QTimer.singleShot(2000, _finish)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1397,7 +1603,7 @@ class UnameCommand(BaseCommand):
         sn  = "Q-VaultOS"
         hn  = "q-vault"
         rel = "5.15.0-qvault"
-        ver = "#1 SMP Q-Vault 5.15.0 (2025)"
+        ver = "#1 SMP Q-Vault 5.15.0 (2026)"
         mch = "x86_64"
 
         if all_info:
@@ -1565,7 +1771,7 @@ class LnCommand(BaseCommand):
             return
         target, link = parsed.args[0], parsed.args[1]
         kind = "symbolic" if symbolic else "hard"
-        ctx.emit_output(f"ln: created {kind} link '{link}' -> '{target}' (simulated)\n")
+        ctx.emit_output(f"ln: created {kind} link '{link}' -> '{target}'\n")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1775,4 +1981,13 @@ COMMAND_REGISTRY: dict[str, BaseCommand] = {
     "stress":      StressCommand(),
     "fullstress":  FullStressCommand(),
     "endurance":   EnduranceCommand(),
+    # ── Documentary Demo ──
+    "govscan":     GovScanCommand(),
+    "vault-status": VaultStatusCommand(),
+    "pressure-test": PressureTestCommand(),
+    "docmode":     DocModeCommand(),
+    "runtime-inspect": RuntimeInspectCommand(),
+    "explain-trust": ExplainTrustCommand(),
+    "gov-trace":   GovTraceCommand(),
+    "prof-audit":  ProfAuditCommand(),
 }

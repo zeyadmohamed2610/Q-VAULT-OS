@@ -155,12 +155,12 @@ def main():
     except Exception as exc:
         logger.warning("Onboarding check failed: %s", exc)
 
-    # ── Boot Kernel Simulation ──
+    # ── Boot Kernel Runtime ──
     try:
         from kernel._boot_pipeline import boot_kernel
         boot_kernel()
     except Exception as exc:
-        logger.error("Kernel Simulator failed to boot: %s", exc)
+        logger.error("Kernel Governor failed to boot: %s", exc)
 
     window = QVaultOS()
     window.setMinimumSize(1280, 720)

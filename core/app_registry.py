@@ -217,13 +217,22 @@ class AppRegistry:
 
     # ── Verification ─────────────────────────────────────────
 
-    def verify_all(self) -> dict[str, str]:
+    def verify_all(self, force_untrusted: bool = False) -> dict[str, str]:
         """
-        Dry-run import of every registered app (no instantiation).
-        Returns dict of {app_name: "OK" | "QUARANTINE: <reason>"}.
+        Governed Verification of registered apps.
+        
+        Hardening: Only performs dry-run imports for CORE_APPS unless 
+        force_untrusted is True. Untrusted apps are marked as UNVERIFIED.
         """
         results: dict[str, str] = {}
         for app in _MANIFEST:
+            # Phase 1 Hardening: Skip dry-run for untrusted apps to prevent module-level execution
+            is_core = app.name in ["Terminal", "File Manager", "Trash", "Kernel Monitor", "Q-Vault Security"]
+            
+            if not is_core and not force_untrusted:
+                results[app.name] = "SKIPPED (Deferred Verification)"
+                continue
+
             try:
                 mod = importlib.import_module(app.module)
                 if not hasattr(mod, app.class_name):

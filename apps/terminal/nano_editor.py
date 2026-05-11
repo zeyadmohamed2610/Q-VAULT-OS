@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, 
+    QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QTextEdit,
     QLabel, QPushButton, QFrame, QShortcut, QLineEdit, QDialog
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QRect, QSize, QTimer
@@ -71,7 +71,7 @@ class AdvancedTextEdit(QPlainTextEdit):
             block_number += 1
 
     def highlight_current_line(self):
-        selection = QPlainTextEdit.ExtraSelection()
+        selection = QTextEdit.ExtraSelection()
         line_color = QColor("#1c2128")
         selection.format.setBackground(line_color)
         selection.format.setProperty(QTextFormat.FullWidthSelection, True)
@@ -147,8 +147,8 @@ class NanoEditor(QWidget):
         h_layout = QHBoxLayout(self.header)
         h_layout.setContentsMargins(15, 0, 15, 0)
         
-        title = QLabel(f"GNU Nano 7.2 — {self.file_path.name}")
-        title.setStyleSheet("color: #c9d1d9; font-weight: bold;")
+        title = QLabel(f"Q-Vault Quantum Editor v1.0 — {self.file_path.name}")
+        title.setStyleSheet("color: #00e6ff; font-family: 'Segoe UI Semibold', sans-serif; font-size: 11px;")
         h_layout.addWidget(title)
         
         h_layout.addStretch()
@@ -170,16 +170,16 @@ class NanoEditor(QWidget):
         f_layout.setContentsMargins(15, 5, 15, 5)
         
         row1 = QHBoxLayout()
-        row1.addWidget(QLabel("\033[7m^G\033[0m Get Help  \033[7m^O\033[0m Write Out  \033[7m^W\033[0m Where Is   \033[7m^K\033[0m Cut Text"))
+        row1.addWidget(QLabel(" [ ∆ ] Help    [ ∇ ] Save    [ ⌕ ] Find    [ ⊖ ] Cut"))
         row1.addStretch()
         row2 = QHBoxLayout()
-        row2.addWidget(QLabel("\033[7m^X\033[0m Exit      \033[7m^R\033[0m Read File  \033[7m^\\\033[0m Replace    \033[7m^U\033[0m Uncut Text"))
+        row2.addWidget(QLabel(" [ ⊗ ] Exit    [ ∐ ] Load    [ ⇄ ] Swap    [ ⊕ ] Paste"))
         row2.addStretch()
         
         for r in [row1, row2]:
             for i in range(r.count()):
                 w = r.itemAt(i).widget()
-                if w: w.setStyleSheet("color: #8b949e; font-family: monospace; font-size: 10px;")
+                if w: w.setStyleSheet("color: #00e6ff; font-family: 'Cascadia Code', monospace; font-size: 11px;")
         
         f_layout.addLayout(row1)
         f_layout.addLayout(row2)
@@ -190,7 +190,8 @@ class NanoEditor(QWidget):
             content = self._editor.toPlainText()
             self.file_path.write_text(content, encoding='utf-8')
             self.status.setText("[ Saved Successfully ]")
-            QTimer.singleShot(2000, lambda: self.status.setText(""))
+            # Use context-aware singleShot to avoid "wrapped object deleted" error
+            QTimer.singleShot(2000, self, lambda: self._clear_status())
             self.saved.emit(content)
         except Exception as e:
             self.status.setText(f"[ ERROR: {str(e)} ]")
@@ -206,6 +207,13 @@ class NanoEditor(QWidget):
                 cursor.movePosition(QPainter.Begin)
                 self._editor.setTextCursor(cursor)
                 self._editor.find(text)
+
+    def _clear_status(self):
+        try:
+            if hasattr(self, 'status') and self.status:
+                self.status.setText("")
+        except RuntimeError:
+            pass
 
     def _exit(self):
         self.closed.emit()

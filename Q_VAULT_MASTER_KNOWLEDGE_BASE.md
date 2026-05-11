@@ -10,7 +10,7 @@ Q-Vault is not one single artifact. The repository contains two strongly related
 
 | Layer | What It Is | Implementation Status In This Repo | Presentation Meaning |
 |---|---|---:|---|
-| Q-Vault OS Simulator | PyQt5 desktop operating-system simulator with custom shell, app launcher, taskbar, windows, kernel monitor, terminal, sandboxing, runtime governance, Rust security core bindings, and cyber-themed UI. | Present in source. Runs through `run.py` / `main.py` if dependencies and Rust core are healthy. | The cinematic OS interface, product atmosphere, dashboard, terminal, app windows, kernel visualization, and brand identity source. |
+| Q-Vault OS Runtime | PyQt5 desktop operating-system runtime with custom shell, app launcher, taskbar, windows, kernel monitor, terminal, sandboxing, runtime governance, Rust security core bindings, and cyber-themed UI. | Present in source. Runs through `run.py` / `main.py` if dependencies and Rust core are healthy. | The cinematic OS interface, product atmosphere, dashboard, terminal, app windows, kernel visualization, and brand identity source. |
 | Q-Vault PQC Provisioner | C# WPF provisioning app for BitLocker and ESP32 token setup. | Present under `subsystems/pqc-mediator/PQC-Vault` and compiled runtime under `binaries`. | The real provisioning flow: choose drive, password/seed mode, encrypt, push vault credentials to hardware. |
 | Windows Service Middleware | C service described in markdown docs: monitors USB, performs ML-KEM handshake, unlocks/locks BitLocker. | Documentation only in this repo. Some runtime logs exist through the Python integration adapter. | The invisible trust broker: the "guardian service" that converts physical token presence into disk unlock. |
 | ESP32-S3 Firmware | ESP-IDF/FreeRTOS firmware described in docs: setup mode, vault mode, factory reset, ML-KEM encapsulation, AES-GCM encrypted payload. | Documentation only in this repo. Firmware files are referenced but not present. | The physical ownership object, LED ritual, hardware trust anchor, and the most important 3D/photography subject. |
@@ -141,7 +141,7 @@ This is the forensic folder tree excluding `.git` object internals. `.gitignore`
 | OS integrations | BitLocker WMI namespace `root\CIMv2\Security\MicrosoftVolumeEncryption`, PowerShell/BitLocker commands in docs, serial COM port scanning, Windows service control. |
 | Hardware architecture | ESP32-S3, ESP-IDF, FreeRTOS, NVS, GPIO0 factory reset, UART/USB serial, CH340 VID/PID `VID_1A86&PID_55D3`. Firmware code is documented but not present. |
 | Cryptography | ML-KEM-768 / Kyber / NIST FIPS 203 in docs, AES-256-GCM, Argon2id, HMAC-SHA256, HKDF, SHA-256, BIP39 seed generation for password recovery. |
-| Simulation/kernel | Custom event bus, scheduler, dispatcher, multicore engine, memory manager, deadlock manager, interrupt manager, IPC manager, thread manager. |
+| Governance/kernel | Custom event bus, scheduler, dispatcher, multicore engine, memory manager, deadlock manager, interrupt manager, IPC manager, thread manager. |
 | Product docs | Markdown, PDF, DOCX, Arabic/English mixed strategic and technical documentation. |
 | Website recommendation | Next.js App Router, TypeScript, React Server/Client Components, Motion for React, GSAP ScrollTrigger, React Three Fiber/Three.js, MDX/content-driven sections, optimized media pipeline. |
 

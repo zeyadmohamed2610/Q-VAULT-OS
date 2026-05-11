@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 _DEFAULT_TICK_MS: int = 100   # 100 ms per tick → 10 Hz
 
 
-# ── SimulationClock ───────────────────────────────────────────────
+# ── GovernanceClock ───────────────────────────────────────────────
 
-class SimulationClock:
+class GovernanceClock:
     """
     Kernel-level simulation clock that drives the OS tick cycle.
 
@@ -51,7 +51,7 @@ class SimulationClock:
         self._lock: threading.Lock = threading.Lock()
         self._start_time: Optional[float] = None
 
-        logger.info(f"[SIMULATION_CLOCK] Initialized — interval: {self._interval_ms}ms")
+        logger.info(f"[GOVERNANCE_CLOCK] Initialized — interval: {self._interval_ms}ms")
 
     # ── Public Properties ─────────────────────────────────────────
 
@@ -67,7 +67,7 @@ class SimulationClock:
             raise ValueError(f"tick_interval_ms must be > 0, got {value}")
         with self._lock:
             self._interval_ms = value
-        logger.info(f"[SIMULATION_CLOCK] Tick interval updated → {value}ms")
+        logger.info(f"[GOVERNANCE_CLOCK] Tick interval updated → {value}ms")
 
     @property
     def tick_count(self) -> int:
@@ -100,7 +100,7 @@ class SimulationClock:
         """
         with self._lock:
             if self._running:
-                logger.warning("[SIMULATION_CLOCK] start() called but clock is already running.")
+                logger.warning("[GOVERNANCE_CLOCK] start() called but clock is already running.")
                 return
 
             self._running = True
@@ -111,12 +111,12 @@ class SimulationClock:
 
             self._thread = threading.Thread(
                 target=self._tick_loop,
-                name="SimulationClock",
+                name="GovernanceClock",
                 daemon=True,
             )
             self._thread.start()
 
-        logger.info("[SIMULATION_CLOCK] Started.")
+        logger.info("[GOVERNANCE_CLOCK] Started.")
 
     def pause(self):
         """
@@ -125,11 +125,8 @@ class SimulationClock:
         Emits SystemEvent.CLOCK_PAUSED.
         """
         with self._lock:
-            if not self._running:
-                logger.warning("[SIMULATION_CLOCK] pause() called but clock is not running.")
-                return
             if self._paused:
-                logger.debug("[SIMULATION_CLOCK] pause() called but already paused.")
+                logger.debug("[GOVERNANCE_CLOCK] pause() called but already paused.")
                 return
 
             self._paused = True
@@ -138,9 +135,9 @@ class SimulationClock:
         EVENT_BUS.emit(
             SystemEvent.CLOCK_PAUSED,
             data={"tick": self._tick_count, "interval": self._interval_ms},
-            source="SimulationClock",
+            source="GovernanceClock",
         )
-        logger.info(f"[SIMULATION_CLOCK] Paused at tick {self._tick_count}.")
+        logger.info(f"[GOVERNANCE_CLOCK] Paused at tick {self._tick_count}.")
 
     def resume(self):
         """
@@ -149,7 +146,7 @@ class SimulationClock:
         """
         with self._lock:
             if not self._running:
-                logger.warning("[SIMULATION_CLOCK] resume() called but clock is not running.")
+                logger.warning("[GOVERNANCE_CLOCK] resume() called but clock is not running.")
                 return
             if not self._paused:
                 logger.debug("[SIMULATION_CLOCK] resume() called but not paused.")
@@ -163,9 +160,9 @@ class SimulationClock:
         EVENT_BUS.emit(
             SystemEvent.CLOCK_RESUMED,
             data={"tick": self._tick_count, "interval": self._interval_ms},
-            source="SimulationClock",
+            source="GovernanceClock",
         )
-        logger.info(f"[SIMULATION_CLOCK] Resumed at tick {self._tick_count}.")
+        logger.info(f"[GOVERNANCE_CLOCK] Resumed at tick {self._tick_count}.")
 
     def stop(self):
         """
@@ -184,7 +181,7 @@ class SimulationClock:
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=2.0)
 
-        logger.info(f"[SIMULATION_CLOCK] Stopped at tick {self._tick_count}.")
+        logger.info(f"[GOVERNANCE_CLOCK] Stopped at tick {self._tick_count}.")
 
     def reset(self):
         """
@@ -195,7 +192,7 @@ class SimulationClock:
         with self._lock:
             self._tick_count = 0
             self._start_time = None
-        logger.info("[SIMULATION_CLOCK] Reset.")
+        logger.info("[GOVERNANCE_CLOCK] Reset.")
 
     # ── Internal Tick Loop ────────────────────────────────────────
 
@@ -204,7 +201,7 @@ class SimulationClock:
         Worker thread: emit CLOCK_TICK every tick_interval_ms milliseconds.
         Respects pause/stop signals without busy-waiting.
         """
-        logger.debug("[SIMULATION_CLOCK] Tick loop started.")
+        logger.debug("[GOVERNANCE_CLOCK] Tick loop started.")
 
         while not self._stop_event.is_set():
             # Block here while paused (releases GIL; ~zero CPU)
@@ -241,11 +238,11 @@ class SimulationClock:
                     "elapsed":  round(elapsed, 4),
                     "interval": interval,
                 },
-                source="SimulationClock",
+                source="GovernanceClock",
             )
 
-        logger.debug("[SIMULATION_CLOCK] Tick loop exited.")
+        logger.debug("[GOVERNANCE_CLOCK] Tick loop exited.")
 
 
 # ── Central Singleton ─────────────────────────────────────────────
-SIMULATION_CLOCK = SimulationClock(tick_interval_ms=_DEFAULT_TICK_MS)
+SIMULATION_CLOCK = GovernanceClock(tick_interval_ms=_DEFAULT_TICK_MS)

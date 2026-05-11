@@ -32,7 +32,7 @@ _HOME = {
 }
 
 # ── Default startup page (overrides search-engine homepage) ───
-_DEFAULT_HOME = "https://github.com/zeyadmohamed2610"
+_DEFAULT_HOME = "https://github.com/zeyadmohamed2610/Q-VAULT-OS"
 
 # ── Stylesheets ───────────────────────────────────────────────
 _TOOLBAR_STYLE = (

@@ -21,7 +21,7 @@ from PyQt5.QtWidgets import QWidget
 from core.event_bus import EVENT_BUS, SystemEvent
 from system.window_manager import get_window_manager
 
-
+from system.config import get_qvault_home, mask_path
 from system.errors import SecurityError  # Canonical error class
 
 logger = logging.getLogger("system.runtime_manager")
@@ -340,7 +340,7 @@ class AppRuntimeManager:
                 pass # Already enforced at Registry instantiation level, but we keep the gate logic ready.
 
             self._registry[instance_id] = record
-            self.logger.info(f"[RuntimeManager] Registered '{instance_id}' ({app_id}) | Jail: {record.sandbox_root}")
+            self.logger.info(f"[RuntimeManager] Registered '{instance_id}' ({app_id}) | Jail: {mask_path(record.sandbox_root)}")
             
             EVENT_BUS.emit(SystemEvent.APP_LAUNCHED, {"instance_id": instance_id, "app_id": app_id}, source="RuntimeManager")
             return record

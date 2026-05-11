@@ -54,26 +54,10 @@ class _Highlighter(QSyntaxHighlighter):
         
         # Rules: (Pattern, Color, Bold?)
         
-        # 1. Prompt Structure
-        self._add(r"┌──", "#58a6ff", True)
-        self._add(r"──", "#58a6ff", True)
-        self._add(r"└─", "#3fb950", True)
-        
-        # 2. User & Machine
-        self._add(r"\[ROOT\]", "#f85149", True) # Red badge for ROOT
-        self._add(r"\(.*㉿.*\)", "#3fb950", True) # (user㉿qvault)
-        
-        # 3. Path
-        self._add(r"\[.*\]", "#58a6ff", False) # [path]
-        
-        # 4. Prompt Symbols
-        self._add(r"\$", "#3fb950", True)
-        self._add(r"\#", "#f85149", True)
-
-        # 5. Known Commands (Vibrant Green - only when typed as commands)
+        # 1. Known Commands (Vibrant Green - only when typed as commands)
         cmds = "|".join([
             "ls", "cd", "pwd", "mkdir", "touch", "cat", "echo", "rm", "rmdir", 
-            "stat", "whoami", "clear", "help", "history", "qsu", "sudo", 
+            "stat", "whoami", "clear", "help", "history", "sudo", 
             "lock", "ask", "status", "verify_audit", "nano", "chmod", "bash"
         ])
         # Match command at the start of the line after $ or #
@@ -81,23 +65,23 @@ class _Highlighter(QSyntaxHighlighter):
         # Fallback for any instance of these commands (less bold)
         self._add(rf"\b({cmds})\b", "#3fb950", False)
         
-        # 6. Status/Security Messages
+        # 2. Status/Security Messages
         self._add(r"\[SECURITY\].*", "#f85149")
         self._add(r"\[ERROR\].*", "#f85149")
         self._add(r"\[Success\].*", "#3fb950")
         self._add(r"\[cd\].*", "#8b949e")
         
-        # 7. File Paths (Cyan for Dirs, Amber for Files)
+        # 3. File Paths (Cyan for Dirs, Amber for Files)
         self._add(r"/[a-zA-Z0-9_./-]+", "#58a6ff", True) # Directories (Cyan)
         self._add(r"\b[a-zA-Z0-9_-]+\.[a-zA-Z0-9]+\b", "#c9d1d9") # Files (White/Grey)
         
-        # 8. Flags & Arguments
+        # 4. Flags & Arguments
         self._add(r" -[a-zA-Z]+", "#58a6ff") # Flags
         self._add(r" --[a-zA-Z-]+", "#58a6ff") # Long flags
         self._add(r"\".*\"", "#e3b341") # Strings (Amber)
         self._add(r"'.*'", "#e3b341")
         
-        # 9. ASCII Art Logo Gradient (Q-VAULT banner)
+        # 5. ASCII Art Logo Gradient (Q-VAULT banner)
         self._add(r"[@!]{2,}", "#00e6ff", False)   # Main blocks (Cyan)
         self._add(r"[:!]{2,}", "#00b3cc", False)   # Accent blocks (Teal)
         self._add(r"[:.]{2,}", "#008099", False)   # Dim blocks (Dark Cyan)
@@ -157,6 +141,12 @@ class TerminalBuffer(QPlainTextEdit):
 
     def set_prompt_text(self, text):
         """Called when engine emits a prompt update."""
+        # Ensure the prompt starts on a new line if the current one isn't empty
+        cursor = self.textCursor()
+        cursor.movePosition(QTextCursor.End)
+        if cursor.columnNumber() > 0:
+            self.append_output("\n", newline=False)
+            
         self.append_output(text, newline=False)
         self._prompt_pos = self.textCursor().position()
         self.ensureCursorVisible()
@@ -166,7 +156,6 @@ class TerminalBuffer(QPlainTextEdit):
             # Handle clear command
             self.setPlainText("")
             self._prompt_pos = 0
-            # Remove the \x0c and proceed if there's more text
             text = text.replace("\x0c", "")
             if not text:
                 return
@@ -175,9 +164,45 @@ class TerminalBuffer(QPlainTextEdit):
         cursor.movePosition(QTextCursor.End)
         self.setTextCursor(cursor)
         
-        # If we are in password mode, we don't want to show the text? 
-        # Actually, output from commands should show. Only user typing is hidden.
-        self.insertPlainText(text + ("\n" if newline else ""))
+        # Simple ANSI parser
+        import re
+        ansi_re = re.compile(r'\033\[(\d+)m')
+        
+        colors = {
+            "31": "#f85149", # Red
+            "32": "#3fb950", # Green
+            "34": "#58a6ff", # Blue
+            "36": "#00e6ff", # Cyan
+        }
+        
+        default_fmt = QTextCharFormat()
+        default_fmt.setForeground(QColor(C_TEXT))
+        default_fmt.setFont(self.document().defaultFont())
+        
+        current_fmt = default_fmt
+        
+        parts = ansi_re.split(text)
+        
+        # parts will be [text, code, text, code, ...]
+        cursor.insertText(parts[0], current_fmt)
+        for i in range(1, len(parts), 2):
+            code = parts[i]
+            chunk = parts[i+1]
+            
+            if code == "0":
+                current_fmt = default_fmt
+            elif code in colors:
+                fmt = QTextCharFormat()
+                fmt.setForeground(QColor(colors[code]))
+                fmt.setFont(self.document().defaultFont())
+                current_fmt = fmt
+                
+            if chunk:
+                cursor.insertText(chunk, current_fmt)
+                
+        if newline:
+            cursor.insertText("\n", default_fmt)
+            
         self.ensureCursorVisible()
 
     def _get_current_input(self):
@@ -194,7 +219,7 @@ class TerminalBuffer(QPlainTextEdit):
         cursor = self.textCursor()
         cursor.setPosition(self._prompt_pos)
         cursor.movePosition(QTextCursor.End, QTextCursor.KeepAnchor)
-        cursor.insertPlainText(text)
+        cursor.insertText(text)
         self.setTextCursor(cursor)
 
     def cut(self):
@@ -482,10 +507,12 @@ class TerminalApp(QWidget):
         self._engine._executor._on_nano_request = self._open_nano
         self._engine._executor._on_notepad_request = self._open_notepad
         
-        self._engine.boot_terminal()
         if role_override == "admin":
             # Already authenticated by desktop context menu
+            self._engine.boot_terminal(skip_prompt=True)
             self._engine._elevate_to_root()
+        else:
+            self._engine.boot_terminal()
             
         # Scroll to bottom so prompt is visible
         QTimer.singleShot(100, self._buffer.ensureCursorVisible)
@@ -513,7 +540,7 @@ class TerminalApp(QWidget):
         header_layout = QHBoxLayout(self.header)
         header_layout.setContentsMargins(15, 0, 15, 0)
         
-        self.state_label = QLabel("● NORMAL")
+        self.state_label = QLabel("[ ⚛ ] NORMAL")
         self.state_label.setStyleSheet("color: #00e6ff;") # Cyan
         header_layout.addWidget(self.state_label)
         
@@ -561,16 +588,16 @@ class TerminalApp(QWidget):
         # Update header based on engine state
         from .terminal_engine import EngineState
         if state == EngineState.ROOT:
-            self.state_label.setText("● ROOT")
+            self.state_label.setText("[ ⊕ ] ROOT")
             self.state_label.setStyleSheet("color: #ff3366;") # Red
-        elif state in (EngineState.AUTH_REQUEST, EngineState.AUTH_SUDO):
-            self.state_label.setText("● SUDO")
+        elif state == EngineState.AUTH_SUDO:
+            self.state_label.setText("[ ∂ ] SUDO")
             self.state_label.setStyleSheet("color: #ffcc00;") # Gold
         elif state == EngineState.LOCKED:
-            self.state_label.setText("● LOCKED")
+            self.state_label.setText("[ ⊗ ] LOCKED")
             self.state_label.setStyleSheet("color: #555568;") # Grey
         else:
-            self.state_label.setText("● NORMAL")
+            self.state_label.setText("[ ⚛ ] NORMAL")
             self.state_label.setStyleSheet("color: #00e6ff;")
 
     def _handle_tab(self, current_input):

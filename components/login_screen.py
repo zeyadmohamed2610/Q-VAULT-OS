@@ -55,13 +55,13 @@ class LoginScreen(QWidget):
 
         # Username
         self.user_field = QLineEdit()
-        self.user_field.setPlaceholderText("username")
+        self.user_field.setPlaceholderText("[ ∇ ] username")
         self.user_field.setFixedHeight(38)
         card_layout.addWidget(self.user_field)
 
         # Password
         self.pass_field = QLineEdit()
-        self.pass_field.setPlaceholderText("password")
+        self.pass_field.setPlaceholderText("[ ⊗ ] password")
         self.pass_field.setEchoMode(QLineEdit.Password)
         self.pass_field.setFixedHeight(38)
         self.pass_field.returnPressed.connect(self._do_login)
@@ -138,7 +138,7 @@ class LoginScreen(QWidget):
         self.pass_field.setEnabled(not busy)
         if busy:
             self.error_lbl.setStyleSheet("color: #00ffcc; font-size: 11px; padding: 0px;")
-            self.error_lbl.setText("VERIFYING...")
+            self.error_lbl.setText("[ ⚛ ] VERIFYING QUANTUM SIGNATURE...")
         else:
             self.error_lbl.setStyleSheet("color: #ff3366; font-size: 11px; padding: 0px;")
             self.error_lbl.setText("")

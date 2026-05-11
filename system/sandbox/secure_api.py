@@ -24,10 +24,12 @@ The API is app-ID-scoped so every sub-guard knows which app is acting.
 import uuid
 import threading
 import logging
+import inspect
 from typing import Optional, Dict, Any
 from PyQt5.QtCore import QObject
 
 from system.runtime_manager import RUNTIME_MANAGER
+from system.runtime.inspector import INSPECTOR
 
 from .fs_guard import FileSystemGuard
 from .process_guard import ProcessGuard
@@ -114,6 +116,29 @@ class SecureAPI:
 
         logger.debug("[SecureAPI] Initialised for '%s' (ID: %s)", app_id, self.instance_id)
 
+    def _verify_caller_integrity(self):
+        """
+        Forensic Stack Verification.
+        Ensures that the caller of a sensitive API method is actually 
+        within the expected module path for this instance.
+        """
+        stack = inspect.stack()
+        if len(stack) < 3: return
+
+        # stack[1] is the property getter, stack[2] is the actual caller
+        caller_frame = stack[2]
+        filename = caller_frame.filename.replace("\\", "/")
+        
+        # Internal system components are trusted
+        if "/system/" in filename or "/core/" in filename or "/apps/terminal/" in filename:
+            return
+
+        # Check if the caller is inside the apps directory
+        if "/apps/" not in filename:
+            INSPECTOR._log_governance(self.instance_id, "INTEGRITY_VIOLATION", 
+                                     f"API call from unexpected file: {filename}")
+            raise PermissionError(f"[Sandbox] Cross-context API invocation blocked: {filename}")
+
     @property
     def worker_token(self):
         """Context manager hook for Stage B/C Spawn Control with UUID tracking."""
@@ -140,16 +165,19 @@ class SecureAPI:
 
     @property
     def fs(self):
+        self._verify_caller_integrity()
         self.check_api_lock("fs")
         return self._fs
 
     @property
     def process(self):
+        self._verify_caller_integrity()
         self.check_api_lock("process")
         return self._process
 
     @property
     def network(self):
+        self._verify_caller_integrity()
         self.check_api_lock("network")
         return self._network
 

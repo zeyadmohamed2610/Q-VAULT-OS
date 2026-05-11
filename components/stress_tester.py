@@ -65,7 +65,7 @@ class AutomatedStressTester(QObject):
             elif 35 < self.step <= 45:
                 # Memory & Kernel Stress
                 pid = 2000 + self.step
-                logger.info(f"[STRESS TEST] Simulating Heavy Memory Allocation PID {pid}")
+                logger.info(f"[STRESS TEST] Allocating Heavy Memory PID {pid}")
                 EVENT_BUS.emit(SystemEvent.PROC_SPAWNED, {"pid": pid, "name": f"stress_bot_{self.step}"}, source="StressTest")
                 MEMORY_MANAGER.allocate(pid=pid, size=random.randint(20, 100), label=f"bot_alloc_{self.step}")
                 EVENT_BUS.emit(SystemEvent.CORE_ASSIGNED, {"pid": pid, "core_id": self.step % 4}, source="StressTest")

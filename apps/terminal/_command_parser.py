@@ -62,7 +62,7 @@ BUILTIN_COMMANDS: frozenset[str] = frozenset({
     # Shell / Security / AI
     "clear", "help", "status", "sudo", "passwd",
     "lock", "ask", "verify_audit",
-    "qsu", "bash", "sh",
+    "bash", "sh",
     # Stress tools
     "stress", "fullstress",
 })

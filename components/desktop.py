@@ -962,14 +962,14 @@ class Desktop(QWidget):
         vl.setContentsMargins(28, 24, 28, 20)
         vl.setSpacing(8)
 
-        title = QLabel("Q-Vault OS")
+        title = QLabel("[ ⚛ ] Q-Vault OS")
         title.setFont(QFont("Segoe UI", 18, QFont.Bold))
         title.setStyleSheet("color: #00e6ff; background: transparent;")
 
-        ver = QLabel("Version 1.0.0  —  Secure Desktop Environment")
+        ver = QLabel("[ ∇ ] Version 1.0.0  —  Secure Desktop Environment")
         ver.setStyleSheet("color: rgba(255,255,255,0.7); font-size: 12px; background: transparent;")
 
-        copy = QLabel("© 2025 Q-Vault Project. All rights reserved.")
+        copy = QLabel("[ Σ ] © 2026 Q-Vault Project. All rights reserved.")
         copy.setStyleSheet("color: rgba(255,255,255,0.35); font-size: 11px; background: transparent;")
 
         btn = QPushButton("Close")

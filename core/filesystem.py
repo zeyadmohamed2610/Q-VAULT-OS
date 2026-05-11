@@ -338,8 +338,8 @@ class VirtualFS:
                         owner="root",
                     ),
                     "dpkg.log": _file(
-                        "2025-01-01 00:00:01 startup archives unpack\n"
-                        "2025-01-01 00:00:02 install qvault-os 4.0\n",
+                        "2026-01-01 00:00:01 startup archives unpack\n"
+                        "2026-01-01 00:00:02 install qvault-os 4.0\n",
                         owner="root",
                     ),
                 },

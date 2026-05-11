@@ -1,28 +1,27 @@
-# 🛡️ Q-Vault OS: The Ultimate Secure AI-Native Simulator (v1.0.0)
+# 🛡️ Q-Vault OS: Governed Secure Runtime Environment (v1.0.0-Hardened)
 
 ![Q-Vault OS UI Mockup](assets/screenshots/hero_mockup.png)
 
-## **Next-Generation Secure OS Simulation Environment**
+## **The Sovereign Research-Grade Runtime**
 
-*Fusing Python's agility with Rust's uncompromising safety. Stable Release v1.0.*
+*A zero-trust execution environment focused on isolation, telemetry, and behavioral governance. Stable Release v1.0.*
 
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Rust](https://img.shields.io/badge/rust-1.75%2B-DEA584?style=for-the-badge&logo=rust&logoColor=white)
 ![PyQt5](https://img.shields.io/badge/PyQt5-GUI-41CD52?style=for-the-badge&logo=qt&logoColor=white)
+![Security](https://img.shields.io/badge/Security-Zero--Trust-red?style=for-the-badge)
 
 ---
 
 ## 📖 Table of Contents
 
 - [🌌 Overview](#overview)
+- [📚 Forensic Documentation (Deep Dive)](#forensic-documentation)
 - [🚀 Key Pillars of Excellence](#key-pillars-of-excellence)
 - [🛠️ Technical Architecture](#technical-architecture)
 - [📦 Included Subsystems](#included-subsystems)
-- [🎨 Immersive Experience](#immersive-experience)
+- [🔒 Security & Governance Model](#security-model)
 - [⚡ Quick Deployment](#quick-deployment)
-- [🔒 Security Model](#security-model)
-- [🛠️ Developer Guide](#developer-guide)
 - [🤝 Contributing](#contributing)
 - [📄 License](#license)
 
@@ -30,36 +29,37 @@
 
 ## 🌌 Overview {#overview}
 
-**Q-Vault OS** is a high-fidelity **Operating System Simulation Framework** designed for researchers, security enthusiasts, and developers. v1.0 marks the transition to a fully hardened sandbox environment where every application, thread, and byte of data is governed by a dual-layered security architecture.
+**Q-Vault OS** is not a general-purpose operating system, but a **Governed Secure Runtime Environment**. It is designed as a research platform to demonstrate advanced concepts in **Behavioral Security**, **Mandatory Mediation**, and **Runtime Explainability**.
 
-At its heart lies the **Q-Vault Security Core**, a native Rust implementation that handles the heavy lifting of cryptography and resource governance, while the **Fluid UI Layer** (PyQt5) delivers a premium, zero-latency desktop experience.
+Built on a decoupled Micro-Kernel architecture, Q-Vault mediates every application execution path through a centralized security gateway, ensuring that untrusted code remains isolated while providing forensic-grade telemetry to the kernel.
+
+---
+
+## 📚 Forensic Documentation (Deep Dive) {#forensic-documentation}
+
+For a deep technical audit of the system's "Engineering Thought Process," refer to the following forensic reports:
+
+*   **[Architecture Master Map](docs/subsystems_deep_dive/ARCHITECTURE_MASTER_MAP.md)**: The full topology and execution blueprints.
+*   **[Boot & UI Governance](docs/subsystems_deep_dive/BOOT_AND_UI.md)**: Secure initialization and window isolation.
+*   **[Trust & Quarantine](docs/subsystems_deep_dive/GOVERNANCE_AND_TRUST.md)**: The behavioral scoring and isolation pipeline.
+*   **[Security & IPC](docs/subsystems_deep_dive/SECURITY_AND_IPC.md)**: Event bus internals and sandbox enforcement.
+*   **[Metrics & Policy](docs/subsystems_deep_dive/METRICS_AND_POLICY.md)**: Telemetry engine and adaptive governance states.
 
 ---
 
 ## 🚀 Key Pillars of Excellence {#key-pillars-of-excellence}
 
-### 🦀 Rust-Hardened Kernel
+### 🧠 Behavioral Governance (Trust Scoring)
+Unlike static permission models, Q-Vault uses a dynamic **Trust Algorithm**. Applications gain or lose access based on their real-time resource usage, error rates, and API call patterns.
 
-Leveraging `PyO3`, the security-critical logic is offloaded to a native Rust binary.
+### 🛡️ Mandatory Mediation (SecureAPI)
+No application has direct access to OS primitives. Every filesystem, process, or network request is routed through a **Forensic Security Gateway** that performs stack-frame integrity checks to prevent context-escape.
 
-- **Zero-Knowledge Architecture**: Encryption keys never touch the Python memory space.
-- **AES-256-GCM Encryption**: Every file in the virtual filesystem is encrypted at rest.
-- **Argon2id KDF**: Industrial-grade password hashing and key derivation.
+### 🔍 Runtime Explainability
+Q-Vault doesn't just block; it explains. The **Explainability Layer** provides a complete `Governance Trace`, allowing users to audit why a specific application was throttled or quarantined.
 
-### 🧠 AI-Native Governance
-
-Q-Vault is built for the age of AI. The **Runtime Intelligence Manager** monitors application behavior in real-time.
-
-- **Dynamic Trust Scores**: Apps are assigned trust levels based on their API call patterns.
-- **Automated Quarantine**: Any anomalous behavior triggers an immediate system-level freeze.
-- **Context-Aware Terminal**: A specialized shell with ghost-text suggestions and state-aware logic.
-
-### 🖥️ Pro-Level UI/UX (New in v1.0)
-
-- **Interactive Window Management**: Dynamic mouse cursors for resizing and snapping that feel native and responsive.
-- **Native File Icons**: Professional-grade icon rendering using the host system's native icon provider for 100% clarity.
-- **Administrative Elevation**: Seamless "Run as Administrator" context menus with secure password verification.
-- **Glassmorphic Aesthetics**: Modern dark-mode UI with vibrant accents and smooth, hardware-accelerated transitions.
+### 🎭 Cinematic Identity (Sovereign Masking)
+The **Process Governor** ensures a completely immersive experience by masking host OS artifacts. Process names and file paths are aliased to represent the Q-Vault sovereign identity.
 
 ---
 
@@ -67,22 +67,24 @@ Q-Vault is built for the age of AI. The **Runtime Intelligence Manager** monitor
 
 ```mermaid
 graph TD
-    User([User Interface]) --> Compositor[Window Compositor]
-    Compositor --> AppContainer[Application Container]
-
-    subgraph "Secure Sandbox"
-        AppContainer --> EventBus[Secure Event Bus]
-        EventBus --> SecurityAPI[Python Security Bridge]
+    subgraph "Application Layer"
+        App[Untrusted App] --> SA[SecureAPI]
     end
 
-    subgraph "Native Core (Rust)"
-        SecurityAPI --> RustCore{qvault_core.pyd}
-        RustCore --> Crypto[AES-GCM / Argon2]
-        RustCore --> VFS[Encrypted File System]
+    subgraph "Governance Layer (The Core)"
+        SA --> Guard[Forensic Guards]
+        Guard --> RM[RuntimeManager]
+        RM --> TM[TelemetryEngine]
+        RM --> PG[ProcessGovernor]
     end
 
-    Runtime[Runtime Manager] -.-> |Monitor| AppContainer
-    Runtime -.-> |Quarantine| SecurityAPI
+    subgraph "System Services"
+        EB[Secure Event Bus] <--> WM[WindowManager]
+        WM --> UI[Cinematic Desktop]
+    end
+
+    RM -.-> |Trust Decision| SA
+    TM --> |Audit| EB
 ```
 
 ---
@@ -91,23 +93,22 @@ graph TD
 
 | Subsystem | Description | Technology | Status |
 | :--- | :--- | :--- | :--- |
-| **Terminal** | Pro-grade shell with ghost-text, redirection, and direct ROOT elevation support. | Python + Rust | ✅ v1.0 Stable |
-| **File Manager** | Encrypted explorer with native OS icons and drag-and-drop. | PyQt5 | ✅ v1.0 Stable |
-| **Notepad** | Professional GUI text editor with full file I/O. | PyQt5 | ✅ v1.0 Stable |
-| **System Monitor** | Live telemetry, resource graphs, and Trust Scores. | Matplotlib + IPC | ✅ v1.0 Stable |
-| **Security Hub** | RBAC policy management and audit log viewer. | Rust Core | 🛠️ In-Dev |
-| **Browser** | Isolated web environment with restricted API access. | QtWebEngine | ✅ v1.0 Stable |
+| **Terminal** | Pro-grade governed shell with forensic auditing and root elevation. | Python | ✅ v1.0 Stable |
+| **Runtime Inspector**| Real-time explainability tool for governance decision traces. | Forensic API | ✅ v1.0 Stable |
+| **File Manager** | Encrypted explorer with virtual path mapping and isolation. | PyQt5 | ✅ v1.0 Stable |
+| **System Monitor** | Live telemetry, resource pressure graphs, and trust scoring. | Matplotlib | ✅ v1.0 Stable |
+| **Security Hub** | RBAC policy enforcement and quarantine management. | Governed Core| ✅ v1.0 Stable |
 
 ---
 
-## 🎨 Immersive Experience {#immersive-experience}
+## 🔒 Security & Governance Model {#security-model}
 
-Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form and function:
+Q-Vault operates on a **Zero-Trust** architectural model:
 
-- **ASCII Boot Sequence**: A high-fidelity, gradient-colored boot banner that signals system readiness.
-- **Ghost-Text suggestions**: Intelligent command completion based on history and local filesystem context.
-- **Dynamic Mouse Interaction**: Cursors update in real-time based on window zones (resize, drag, hover).
-- **Monospace Consistency**: Guaranteed alignment across all systems via an intelligent font-fallback engine.
+1.  **Mandatory Access Control (MAC)**: All resource requests are validated against central policies.
+2.  **Backpressure Enforcement**: The system automatically throttles apps during high resource pressure.
+3.  **Stack-Trace Interdiction**: Subprocess calls are intercepted via stack analysis to prevent bypass.
+4.  **Identity Isolation**: Every instance runs in a uniquely keyed cryptographic context.
 
 ---
 
@@ -116,9 +117,9 @@ Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form an
 ### Prerequisites
 
 - **Python 3.10+**
-- **Rust Toolchain** (latest stable)
-- **.NET 9.0 Runtime** (Required for the Security Mediator)
-- **Git**
+- **PyQt5** (`pip install PyQt5`)
+- **Psutil** (`pip install psutil`)
+- **Matplotlib** (`pip install matplotlib`)
 
 ### Installation
 
@@ -127,38 +128,15 @@ Q-Vault OS is designed with a **Cyber-Security Aesthetic** that balances form an
 git clone https://github.com/zeyadmohamed2610/Q-VAULT-OS.git
 cd Q-VAULT-OS
 
-# Install dependencies and launch
+# Launch the Governed Runtime
 python run.py
 ```
 
 ---
 
-## 🔒 Security Model {#security-model}
+## 🤝 Contributing
 
-The simulation operates on the **Principle of Least Privilege (PoLP)**:
-
-1. **Isolated Widgets**: Each application runs as an isolated proxy.
-2. **Administrative Elevation**: Secure sudo-based elevation for privileged operations (Terminal, System Config).
-3. **Permissioned API**: No application can access the host filesystem without explicit tokens.
-4. **Audit Logging**: Every system event is signed and stored in a secure ledger.
-
----
-
-## 🛠️ Developer Guide {#developer-guide}
-
-### Project Structure
-
-- **`kernel/`**: System orchestration and resource management.
-- **`apps/`**: Source code for integrated subsystems (Terminal, Files, etc.).
-- **`components/`**: UI building blocks (OSWindow, Desktop, Taskbar).
-- **`system/`**: Core OS logic (AppFactory, WindowManager, SecurityAPI).
-- **`assets/`**: Design tokens, themes, and icons.
-
----
-
-## 🤝 Contributing {#contributing}
-
-We welcome contributions from the community! Whether you're fixing bugs, adding features, or improving documentation:
+We welcome contributions focused on system governance, sandbox techniques, and forensic visualization.
 
 1. Fork the repository.
 2. Create a feature branch (`git checkout -b feature/AmazingFeature`).
@@ -168,7 +146,7 @@ We welcome contributions from the community! Whether you're fixing bugs, adding 
 
 ---
 
-## 📄 License {#license}
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 

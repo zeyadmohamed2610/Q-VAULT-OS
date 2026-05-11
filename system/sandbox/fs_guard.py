@@ -6,6 +6,7 @@ from collections import deque
 from typing import Union, Iterator, List
 from .permissions import PM_GUARD, ENFORCEMENT_LEVEL
 from system.runtime_manager import RUNTIME_MANAGER
+from system.config import mask_path
 
 logger = logging.getLogger("sandbox.fs_guard")
 
@@ -70,7 +71,7 @@ class FileSystemGuard:
         if not in_jail:
             logger.warning(
                 "[FS VIOLATION] App='%s' attempted access outside AUTHORIZED jail: %s",
-                self.app_id, target,
+                self.app_id, mask_path(target),
             )
         return in_jail
 

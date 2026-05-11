@@ -231,8 +231,8 @@ class _DockClock(QWidget):
 
     def _tick(self):
         now = datetime.now()
-        self._time.setText(now.strftime("%I:%M:%S %p"))
-        self._date.setText(now.strftime("%a %d %b"))
+        self._time.setText(now.strftime("⚛ %H:%M:%S"))
+        self._date.setText(now.strftime("∇ %Y-%m-%d"))
 
     def set_time(self, s: str):
         """Legacy shim: accept a time string from outside."""
