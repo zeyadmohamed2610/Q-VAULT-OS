@@ -28,8 +28,8 @@ class TrayIconButton(QPushButton):
             if not svg_path.is_absolute():
                 # resolve relative to project root
                 import os
-                svg_path = Path(os.path.dirname(os.path.dirname(
-                    os.path.dirname(__file__)))) / icon_svg
+                # Go up from src/ui/widgets/systray/ to root (5 levels)
+                svg_path = Path(__file__).parent.parent.parent.parent.parent / icon_svg
             if svg_path.exists():
                 pix = QPixmap(20, 20)
                 pix.fill(Qt.transparent)

@@ -13,7 +13,7 @@ class SplashScreen(QWidget):
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint
         )  # type: ignore
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)  # type: ignore
+        # self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)  # type: ignore
         self.setMinimumSize(600, 400)
 
         self._animation_progress = 0.0
@@ -35,7 +35,7 @@ class SplashScreen(QWidget):
             f"""
             QWidget#SplashContainer {{
                 background: rgba(2, 6, 23, 240);
-                border: 1px solid {theme.BORDER_BRIGHT};
+                border: 1px solid {theme.CYAN};
                 border-radius: 16px;
             }}
             """
@@ -49,7 +49,7 @@ class SplashScreen(QWidget):
         logo.setStyleSheet(
             f"""
             QLabel {{
-                color: {theme.ACCENT_CYAN};
+                color: {theme.CYAN_BRIGHT};
                 font-family: 'Consolas', monospace;
                 font-size: 120px;
                 font-weight: bold;
@@ -64,7 +64,7 @@ class SplashScreen(QWidget):
         title.setStyleSheet(
             f"""
             QLabel {{
-                color: {theme.ACCENT_ICE};
+                color: {theme.CYAN};
                 font-family: 'Consolas', monospace;
                 font-size: 28px;
                 font-weight: bold;
@@ -80,7 +80,7 @@ class SplashScreen(QWidget):
         subtitle.setStyleSheet(
             f"""
             QLabel {{
-                color: {theme.TEXT_DIM};
+                color: {theme.TEXT_SEC};
                 font-family: 'Consolas', monospace;
                 font-size: 12px;
                 letter-spacing: 2px;
@@ -95,7 +95,7 @@ class SplashScreen(QWidget):
         version.setStyleSheet(
             f"""
             QLabel {{
-                color: {theme.BORDER_DIM};
+                color: {theme.BORDER_SUB};
                 font-family: 'Consolas', monospace;
                 font-size: 10px;
                 background: transparent;
@@ -110,7 +110,6 @@ class SplashScreen(QWidget):
 
     def _start_animations(self):
         from PyQt5.QtCore import QPropertyAnimation
-
         self._fade_anim = QPropertyAnimation(self, b"windowOpacity")
         self._fade_anim.setDuration(800)
         self._fade_anim.setStartValue(0.0)
@@ -123,10 +122,6 @@ class SplashScreen(QWidget):
         QTimer.singleShot(1500, self._fade_out)
 
     def _fade_out(self):
-        self._fade_anim = QPropertyAnimation(self, b"windowOpacity")
-        self._fade_anim.setDuration(600)
-        self._fade_anim.setStartValue(1.0)
-        self._fade_anim.setEndValue(0.0)
-        self._fade_anim.setEasingCurve(QEasingCurve.InCubic)
-        self._fade_anim.finished.connect(self.splash_complete.emit)
-        self._fade_anim.start()
+        # Skipping fade-out animation due to environment-specific stability issues
+        self.splash_complete.emit()
+        self.close()

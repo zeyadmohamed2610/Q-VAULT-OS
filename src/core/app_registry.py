@@ -159,6 +159,15 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         isolation_mode="direct",
         show_on_desktop=False,
     ),
+    AppDefinition(
+        name="Marketplace",
+        emoji="🏪",
+        module="ui.widgets.marketplace",
+        class_name="Marketplace",
+        icon_asset="icons/icon-vault.svg",
+        isolation_mode="direct",
+        show_on_desktop=True,
+    ),
 )
 
 

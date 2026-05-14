@@ -56,7 +56,22 @@ class OSWindow(QWidget):
         self._internal_resize = super().resize
         self._internal_set_geometry = super().setGeometry
 
+        # ── DECOMPOSED HANDLERS (v1.0 God Object Fix) ──
+        from ui.widgets.focus_manager import FocusManager
+        from ui.widgets.snap_controller import SnapController
+        from ui.widgets.window_drag_handler import WindowDragHandler
+        self._focus_mgr = FocusManager(self)
+        self._snap_ctrl = SnapController(self)
+        self._drag_handler = WindowDragHandler(self, self._snap_ctrl)
+
         self._setup_ui(window_id, title, content_widget)
+
+        # Subscribe to physics facts (delegates to SnapController)
+        EVENT_BUS.subscribe(SystemEvent.EVT_WINDOW_SNAPPED, self._snap_ctrl.on_physics_snap)
+
+        # ── v1.0 Init Debug ──
+        logger.info(f"[WINDOW_CREATED] {window_id} | Title: {title} | Size: {self.size()} | Pos: {self.pos()}")
+
 
     def move(self, *args):
         if self._is_applying_geometry:
@@ -205,20 +220,6 @@ class OSWindow(QWidget):
         # ── ANIMATION CONTROLLER (v1.0 Refinement) ──
         from ui.widgets.window_animation_controller import WindowAnimationController
         self.anim_controller = WindowAnimationController(self)
-
-        # ── DECOMPOSED HANDLERS (v1.0 God Object Fix) ──
-        from ui.widgets.focus_manager import FocusManager
-        from ui.widgets.snap_controller import SnapController
-        from ui.widgets.window_drag_handler import WindowDragHandler
-        self._focus_mgr = FocusManager(self)
-        self._snap_ctrl = SnapController(self)
-        self._drag_handler = WindowDragHandler(self, self._snap_ctrl)
-
-        # Subscribe to physics facts (delegates to SnapController)
-        EVENT_BUS.subscribe(SystemEvent.EVT_WINDOW_SNAPPED, self._snap_ctrl.on_physics_snap)
-
-        # ── v1.0 Init Debug ──
-        logger.info(f"[WINDOW_CREATED] {window_id} | Title: {title} | Size: {self.size()} | Pos: {self.pos()}")
 
 
     def _apply_move(self, x, y):

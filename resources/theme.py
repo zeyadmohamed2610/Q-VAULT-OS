@@ -50,6 +50,7 @@ THEME = {
     # ── Backgrounds ──
     "bg_black":        "#05070a",  # Deep void
     "bg_dark":         "#080c14",  # Atmospheric navy
+    "bg_base":         BG_BASE,    # Root background
     "bg_darker":       "#040608",  # Absolute zero
     "bg_mid":          "#0f1724",
 

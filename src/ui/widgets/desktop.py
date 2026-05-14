@@ -92,8 +92,8 @@ DARK_DIALOG_STYLE = f"""
 _APPS = [
     {"name": "File Manager",    "icon": "resources/icons/files.svg"},
     {"name": "Q-Vault Browser", "icon": "resources/icons/browser.svg"},
-    {"name": "Q-Vault Security","icon": "resources/icons/icon-vault.svg"},
-    {"name": "Marketplace",      "icon": "resources/icons/icon-vault.svg"},
+    {"name": "Q-Vault Security","icon": "resources/icons/security_square.svg"},
+    {"name": "Marketplace",      "icon": "resources/icons/marketplace_square.svg"},
 ]
 
 
@@ -314,7 +314,8 @@ def _load_svg(rel_path: str, size: int = 56) -> QPixmap:
     """Load SVG from path relative to project root, cache the result."""
     if rel_path in _ICON_CACHE:
         return _ICON_CACHE[rel_path]
-    base = Path(__file__).parent.parent
+    # Go up from src/ui/widgets/ to root
+    base = Path(__file__).parent.parent.parent.parent
     full = base / rel_path
     pix = QPixmap(size, size)
     pix.fill(Qt.transparent)
@@ -781,7 +782,9 @@ class Desktop(QWidget):
         if self._wallpaper:
             raw_pix = self._wallpaper
         else:
-            wp_path = Path(__file__).parent.parent / "resources" / "qvault_vault.jpg"
+            # Go up from src/ui/widgets/ to root
+            root = Path(__file__).parent.parent.parent.parent
+            wp_path = root / "resources" / "qvault_vault.jpg"
             if wp_path.exists():
                 raw_pix = QPixmap(str(wp_path))
                 self._wallpaper_path = str(wp_path)
@@ -916,13 +919,13 @@ class Desktop(QWidget):
             "Kernel Monitor":   "resources/icons/kernel_monitor.svg",
             "Marketplace":      "resources/icons/icon-vault.svg",
         }
-        self._taskbar.register_app(win_id, name, _icon_map.get(name))
+        # App registration is handled via _update_taskbar_apps() state push
 
         # Wire window close → unregister from dock
         _orig_close = window.closeEvent
         def _patched_close(ev, _wid=win_id, _oc=_orig_close):
-            self._taskbar.unregister_app(_wid)
             _oc(ev)
+            self._update_taskbar_apps()
         window.closeEvent = _patched_close
 
         self._update_taskbar_apps()
@@ -974,17 +977,45 @@ class Desktop(QWidget):
         self._taskbar.update_clock(QTime.currentTime().toString("hh:mm:ss"))
 
     def _update_taskbar_apps(self):
+        """Update the taskbar with the current running applications and their states."""
+        from system.window_manager import get_window_manager
         wm = get_window_manager()
-        apps = []
-        active_id = None
+        
+        # Mapping of app names to their states
+        apps_map = {}
+        active_win_id = None
+        
+        _icon_map = {
+            "Terminal":         "resources/icons/terminal.svg",
+            "File Manager":     "resources/icons/files.svg",
+            "Trash":            "resources/icons/trash.svg",
+            "Q-Vault Security": "resources/icons/icon-vault.svg",
+            "Q-Vault Browser":  "resources/icons/browser.svg",
+            "Kernel Monitor":   "resources/icons/kernel_monitor.svg",
+            "Marketplace":      "resources/icons/icon-vault.svg",
+        }
+
         for win_id, win in list(getattr(wm, "_windows", {}).items()):
-            # Include visible OR minimized windows
             if win.isVisible() or getattr(win, "is_minimized", False):
-                title = getattr(win, "window_title", win_id)
-                apps.append({"id": win_id, "title": title})
+                name = getattr(win, "app_name", "Terminal") # Fallback to Terminal or generic
+                if name not in apps_map:
+                    apps_map[name] = {
+                        "app_name": name,
+                        "icon": _icon_map.get(name, "resources/icons/icon-vault.svg"),
+                        "is_running": True,
+                        "instances": [],
+                        "active": False
+                    }
+                
+                apps_map[name]["instances"].append(win_id)
                 if win.hasFocus():
-                    active_id = win_id
-        self._taskbar.update_state({"apps": apps, "active_id": active_id})
+                    apps_map[name]["active"] = True
+                    active_win_id = win_id
+        
+        self._taskbar.update_state({
+            "apps": list(apps_map.values()),
+            "active_id": active_win_id
+        })
 
     def _on_taskbar_app_clicked(self, win_id: str):
         from core.event_bus import EVENT_BUS, SystemEvent

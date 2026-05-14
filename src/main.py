@@ -6,8 +6,8 @@ from PyQt5.QtGui import QPainter, QColor, QCursor
 
 # ── Project Imports ──
 from core.event_bus import EVENT_BUS, SystemEvent
-from system.runtime_manager import RUNTIME_MANAGER
-from ui.shell.boot_splash import BootSplash
+# from system.runtime_manager import RUNTIME_MANAGER
+from ui.widgets.splash_screen import SplashScreen as BootSplash
 
 logger = logging.getLogger("main")
 
@@ -22,6 +22,12 @@ class QVaultOS(QMainWindow):
         self.setWindowTitle("Q-Vault OS")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setMinimumSize(800, 600)
+        
+        # Ensure a base background to prevent white screen
+        self.setAutoFillBackground(True)
+        p = self.palette()
+        p.setColor(self.backgroundRole(), QColor(10, 15, 20))
+        self.setPalette(p)
 
         self._stack = QStackedWidget()
         self.setCentralWidget(self._stack)
@@ -262,21 +268,31 @@ class LockdownOverlay(QWidget):
             self.btn_unlock.setText("SIGN-IN")
 
 def main():
+    print(">>> [MAIN.PY] Entering main()...")
+    logger.info("[Startup] Entering main function in main.py")
     from PyQt5.QtCore import QCoreApplication
     QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     
-    # Pre-import WebEngine if available to prevent initialization errors later
-    try:
-        from PyQt5 import QtWebEngineWidgets
-    except ImportError:
-        pass
+    # app.setQuitOnLastWindowClosed(False)
 
-    app = QApplication(sys.argv)
+    try:
+        app = QApplication(sys.argv)
+        app.setQuitOnLastWindowClosed(False)
+    except Exception as e:
+        logger.critical(f"[Startup] FATAL ERROR during QApplication creation: {e}")
+        sys.exit(1)
     
     # ── Phase 3: Integrity Boot Splash ──
+    window = None
     splash = BootSplash()
     
     def on_boot_finished():
+        nonlocal window
+        logger.info("[Startup] Boot splash finished. Initializing QVaultOS...")
+        
+        from system.runtime_manager import RUNTIME_MANAGER
+        globals()['RUNTIME_MANAGER'] = RUNTIME_MANAGER
+        
         from system.theme_manager import THEME_MANAGER
         THEME_MANAGER.apply_global_theme(app)
         
@@ -284,11 +300,20 @@ def main():
         cursor_filter = GlobalCursorFilter()
         app.installEventFilter(cursor_filter)
         
-        window = QVaultOS()
-        window.showFullScreen()
+        try:
+            window = QVaultOS()
+            logger.info("[Startup] QVaultOS initialized successfully. Showing window...")
+            window.showFullScreen()
+            app.setQuitOnLastWindowClosed(True)
+        except Exception as e:
+            logger.critical(f"[Startup] CRITICAL FAILURE during QVaultOS initialization: {e}")
+            import traceback
+            logger.critical(traceback.format_exc())
+            sys.exit(1)
         
-    splash.finished.connect(on_boot_finished)
+    splash.splash_complete.connect(on_boot_finished)
     splash.show()
+    print(">>> [MAIN.PY] Splash shown. Entering event loop...")
     
     sys.exit(app.exec_())
 

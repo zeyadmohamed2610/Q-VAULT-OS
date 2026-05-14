@@ -18,8 +18,8 @@ ROOT = Path(__file__).parent.resolve()
 # ── Environment & Unicode Stability ─────────────────────────────────
 if sys.platform == "win32":
     try:
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
         os.system("") # Enable ANSI processing
         # Modern HiDPI handling
         os.environ.pop("QT_DEVICE_PIXEL_RATIO", None)
@@ -52,11 +52,11 @@ def count_project_files() -> tuple[int, int]:
         d_count += len(dirs)
     return f_count, d_count
 
-def ok(msg: str)    -> None: _print("v", G, msg)
+def ok(msg: str)    -> None: _print("[OK]", G, msg)
 def warn(msg: str)  -> None: _print("!", Y, msg)
-def fail(msg: str)  -> None: _print("x", R, msg)
+def fail(msg: str)  -> None: _print("[FAIL]", R, msg)
 def info(msg: str)  -> None: _print("->", C, msg)
-def step(msg: str)  -> None: print(f"\n{C}{B}{'\u2501'*60}{RS}\n  {B}{msg}{RS}")
+def step(msg: str)  -> None: print(f"\n{C}{B}{'='*60}{RS}\n  {B}{msg}{RS}")
 
 def print_logo() -> None:
     logo_path = ROOT / "resources" / "ascii_logo.txt"
@@ -202,6 +202,7 @@ def launch() -> None:
     try:
         sys.path.insert(0, str(ROOT / "src"))
         from main import main
+        print(">>> [RUN.PY] Calling main()...")
         main()
     except Exception:
         import traceback

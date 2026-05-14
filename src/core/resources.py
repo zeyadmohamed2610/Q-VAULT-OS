@@ -19,7 +19,8 @@ def get_resource_path(relative_path: str) -> str:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS
     except Exception:
-        base_path = str(Path(__file__).parent.parent)
+        # Go up from src/core/ to root (3 levels)
+        base_path = str(Path(__file__).parent.parent.parent)
 
     return os.path.join(base_path, relative_path)
 

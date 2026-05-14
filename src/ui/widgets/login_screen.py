@@ -18,8 +18,20 @@ class LoginScreen(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("LoginGateway")
-        self._bg_source = QPixmap(get_asset_path("qvault_vault.jpg"))
+        
+        # Robust Background Loading
+        from core.resources import get_asset_path
+        bg_path = get_asset_path("qvault_vault.jpg")
+        
+        self._bg_source = QPixmap()
+        if os.path.exists(bg_path):
+            self._bg_source.load(bg_path)
+        
         self._cached_bg = QPixmap()
+        
+        # Immediate visual feedback: Set a dark theme background
+        self.setAttribute(Qt.WA_StyledBackground, True)
+        self.setStyleSheet("background-color: #050a10;") 
         
         # Main Layout - Ultra-Compact Floating
         layout = QVBoxLayout(self)

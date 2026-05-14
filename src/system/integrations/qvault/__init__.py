@@ -17,6 +17,7 @@ MEDIATOR_EXE_CANDIDATES = [
     MEDIATOR_PROJECT_DIR / "PQC-Vault (1).exe",
     MEDIATOR_PROJECT_DIR / "PQC-Vault" / "bin" / "Release" / "net9.0-windows" / "PQC-Vault.exe",
     MEDIATOR_PROJECT_DIR / "PQC-Vault" / "bin" / "Debug" / "net9.0-windows" / "PQC-Vault.exe",
+    _PROJECT_ROOT.parent / "core" / "binaries" / "PQC-Vault.exe",
 ]
 
 # Integration log directory

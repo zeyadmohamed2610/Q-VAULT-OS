@@ -27,7 +27,8 @@ def _render_svg(rel: str, size: int) -> QPixmap:
     pix = QPixmap(size, size)
     pix.fill(Qt.transparent)
     # Correct path resolution for icons
-    path = Path(__file__).parent.parent.parent / "resources" / rel.replace("resources/", "")
+    # Go up from src/ui/widgets/ to root
+    path = Path(__file__).parent.parent.parent.parent / "resources" / rel.replace("resources/", "")
     if path.exists():
         r = QSvgRenderer(str(path))
         p = QPainter(pix)
@@ -104,6 +105,10 @@ class _DockClock(QWidget):
 
 class TaskbarUI(QWidget):
     start_clicked = pyqtSignal()
+    app_clicked   = pyqtSignal(str)
+    close_app     = pyqtSignal(str)
+    new_instance_requested = pyqtSignal(str)
+    open_launcher = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -130,19 +135,37 @@ class TaskbarUI(QWidget):
         il = QHBoxLayout(self.pill)
         il.setContentsMargins(12, 0, 12, 0); il.setSpacing(4)
         
-        self.logo_btn = QPushButton("Q")
-        self.logo_btn.setFixedSize(36, 36)
+        self.logo_btn = QPushButton()
+        self.logo_btn.setFixedSize(40, 40)
         self.logo_btn.setObjectName("SystemLogo")
+        self.logo_btn.setCursor(Qt.PointingHandCursor)
+        self.logo_btn.setToolTip("Q-Vault System Menu")
+        
+        # Load qvault_logo.svg as icon
+        _logo_pix = _render_svg("icons/qvault_logo.svg", 28)
+        if not _logo_pix.isNull():
+            self.logo_btn.setIcon(QIcon(_logo_pix))
+            self.logo_btn.setIconSize(QSize(28, 28))
+        else:
+            self.logo_btn.setText("Q")
+        
         self.logo_btn.setStyleSheet(f"""
             #SystemLogo {{
                 background: qradialgradient(cx:0.5, cy:0.5, radius:0.8, fx:0.5, fy:0.5, 
                             stop:0 rgba(0, 230, 255, 0.15), stop:1 transparent);
                 border: 1px solid rgba(0, 230, 255, 0.3);
-                border-radius: 18px;
+                border-radius: 20px;
                 color: {THEME['primary_glow']};
                 font-weight: 900; font-size: 18px;
             }}
-            #SystemLogo:hover {{ background: rgba(0, 230, 255, 0.25); border-color: {THEME['primary_glow']}; }}
+            #SystemLogo:hover {{
+                background: rgba(0, 230, 255, 0.25);
+                border-color: {THEME['primary_glow']};
+                border-width: 1.5px;
+            }}
+            #SystemLogo:pressed {{
+                background: rgba(0, 230, 255, 0.35);
+            }}
         """)
         
         from PyQt5.QtCore import QPropertyAnimation, QEasingCurve
@@ -150,8 +173,12 @@ class TaskbarUI(QWidget):
         self.pulse_effect = QGraphicsOpacityEffect(self.logo_btn)
         self.logo_btn.setGraphicsEffect(self.pulse_effect)
         self.pulse_anim = QPropertyAnimation(self.pulse_effect, b"opacity")
-        self.pulse_anim.setDuration(2000); self.pulse_anim.setStartValue(0.6); self.pulse_anim.setEndValue(1.0)
-        self.pulse_anim.setEasingCurve(QEasingCurve.InOutQuad); self.pulse_anim.setLoopCount(-1); self.pulse_anim.start()
+        self.pulse_anim.setDuration(2500)
+        self.pulse_anim.setStartValue(0.65)
+        self.pulse_anim.setEndValue(1.0)
+        self.pulse_anim.setEasingCurve(QEasingCurve.InOutSine)
+        self.pulse_anim.setLoopCount(-1)
+        self.pulse_anim.start()
 
         self.logo_btn.clicked.connect(self._on_logo_clicked)
         il.addWidget(self.logo_btn)
@@ -201,6 +228,7 @@ class TaskbarUI(QWidget):
 
     def _on_logo_clicked(self):
         self.start_clicked.emit()
+        self.open_launcher.emit()
         self._launcher_panel.popup_above(self.logo_btn.mapToGlobal(QPoint(18, 0)))
 
     def update_state(self, state):
@@ -225,15 +253,12 @@ class TaskbarUI(QWidget):
         self._reposition()
 
     def _on_app_clicked(self, data):
-        from core.event_bus import EVENT_BUS, SystemEvent
         if not data.get("is_running"):
-            EVENT_BUS.emit(SystemEvent.REQ_APP_LAUNCH, {"name": data["app_name"]}, source="Taskbar")
-        else:
-            instance_id = data["instances"][0]
-            if data.get("active"):
-                EVENT_BUS.emit(SystemEvent.REQ_WINDOW_MINIMIZE, {"id": instance_id}, source="Taskbar")
-            else:
-                EVENT_BUS.emit(SystemEvent.REQ_WINDOW_FOCUS, {"id": instance_id}, source="Taskbar")
+            self.new_instance_requested.emit(data["app_name"])
+            return
+
+        instance_id = data["instances"][0]
+        self.app_clicked.emit(instance_id)
 
     def _on_app_right_clicked(self, data, pos):
         from PyQt5.QtWidgets import QMenu
@@ -249,8 +274,7 @@ class TaskbarUI(QWidget):
         menu.exec_(pos)
 
     def _emit_close(self, iid):
-        from core.event_bus import EVENT_BUS, SystemEvent
-        EVENT_BUS.emit(SystemEvent.REQ_WINDOW_CLOSE, {"id": iid}, source="Taskbar")
+        self.close_app.emit(iid)
 
     def _emit_kill(self, iid):
         from system.runtime_manager import RUNTIME_MANAGER
