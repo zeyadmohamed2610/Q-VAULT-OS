@@ -1,0 +1,23 @@
+[
+  {
+    "username": "admin",
+    "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$VBi04Ho1avmDIarajWNJyQ$ejdXr4oVI6RMYx+mDi/x1YmVcXlyKOckfYH4X2DTvCs",
+    "role": "admin",
+    "failed_attempts": 0,
+    "locked_until": null
+  },
+  {
+    "username": "guest",
+    "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$lkdmg1sDJta1yQYyQeHxsw$FARI5LFp3CDEzuGoFx5LRYKJIGr3oIkfQbu8FijujEI",
+    "role": "guest",
+    "failed_attempts": 0,
+    "locked_until": null
+  },
+  {
+    "username": "user",
+    "password_hash": "$argon2id$v=19$m=19456,t=2,p=1$h1/zCquIhE7deWXgj2oSbQ$UsqaFQAl/AnDe9gRxmiRRf41eg9zuiD14ZpccSnk/Q4",
+    "role": "user",
+    "failed_attempts": 0,
+    "locked_until": null
+  }
+]

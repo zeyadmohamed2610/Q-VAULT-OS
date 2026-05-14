@@ -24,5 +24,10 @@ structlog>=24.0.0
 # ── Image processing (wallpaper) ─────────────────────────────────
 Pillow>=10.0.0
 
+# ── Windows specific (Conditional) ───────────────────────────────
+WMI>=1.5.1; sys_platform == 'win32'
+pywin32>=306; sys_platform == 'win32'
+
 # ── Rust build tool (only needed to rebuild core from source) ────
 # maturin>=1.5.0   <- uncomment only if rebuilding from source
+
