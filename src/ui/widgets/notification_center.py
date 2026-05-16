@@ -12,12 +12,13 @@ class ToastNotification(QFrame):
     def __init__(self, title, message, level="info", parent=None):
         super().__init__(parent)
         self.setFixedWidth(320)
+        self.setMinimumHeight(60)
         self.level = level
         
         # Color based on level
         accent = THEME['primary_glow']
         if level == "error": accent = THEME['accent_error']
-        elif level == "warning": accent = THEME['accent_warning']
+        elif level == "warning": accent = THEME['warning']
         elif level == "success": accent = THEME['success']
 
         self.setStyleSheet(f"""
@@ -136,14 +137,27 @@ class NotificationManager(QWidget):
         toast.deleteLater()
         self._reposition_toasts()
 
+    def _extract_data(self, payload) -> dict:
+        """Robustly extract title and message from any payload type."""
+        if hasattr(payload, 'data') and isinstance(payload.data, dict):
+            return payload.data
+        if isinstance(payload, dict):
+            return payload
+        if isinstance(payload, str):
+            return {"message": payload}
+        return {}
+
     def _on_info(self, payload):
-        data = payload.data if hasattr(payload, 'data') else payload
-        self.notify(data.get("title", "Info"), data.get("message", ""), "info")
+        data = self._extract_data(payload)
+        msg = data.get("message") or data.get("msg") or data.get("text") or data.get("detail") or ""
+        self.notify(data.get("title", "Info"), str(msg), "info")
 
     def _on_warning(self, payload):
-        data = payload.data if hasattr(payload, 'data') else payload
-        self.notify(data.get("title", "Warning"), data.get("message", ""), "warning")
+        data = self._extract_data(payload)
+        msg = data.get("message") or data.get("msg") or data.get("text") or data.get("detail") or ""
+        self.notify(data.get("title", "Warning"), str(msg), "warning")
 
     def _on_error(self, payload):
-        data = payload.data if hasattr(payload, 'data') else payload
-        self.notify(data.get("title", "Error"), data.get("message", ""), "error")
+        data = self._extract_data(payload)
+        msg = data.get("message") or data.get("msg") or data.get("text") or data.get("detail") or ""
+        self.notify(data.get("title", "Error"), str(msg), "error")

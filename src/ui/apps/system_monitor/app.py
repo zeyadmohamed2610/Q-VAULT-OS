@@ -251,6 +251,12 @@ class SystemMonitorWidget(BaseApp, QWidget):
         btn_kill.clicked.connect(lambda: self._kill_instance(data["id"]))
         lo.addWidget(btn_kill)
 
+        btn_loc = QPushButton("📂")
+        btn_loc.setFixedSize(30, 30)
+        btn_loc.setToolTip("Open File Location")
+        btn_loc.clicked.connect(lambda: self._open_file_location(data["app_id"]))
+        lo.addWidget(btn_loc)
+
         btn_diag = QPushButton("🧠")
         btn_diag.setFixedSize(30, 30)
         btn_diag.clicked.connect(lambda: self._show_explanation(data["id"]))
@@ -268,3 +274,20 @@ class SystemMonitorWidget(BaseApp, QWidget):
         from system.runtime_manager import RUNTIME_MANAGER
         exp = RUNTIME_MANAGER.get_explanation(iid)
         ExplanationDialog(exp, self).exec_()
+
+    def _open_file_location(self, app_id: str):
+        # Notify Desktop to launch FileManager at the app's location
+        # This is a bit tricky as apps are in src/ui/apps/...
+        # We'll use a heuristic for now or search in the registry.
+        from system.config import get_qvault_home
+        import os
+        
+        # Simple mapping for now - in production this uses a proper registry
+        loc = os.path.join(os.getcwd(), "src", "ui", "apps")
+        
+        # Emit a global request to open file manager
+        from core.event_bus import EVENT_BUS, SystemEvent
+        EVENT_BUS.emit(SystemEvent.EVT_APP_LAUNCH_REQUEST, {
+            "name": "Vault Explorer",
+            "args": {"start_path": loc}
+        })

@@ -2,14 +2,92 @@ import logging
 import os
 from pathlib import Path
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, 
+    QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QPlainTextEdit,
     QLabel, QFileDialog, QMenuBar, QMenu, QAction, 
-    QMessageBox, QStatusBar, QToolBar, QFrame
+    QMessageBox, QStatusBar, QToolBar, QFrame, QTextEdit
 )
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QFont, QIcon, QColor, QTextCharFormat
+from PyQt5.QtCore import Qt, pyqtSignal, QRect, QSize, QEvent
+from PyQt5.QtGui import QFont, QIcon, QColor, QTextCharFormat, QPainter, QTextFormat
+from .highlighter import PythonHighlighter
+from resources.theme import THEME
 
 logger = logging.getLogger(__name__)
+
+class LineNumberArea(QWidget):
+    def __init__(self, editor):
+        super().__init__(editor)
+        self.editor = editor
+    def sizeHint(self):
+        return QSize(self.editor.line_number_area_width(), 0)
+    def paintEvent(self, event):
+        self.editor.lineNumberAreaPaintEvent(event)
+
+class CodeEditor(QPlainTextEdit):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.line_number_area = LineNumberArea(self)
+        self.blockCountChanged.connect(self.update_line_number_area_width)
+        self.updateRequest.connect(self.update_line_number_area)
+        self.cursorPositionChanged.connect(self.highlight_current_line)
+        self.update_line_number_area_width(0)
+        
+        self.highlighter = PythonHighlighter(self.document())
+
+    def line_number_area_width(self):
+        digits = 1
+        max_v = max(1, self.blockCount())
+        while max_v >= 10:
+            max_v //= 10
+            digits += 1
+        space = 20 + self.fontMetrics().width('9') * digits
+        return space
+
+    def update_line_number_area_width(self, _):
+        self.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+
+    def update_line_number_area(self, rect, dy):
+        if dy: self.line_number_area.scroll(0, dy)
+        else: self.line_number_area.update(0, rect.y(), self.line_number_area.width(), rect.height())
+        if rect.contains(self.viewport().rect()):
+            self.update_line_number_area_width(0)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        cr = self.contentsRect()
+        self.line_number_area.setGeometry(QRect(cr.left(), cr.top(), self.line_number_area_width(), cr.height()))
+
+    def highlight_current_line(self):
+        extra_selections = []
+        if not self.isReadOnly():
+            selection = QTextEdit.ExtraSelection()
+            line_color = QColor(THEME['primary_glow']).lighter(160)
+            line_color.setAlpha(20)
+            selection.format.setBackground(line_color)
+            selection.format.setProperty(QTextFormat.FullWidthSelection, True)
+            selection.cursor = self.textCursor()
+            selection.cursor.clearSelection()
+            extra_selections.append(selection)
+        self.setExtraSelections(extra_selections)
+
+    def lineNumberAreaPaintEvent(self, event):
+        painter = QPainter(self.line_number_area)
+        painter.fillRect(event.rect(), QColor(THEME['bg_black']))
+        
+        block = self.firstVisibleBlock()
+        block_number = block.blockNumber()
+        top = self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
+        bottom = top + self.blockBoundingRect(block).height()
+        
+        while block.isValid() and top <= event.rect().bottom():
+            if block.isVisible() and bottom >= event.rect().top():
+                number = str(block_number + 1)
+                painter.setPen(QColor(THEME['text_muted']))
+                painter.drawText(0, int(top), self.line_number_area.width() - 5, self.fontMetrics().height(),
+                                 Qt.AlignRight, number)
+            block = block.next()
+            top = bottom
+            bottom = top + self.blockBoundingRect(block).height()
+            block_number += 1
 
 class NotepadApp(QWidget):
     """
@@ -18,12 +96,17 @@ class NotepadApp(QWidget):
     """
     closed = pyqtSignal()
 
-    def __init__(self, secure_api=None, parent=None):
+    def __init__(self, secure_api=None, parent=None, file_path=None, **kwargs):
         super().__init__(parent)
         self.setAttribute(Qt.WA_DeleteOnClose)
         self.secure_api = secure_api
         self.current_file = None
         self._setup_ui()
+        
+        if file_path:
+            # Delay slightly to ensure UI is ready
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(100, lambda: self._open_file(file_path))
         
     def _setup_ui(self):
         # Professional Dark Theme Styling
@@ -119,8 +202,8 @@ class NotepadApp(QWidget):
         layout.addWidget(self.menu_bar)
         
         # Main Editor
-        self.editor = QTextEdit()
-        self.editor.setAcceptRichText(False)
+        self.editor = CodeEditor()
+        self.editor.setAcceptDrops(True)
         self.editor.textChanged.connect(self._on_text_changed)
         layout.addWidget(self.editor)
         

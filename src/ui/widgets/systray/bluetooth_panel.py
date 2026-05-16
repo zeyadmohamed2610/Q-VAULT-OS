@@ -1,5 +1,4 @@
 from __future__ import annotations
-import subprocess
 import logging
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -11,67 +10,14 @@ from PyQt5.QtGui import QFont, QFontMetrics
 logger = logging.getLogger(__name__)
 
 
+from system.system_helper import SystemControlHelper
+
 class BtScanner(QThread):
     devices_found = pyqtSignal(list)
 
     def run(self):
-        import platform
-        sys_name = platform.system()
-        devs = []
-        if sys_name == "Linux":
-            devs = self._scan_linux()
-        elif sys_name == "Windows":
-            devs = self._scan_windows()
-            
-        if not devs:
-            devs = self._fallback()
+        devs = SystemControlHelper.get_bluetooth_devices()
         self.devices_found.emit(devs)
-
-    def _scan_linux(self) -> list[dict]:
-        try:
-            r = subprocess.run(
-                ["bluetoothctl", "devices"],
-                capture_output=True, text=True, timeout=5
-            )
-            devs = []
-            for line in r.stdout.splitlines():
-                parts = line.split(" ", 2)
-                if len(parts) >= 3:
-                    devs.append({"name": parts[2].strip(), "connected": False, "type": "Device"})
-            return devs
-        except Exception as exc:
-            logger.debug("BT Linux scan failed: %s", exc)
-            return []
-
-    def _scan_windows(self) -> list[dict]:
-        try:
-            r = subprocess.run(
-                ["powershell", "-Command",
-                 "Get-PnpDevice -Class Bluetooth | "
-                 "Select-Object FriendlyName,Status | ConvertTo-Csv"],
-                capture_output=True, text=True, timeout=6
-            )
-            devs = []
-            for line in r.stdout.splitlines()[2:]:
-                parts = line.strip('"').split('","')
-                if len(parts) >= 2:
-                    devs.append({
-                        "name": parts[0],
-                        "connected": "OK" in parts[1],
-                        "type": "Device"
-                    })
-            return [d for d in devs if d["name"]]
-        except Exception as exc:
-            logger.debug("BT Windows scan failed: %s", exc)
-            return []
-
-    def _fallback(self) -> list[dict]:
-        return [
-            {"name": "AirPods Pro",   "connected": True,  "type": "Headphones 🎧"},
-            {"name": "MX Master 3",   "connected": False, "type": "Mouse 🖱️"},
-            {"name": "Keychron K2",   "connected": False, "type": "Keyboard ⌨️"},
-            {"name": "iPhone 15 Pro", "connected": False, "type": "Phone 📱"},
-        ]
 
 
 class DeviceRow(QWidget):
@@ -179,16 +125,10 @@ class BluetoothPanel(QWidget):
         hrow.addWidget(title)
         hrow.addStretch()
 
-        self._tog = QPushButton("On")
-        self._tog.setCheckable(True)
-        self._tog.setChecked(True)
-        self._tog.setFixedSize(42, 22)
-        self._tog.setStyleSheet(
-            "QPushButton{background:#54b1c6;color:#01020e;"
-            "border:none;border-radius:11px;font-size:10px;font-weight:bold;}"
-            "QPushButton:!checked{background:#243558;color:#4a6880;}"
-        )
-        self._tog.clicked.connect(self._toggle)
+        from ui.widgets.common.toggle_switch import ToggleSwitch
+        self._tog = ToggleSwitch()
+        self._tog.set_checked(True)
+        self._tog.toggled.connect(self._toggle)
         hrow.addWidget(self._tog)
         cl.addLayout(hrow)
 

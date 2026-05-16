@@ -1,12 +1,12 @@
 import sys
 import logging
 from PyQt5.QtWidgets import QApplication, QMainWindow, QStackedWidget, QWidget, QVBoxLayout, QFrame, QLabel, QLineEdit, QPushButton
-from PyQt5.QtCore import Qt, QTimer, QEvent, QPoint, QRect, QSize, QObject
-from PyQt5.QtGui import QPainter, QColor, QCursor
+from PyQt5.QtCore import Qt, QTimer, QEvent, QPoint, QRect, QSize, QObject, pyqtSignal
+from PyQt5.QtGui import QPainter, QColor, QCursor, QTextCursor
 
 # ── Project Imports ──
 from core.event_bus import EVENT_BUS, SystemEvent
-# from system.runtime_manager import RUNTIME_MANAGER
+from system.runtime_manager import RUNTIME_MANAGER
 from ui.widgets.splash_screen import SplashScreen as BootSplash
 
 logger = logging.getLogger("main")
@@ -19,7 +19,7 @@ class QVaultOS(QMainWindow):
         from ui.widgets.desktop import Desktop
         from system.app_controller import get_app_controller
         
-        self.setWindowTitle("Q-Vault OS")
+        self.setWindowTitle("Q-Vault Sovereign OS")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setMinimumSize(800, 600)
         
@@ -69,7 +69,7 @@ class QVaultOS(QMainWindow):
 
     def _system_pulse(self):
         RUNTIME_MANAGER.report_ui_pulse()
-        RUNTIME_MANAGER.check_inactivity()
+        # RUNTIME_MANAGER.check_inactivity() # Consistently handled by AuthManager
         self._check_lock_status()
 
     def _check_lock_status(self, _=None):
@@ -94,9 +94,16 @@ class QVaultOS(QMainWindow):
 class GlobalCursorFilter(QObject):
     """
     Monitors all application events to enforce consistent cursor 
-    feedback (Hand for buttons, I-Beam for text, Arrow for others).
+    feedback and report system activity to AuthManager.
     """
     def eventFilter(self, obj, event):
+        from system.auth_manager import get_auth_manager
+        am = get_auth_manager()
+        
+        # Report activity on any user-driven event
+        if am and event.type() in [QEvent.MouseButtonPress, QEvent.KeyPress, QEvent.MouseMove, QEvent.Wheel]:
+            am.report_activity()
+
         if event.type() == QEvent.Enter:
             if isinstance(obj, QPushButton):
                 obj.setCursor(Qt.PointingHandCursor)
@@ -154,7 +161,7 @@ class LockdownOverlay(QWidget):
         """
         
         self.pass_input = QLineEdit()
-        self.pass_input.setPlaceholderText("PASSWORD") 
+        self.pass_input.setPlaceholderText("VAULT KEY") 
         self.pass_input.setEchoMode(QLineEdit.Password)
         self.pass_input.setFixedHeight(52)
         self.pass_input.setStyleSheet(input_style)
@@ -167,7 +174,7 @@ class LockdownOverlay(QWidget):
         pass_glow.setOffset(0, 0)
         self.pass_input.setGraphicsEffect(pass_glow)
         
-        self.btn_unlock = QPushButton("SIGN-IN")
+        self.btn_unlock = QPushButton("AUTHORIZE")
         self.btn_unlock.setObjectName("PrimaryBtn")
         self.btn_unlock.setFixedHeight(56)
         self.btn_unlock.setCursor(Qt.PointingHandCursor)
@@ -218,21 +225,18 @@ class LockdownOverlay(QWidget):
         painter.setRenderHint(QPainter.Antialiasing)
         
         # Create professional dark glass depth
-        # Center gradient to keep the focus on the bottom UI
         grad = QRadialGradient(QPointF(self.width()/2, self.height() * 0.8), self.width() * 0.8)
-        grad.setColorAt(0, QColor(10, 20, 25, 210)) # Lighter near the form
-        grad.setColorAt(1, QColor(5, 10, 15, 245))  # Darker towards edges
+        grad.setColorAt(0, QColor(10, 20, 25, 210))
+        grad.setColorAt(1, QColor(5, 10, 15, 245))
         
         painter.fillRect(self.rect(), grad)
-        
-        # Optional: Subtle border for the "glass" sheet if it was a smaller window, 
-        # but here it covers the whole screen, so we just stick to the gradient.
 
     def _attempt_unlock(self):
         password = self.pass_input.text()
         if not password: return
         from system.auth_manager import get_auth_manager
         am = get_auth_manager()
+        
         self.btn_unlock.setEnabled(False)
         self.btn_unlock.setText("VERIFYING...")
         self.btn_unlock.setProperty("class", "busy")
@@ -240,7 +244,6 @@ class LockdownOverlay(QWidget):
         self.btn_unlock.style().polish(self.btn_unlock)
         self.setCursor(Qt.WaitCursor)
         
-        # Corrected: Connect signals for async response
         if not hasattr(self, "_connected"):
             am.login_failed.connect(self._on_unlock_failed)
             am.state_changed.connect(self._on_auth_state_changed)
@@ -249,9 +252,9 @@ class LockdownOverlay(QWidget):
         am.request_unlock(password)
 
     def _on_unlock_failed(self, error):
-        self.error_lbl.setText("ACCESS DENIED")
+        self.error_lbl.setText("IDENTITY VERIFICATION FAILED")
         self.btn_unlock.setEnabled(True)
-        self.btn_unlock.setText("SIGN-IN")
+        self.btn_unlock.setText("AUTHORIZE")
         self.btn_unlock.setProperty("class", "")
         self.btn_unlock.style().unpolish(self.btn_unlock)
         self.btn_unlock.style().polish(self.btn_unlock)
@@ -265,7 +268,30 @@ class LockdownOverlay(QWidget):
             self.setCursor(Qt.ArrowCursor)
             self.hide()
             self.btn_unlock.setEnabled(True)
-            self.btn_unlock.setText("SIGN-IN")
+            self.btn_unlock.setText("AUTHORIZE")
+
+def handle_exception(exc_type, exc_value, exc_traceback):
+    """Global handler for unhandled exceptions to prevent silent crashes."""
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logger.critical("UNHANDLED CRITICAL EXCEPTION:", exc_info=(exc_type, exc_value, exc_traceback))
+    # We could show a 'System Error' dialog here if QApplication is running
+    try:
+        from PyQt5.QtWidgets import QMessageBox
+        if QApplication.instance():
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Critical)
+            msg.setWindowTitle("Q-Vault Sovereign - System Error")
+            msg.setText("A critical runtime error has occurred.")
+            msg.setInformativeText(f"{exc_value}")
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.setStyleSheet("background-color: #0b1929; color: #d4e8f0;")
+            msg.exec_()
+    except Exception:
+        pass
+
+sys.excepthook = handle_exception
 
 def main():
     print(">>> [MAIN.PY] Entering main()...")
@@ -273,8 +299,6 @@ def main():
     from PyQt5.QtCore import QCoreApplication
     QCoreApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     
-    # app.setQuitOnLastWindowClosed(False)
-
     try:
         app = QApplication(sys.argv)
         app.setQuitOnLastWindowClosed(False)
@@ -282,7 +306,6 @@ def main():
         logger.critical(f"[Startup] FATAL ERROR during QApplication creation: {e}")
         sys.exit(1)
     
-    # ── Phase 3: Integrity Boot Splash ──
     window = None
     splash = BootSplash()
     
@@ -290,13 +313,9 @@ def main():
         nonlocal window
         logger.info("[Startup] Boot splash finished. Initializing QVaultOS...")
         
-        from system.runtime_manager import RUNTIME_MANAGER
-        globals()['RUNTIME_MANAGER'] = RUNTIME_MANAGER
-        
         from system.theme_manager import THEME_MANAGER
         THEME_MANAGER.apply_global_theme(app)
         
-        # Install global cursor management
         cursor_filter = GlobalCursorFilter()
         app.installEventFilter(cursor_filter)
         

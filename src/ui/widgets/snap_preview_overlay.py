@@ -1,14 +1,11 @@
-from resources.theme import *
-# =============================================================
-#  components/snap_preview_overlay.py — Q-Vault OS
-#
-#  Visual feedback for window snapping.
-#  Shows a ghost-rect when a window is near snap zones.
-# =============================================================
-
+import logging
 from PyQt5.QtWidgets import QWidget
 from PyQt5.QtCore import Qt, QRect, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui import QPainter, QColor
+
+from resources.theme import THEME
+
+logger = logging.getLogger(__name__)
 
 class SnapPreviewOverlay(QWidget):
     """
@@ -27,6 +24,8 @@ class SnapPreviewOverlay(QWidget):
         self.anim = QPropertyAnimation(self, b"windowOpacity")
         self.anim.setDuration(150)
         self.anim.setEasingCurve(QEasingCurve.OutCubic)
+        
+        self.hide() # Ensure it's hidden by default until explicitly shown
 
     def show_preview(self, rect: QRect):
         if self._target_rect == rect and self.isVisible():

@@ -101,7 +101,7 @@ CONTEXT_MENU_STYLE = (
 )
 
 class FileManagerApp(QWidget):
-    def __init__(self, secure_api=None, parent=None):
+    def __init__(self, secure_api=None, parent=None, **kwargs):
         super().__init__(parent)
         self.secure_api = secure_api
         self.setObjectName("FileManagerApp")
@@ -109,14 +109,21 @@ class FileManagerApp(QWidget):
         self.setStyleSheet(STYLE)
 
         self._base_dir = Path(get_qvault_home()).resolve()
-        self._current_path = self._base_dir
+        
+        # Determine initial path (support start_path or default to home)
+        start_path = kwargs.get("start_path")
+        if start_path:
+            self._current_path = Path(start_path).resolve()
+        else:
+            self._current_path = self._base_dir
+            
         self._history: list = []
         self._fwd_stack: list = []
         self._clipboard: Path | None = None
         self._cut_mode = False
 
         self._setup_ui()
-        self._navigate(self._base_dir, record=False)
+        self._navigate(self._current_path, record=False)
         self._subscribe_events()
 
     # ── UI Build ──────────────────────────────────────────────
@@ -289,6 +296,22 @@ class FileManagerApp(QWidget):
         self._current_path = path
         self._update_breadcrumbs()
         self._load_dir(path)
+
+    def change_directory(self, path: str):
+        """External API for system navigation."""
+        p = Path(path)
+        if p.exists() and p.is_dir():
+            self._navigate(p)
+
+    def _open_file(self, path: str):
+        """External API for opening files."""
+        p = Path(path)
+        if p.exists():
+            if p.is_dir():
+                self._navigate(p)
+            else:
+                # Handle file opening (could launch editor or preview)
+                pass
 
     def _update_breadcrumbs(self):
         # Clear existing

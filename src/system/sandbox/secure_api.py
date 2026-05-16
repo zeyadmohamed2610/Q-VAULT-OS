@@ -144,18 +144,20 @@ class SecureAPI:
             if self._call_count > 50:
                 # Progressive throttling: add 10ms for every 10 calls over limit
                 self._throttle_delay = min(0.5, (self._call_count - 50) * 0.001)
+            else:
+                self._throttle_delay = 0.0
                 
-                # Emit pressure event to UI
-                EVENT_BUS.emit(
-                    "ui.resource_pressure",
-                    data={
-                        "app_id": self.app_id,
-                        "instance_id": self.instance_id,
-                        "calls_per_sec": self._call_count,
-                        "delay_ms": int(self._throttle_delay * 1000)
-                    },
-                    source="SovereignGovernor"
-                )
+            # Always emit pressure event to UI to show real-time telemetry
+            EVENT_BUS.emit(
+                "ui.resource_pressure",
+                data={
+                    "app_id": self.app_id,
+                    "instance_id": self.instance_id,
+                    "calls_per_sec": self._call_count,
+                    "delay_ms": int(self._throttle_delay * 1000)
+                },
+                source="SovereignGovernor"
+            )
 
         if self._throttle_delay > 0:
             time.sleep(self._throttle_delay)

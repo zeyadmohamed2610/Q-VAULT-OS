@@ -177,7 +177,7 @@ class ProcFSHandler:
 
     @classmethod
     def pid_status(cls, pid: int, name: str, owner: str,
-                   status: str, vm_rss_kb: int = 65_536) -> str:
+                   status: str, ppid: int = 1, vm_rss_kb: int = 65_536) -> str:
         """
         /proc/<pid>/status — process status file.
 
@@ -190,6 +190,8 @@ class ProcFSHandler:
             Username ("root" or "user").
         status : str
             ProcessManager status string ("running", "sleeping", etc.)
+        ppid : int
+            Parent Process ID.
         vm_rss_kb : int
             Simulated resident set size in kB.
         """
@@ -200,7 +202,7 @@ class ProcFSHandler:
             f"Name:\t{name}\n"
             f"State:\t{state_char} ({status})\n"
             f"Pid:\t{pid}\n"
-            f"PPid:\t1\n"
+            f"PPid:\t{ppid}\n"
             f"Uid:\t{uid}\t{uid}\t{uid}\t{uid}\n"
             f"Gid:\t{uid}\t{uid}\t{uid}\t{uid}\n"
             f"VmRSS:\t{vm_rss_kb:>8} kB\n"
@@ -277,6 +279,7 @@ class ProcFSHandler:
                 now = time.time()
                 for proc_dict in pm.all_procs():
                     pid    = proc_dict["pid"]
+                    ppid   = proc_dict.get("ppid", 1)
                     name   = proc_dict["name"]
                     owner  = proc_dict.get("owner", "root")
                     status = proc_dict.get("status", "sleeping")
@@ -285,7 +288,7 @@ class ProcFSHandler:
                     pid_dir: dict = {
                         "_meta":   Meta("", owner=owner),
                         "status":  _file(
-                            cls.pid_status(pid, name, owner, status),
+                            cls.pid_status(pid, name, owner, status, ppid=ppid),
                             owner=owner,
                         ),
                         "cmdline": _file(cls.pid_cmdline(argv), owner=owner),

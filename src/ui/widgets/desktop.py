@@ -17,6 +17,7 @@ from PyQt5.QtGui import (
 from PyQt5.QtSvg import QSvgRenderer
 
 from ui.widgets.taskbar_ui import TaskbarUI
+from ui.widgets.switcher_ui import AltTabSwitcher
 from core.event_bus import EVENT_BUS, SystemEvent
 from system.window_manager import get_window_manager
 from resources.theme import THEME, FONT
@@ -90,16 +91,22 @@ DARK_DIALOG_STYLE = f"""
 
 # ── Icon definitions ──────────────────────────────────────────
 _APPS = [
-    {"name": "File Manager",    "icon": "resources/icons/files.svg"},
-    {"name": "Q-Vault Browser", "icon": "resources/icons/browser.svg"},
-    {"name": "Q-Vault Security","icon": "resources/icons/security_square.svg"},
-    {"name": "Marketplace",      "icon": "resources/icons/marketplace_square.svg"},
+    {"name": "Vault Explorer",      "icon": "resources/icons/files.svg"},
+    {"name": "Sovereign Browser",   "icon": "resources/icons/browser.svg"},
+    {"name": "Security Core",       "icon": "resources/icons/security_square.svg"},
+    {"name": "Plugin Marketplace",  "icon": "resources/icons/marketplace_square.svg"},
+    {"name": "Command Shell",       "icon": "resources/icons/terminal.svg"},
+    {"name": "Recycle Bin",         "icon": "resources/icons/trash.svg"},
+    {"name": "System Intelligence", "icon": "resources/icons/kernel_monitor.svg"},
+    {"name": "Secure Editor",       "icon": "resources/icons/file_text.svg"},
+    {"name": "Guardian Sentinel",   "icon": "resources/icons/sentinel.svg"},
+    {"name": "Core Configurations", "icon": "resources/icons/settings.svg"},
 ]
 
 
 # ── Grid constants ────────────────────────────────────────────
-GRID_CELL_W  = 114
-GRID_CELL_H  = 120
+GRID_CELL_W  = 100
+GRID_CELL_H  = 130
 GRID_START_X = 28
 GRID_START_Y = 28
 
@@ -140,7 +147,7 @@ class DesktopFileIcon(QWidget):
         self._selected = False
         self._drag_start = None
 
-        self.setFixedSize(90, 100)
+        self.setFixedSize(76, 90)
         self.setCursor(Qt.PointingHandCursor)
         self.setMouseTracking(True)
 
@@ -149,9 +156,9 @@ class DesktopFileIcon(QWidget):
         vl.setSpacing(4)
         vl.setAlignment(Qt.AlignCenter)
 
-        # SVG icon (52×52)
+        # SVG icon (40x40)
         ico_lbl = QLabel()
-        pix = _load_svg(_icon_for_path(path), 52)
+        pix = _load_svg(_icon_for_path(path), 40)
         ico_lbl.setPixmap(pix)
         ico_lbl.setAlignment(Qt.AlignCenter)
         ico_lbl.setAttribute(Qt.WA_TransparentForMouseEvents)
@@ -159,8 +166,7 @@ class DesktopFileIcon(QWidget):
 
         # Name label
         name = path.name
-        display = (name[:11] + "…") if len(name) > 12 else name
-        self._lbl = QLabel(display)
+        self._lbl = QLabel(name)
         self._lbl.setFont(QFont("Segoe UI", 9, QFont.Medium))
         self._lbl.setAlignment(Qt.AlignCenter)
         self._lbl.setWordWrap(True)
@@ -343,11 +349,11 @@ class DesktopIcon(QWidget):
     • Double-click: launch app
     """
 
-    _ICO_SIZE   = 56   # px  — icon render size
-    _W, _H      = 90, 100
-    _C_BG_SEL   = QColor(84, 177, 198, 38)   # rgba(84,177,198,0.15)
-    _C_BG_HOV   = QColor(84, 177, 198, 20)   # rgba(84,177,198,0.08)
-    _C_RING     = QColor(84, 177, 198, 200)   # 2 px cyan ring
+    _ICO_SIZE   = 48   # px  — icon render size
+    _W, _H      = 84, 110
+    _C_BG_SEL   = QColor(84, 177, 198, 40)
+    _C_BG_HOV   = QColor(84, 177, 198, 20)
+    _C_RING     = QColor(84, 177, 198, 200)
     _RADIUS     = 12
 
     def __init__(self, name: str, icon_path: str, parent=None):
@@ -422,7 +428,7 @@ class DesktopIcon(QWidget):
         font.setWeight(QFont.Medium)
         p.setFont(font)
 
-        label_rect = QRect(0, icon_y0 + icon_area_h + 2, iw, 28)
+        label_rect = QRect(0, icon_y0 + icon_area_h + 2, iw, 36)
 
         # Drop shadow for wallpaper readability
         p.setPen(QColor(0, 0, 0, 140))
@@ -507,9 +513,11 @@ class DesktopIcon(QWidget):
         act_open.triggered.connect(self._launch)
         menu.addAction(act_open)
 
-        if self.name.lower() in ("terminal",):
+        # Add 'Run as Administrator' for applicable apps
+        privileged_apps = ("command shell", "vault explorer", "security core", "core configurations")
+        if self.name.lower() in privileged_apps:
             menu.addSeparator()
-            act_admin = QAction("🔑  Run as Administrator", self)
+            act_admin = QAction("🛡️  Run as Administrator", self)
             act_admin.triggered.connect(self._launch_as_admin)
             menu.addAction(act_admin)
 
@@ -687,16 +695,34 @@ class Desktop(QWidget):
 
         # ── Snap Preview Overlay (wired to WindowDragHandler) ──
         from ui.widgets.snap_preview_overlay import SnapPreviewOverlay
-        self.snap_preview = SnapPreviewOverlay(parent=self._workspace)
-        self.snap_preview.hide()
+        self.snap_preview = SnapPreviewOverlay(self._workspace)
+        
+        # ── v2.0 Global Switcher ──
+        self._switcher = AltTabSwitcher(self)
+        self._switcher.hide()
+        
+        self.set_user("Admin")
+        
+        # Install global event filter to catch Alt+Tab
+        QApplication.instance().installEventFilter(self)
 
         self._taskbar = TaskbarUI(parent=self)
         self._taskbar.setObjectName("Taskbar")
+        self._taskbar.setFixedHeight(86)
         layout.addWidget(self._taskbar)
+        
+        self._taskbar.show()
+        self._taskbar.raise_()
         self._taskbar.app_clicked.connect(self._on_taskbar_app_clicked)
         self._taskbar.close_app.connect(self._close_app_by_id)
         self._taskbar.new_instance_requested.connect(self.launch_app)
         self._taskbar.open_launcher.connect(self._show_launcher_stub)
+        self._taskbar.pin_app.connect(self._pin_app)
+        self._taskbar.unpin_app.connect(self._unpin_app)
+        self._taskbar.run_as_admin_requested.connect(self._on_run_as_admin)
+        
+        # ── Pinned Apps ──
+        self._pinned_apps = self._settings().value("pinned_apps", [], type=list)
 
         # ── Timers (Lazy Initialized) ──
         self._clock_timer = None
@@ -712,6 +738,18 @@ class Desktop(QWidget):
             EVENT_BUS.subscribe(SystemEvent.REQ_TERMINAL_OPEN_HERE, self._on_open_terminal_here)
             EVENT_BUS.subscribe(SystemEvent.EVT_TRASH_STATE_CHANGED, self._on_trash_state_changed)
             EVENT_BUS.subscribe(SystemEvent.STATE_CHANGED, self._on_state_changed)
+            
+            # Sync Taskbar with Window Lifecycle
+            refresh_tb = lambda _: self._update_taskbar_apps()
+            # Use a tiny delay for close events to ensure WM state has settled
+            refresh_tb_stable = lambda _: QTimer.singleShot(50, self._update_taskbar_apps)
+            
+            EVENT_BUS.subscribe(SystemEvent.WINDOW_OPENED, refresh_tb)
+            EVENT_BUS.subscribe(SystemEvent.WINDOW_CLOSED, refresh_tb_stable)
+            EVENT_BUS.subscribe(SystemEvent.WINDOW_FOCUSED, refresh_tb)
+            EVENT_BUS.subscribe(SystemEvent.WINDOW_MINIMIZED, refresh_tb)
+            EVENT_BUS.subscribe(SystemEvent.WINDOW_RESTORED, refresh_tb)
+            EVENT_BUS.subscribe(SystemEvent.REQ_WINDOW_MINIMIZE_OTHERS, self._on_minimize_others)
         except Exception:
             pass
 
@@ -772,23 +810,27 @@ class Desktop(QWidget):
     # ── Wallpaper ─────────────────────────────────────────────
 
     def _load_wallpaper(self) -> QPixmap | None:
+        # 1. Return cached cinematic buffer if size matches
         if self._wallpaper_loaded and self._wallpaper is not None:
-            return self._wallpaper
+            if self._wallpaper.size() == self.size():
+                return self._wallpaper
         
+        # 2. Need to re-render or first load
         self._wallpaper_loaded = True
-        self._load_settings()
         
+        # Fallback to base image if cache is invalid or size changed
         raw_pix = None
-        if self._wallpaper:
-            raw_pix = self._wallpaper
+        # Try to use original high-res if available
+        if hasattr(self, "_raw_wallpaper") and not self._raw_wallpaper.isNull():
+            raw_pix = self._raw_wallpaper
         else:
             # Go up from src/ui/widgets/ to root
             root = Path(__file__).parent.parent.parent.parent
             wp_path = root / "resources" / "qvault_vault.jpg"
             if wp_path.exists():
                 raw_pix = QPixmap(str(wp_path))
-                self._wallpaper_path = str(wp_path)
-
+                self._raw_wallpaper = raw_pix # Store source source
+        
         if not raw_pix or raw_pix.isNull():
             return None
 
@@ -870,7 +912,7 @@ class Desktop(QWidget):
 
     # ── App launching ─────────────────────────────────────────
 
-    def launch_app(self, name: str, start_path: str = None, role_override: str = None):
+    def launch_app(self, name: str, **kwargs):
         from ui.widgets.os_window import OSWindow
         from system.app_factory import create_app_by_name
 
@@ -880,15 +922,14 @@ class Desktop(QWidget):
         existing = wm.find_by_title(name)
         if existing:
             wm.focus_window(existing.window_id)
+            # If we passed a new path, try to update the existing app if it supports it
+            start_path = kwargs.get("start_path") or kwargs.get("file_path")
             if start_path and hasattr(existing.content_widget, "change_directory"):
                 existing.content_widget.change_directory(start_path)
+            elif start_path and hasattr(existing.content_widget, "_open_file"):
+                existing.content_widget._open_file(start_path)
             return existing
 
-        kwargs = {}
-        if start_path:
-            kwargs["start_path"] = start_path
-        if role_override:
-            kwargs["role_override"] = role_override
         try:
             widget = create_app_by_name(name, parent=self._workspace, **kwargs)
         except Exception as exc:
@@ -910,23 +951,11 @@ class Desktop(QWidget):
         window.move(offset, offset)
         window.show()
 
-        _icon_map = {
-            "Terminal":         "resources/icons/terminal.svg",
-            "File Manager":     "resources/icons/files.svg",
-            "Trash":            "resources/icons/trash.svg",
-            "Q-Vault Security": "resources/icons/icon-vault.svg",
-            "Q-Vault Browser":  "resources/icons/browser.svg",
-            "Kernel Monitor":   "resources/icons/kernel_monitor.svg",
-            "Marketplace":      "resources/icons/icon-vault.svg",
-        }
-        # App registration is handled via _update_taskbar_apps() state push
-
-        # Wire window close → unregister from dock
-        _orig_close = window.closeEvent
-        def _patched_close(ev, _wid=win_id, _oc=_orig_close):
-            _oc(ev)
-            self._update_taskbar_apps()
-        window.closeEvent = _patched_close
+        # ── App Lifecycle Start ──
+        # Trigger on_start() on the content widget so timers/threads start properly
+        if hasattr(widget, "_trigger_start"):
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(50, widget._trigger_start)
 
         self._update_taskbar_apps()
         return window
@@ -981,43 +1010,80 @@ class Desktop(QWidget):
         from system.window_manager import get_window_manager
         wm = get_window_manager()
         
-        # Mapping of app names to their states
         apps_map = {}
         active_win_id = None
         
-        _icon_map = {
-            "Terminal":         "resources/icons/terminal.svg",
-            "File Manager":     "resources/icons/files.svg",
-            "Trash":            "resources/icons/trash.svg",
-            "Q-Vault Security": "resources/icons/icon-vault.svg",
-            "Q-Vault Browser":  "resources/icons/browser.svg",
-            "Kernel Monitor":   "resources/icons/kernel_monitor.svg",
-            "Marketplace":      "resources/icons/icon-vault.svg",
-        }
+        _icon_map = {app["name"]: app["icon"] for app in _APPS}
+        _icon_map.setdefault("Kernel Monitor", "resources/icons/kernel_monitor.svg")
 
+        # 1. Seed with Pinned Apps (Greyed out if not running)
+        for name in getattr(self, "_pinned_apps", []):
+            apps_map[name] = {
+                "aid": name,
+                "app_name": name,
+                "icon": _icon_map.get(name, "resources/icons/icon-vault.svg"),
+                "is_running": False,
+                "instances": [],
+                "active": False,
+                "is_pinned": True
+            }
+
+        # 2. Overlay Running Windows
         for win_id, win in list(getattr(wm, "_windows", {}).items()):
+            # Important: Skip windows that are technically closed but pending failsafe destroy
+            if getattr(win, "_is_destroyed", False):
+                continue
+
             if win.isVisible() or getattr(win, "is_minimized", False):
-                name = getattr(win, "app_name", "Terminal") # Fallback to Terminal or generic
-                if name not in apps_map:
-                    apps_map[name] = {
+                name = getattr(win, "window_title", "Terminal")
+                
+                # Check if this app type is pinned
+                if name in apps_map:
+                    target_id = name
+                    apps_map[target_id]["is_running"] = True
+                else:
+                    # If not pinned, each instance gets its own icon to prevent overlap
+                    target_id = win_id
+                    apps_map[target_id] = {
+                        "aid": win_id,
                         "app_name": name,
                         "icon": _icon_map.get(name, "resources/icons/icon-vault.svg"),
                         "is_running": True,
                         "instances": [],
-                        "active": False
+                        "active": False,
+                        "is_pinned": False
                     }
                 
-                apps_map[name]["instances"].append(win_id)
+                apps_map[target_id]["instances"].append(win_id)
                 if win.hasFocus():
-                    apps_map[name]["active"] = True
+                    apps_map[target_id]["active"] = True
                     active_win_id = win_id
         
+        # 3. Synchronize with Taskbar UI
         self._taskbar.update_state({
             "apps": list(apps_map.values()),
             "active_id": active_win_id
         })
 
+    def _pin_app(self, app_name: str):
+        if not hasattr(self, "_pinned_apps"):
+            self._pinned_apps = []
+        if app_name not in self._pinned_apps:
+            self._pinned_apps.append(app_name)
+            self._settings().setValue("pinned_apps", self._pinned_apps)
+            self._update_taskbar_apps()
+
+    def _unpin_app(self, app_name: str):
+        if hasattr(self, "_pinned_apps") and app_name in self._pinned_apps:
+            self._pinned_apps.remove(app_name)
+            self._settings().setValue("pinned_apps", self._pinned_apps)
+            self._update_taskbar_apps()
+
     def _on_taskbar_app_clicked(self, win_id: str):
+        if win_id == "__PEEK__":
+            self._peek_desktop()
+            return
+            
         from core.event_bus import EVENT_BUS, SystemEvent
         wm = get_window_manager()
         if wm._active == win_id and not getattr(wm._windows.get(win_id), "is_minimized", False):
@@ -1026,6 +1092,15 @@ class Desktop(QWidget):
         else:
             # Not active or minimized? Focus/Restore it!
             EVENT_BUS.emit(SystemEvent.REQ_WINDOW_FOCUS, {"id": win_id}, source="Taskbar")
+
+    def _on_run_as_admin(self, app_name: str):
+        """Handle 'Run as Administrator' request from Taskbar."""
+        # Find the icon for this app to use its elevation logic (includes password prompt)
+        if app_name in self._named_icons:
+            self._named_icons[app_name]._launch_as_admin()
+        else:
+            # Fallback if icon not found
+            self.launch_app(app_name, role_override="admin")
 
     # ── Context menu ──────────────────────────────────────────
 
@@ -1207,6 +1282,11 @@ class Desktop(QWidget):
 
     # ── Desktop file system ─────────────────────────────────
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "_taskbar"):
+            self._taskbar._reposition()
+
     def _setup_desktop_watcher(self):
         from system.config import get_qvault_home
         desktop_path = str(Path(get_qvault_home()) / "Desktop")
@@ -1376,9 +1456,9 @@ class Desktop(QWidget):
 
     def _on_file_icon_dblclick(self, path):
         if path.is_dir():
-            self.launch_app("File Manager", start_path=str(path))
+            self.launch_app("Vault Explorer", start_path=str(path))
         else:
-            self.launch_app("Terminal")
+            self.launch_app("Secure Editor", file_path=str(path))
 
     # ── Drag & Drop ──────────────────────────────────────────
 
@@ -1478,7 +1558,6 @@ class Desktop(QWidget):
         win = getattr(wm, "_windows", {}).get(win_id)
         if win:
             win.close()
-        self._taskbar.unregister_app(win_id)
 
     def _show_launcher_stub(self):
         from PyQt5.QtWidgets import QToolTip
@@ -1486,6 +1565,68 @@ class Desktop(QWidget):
         QToolTip.showText(pos, "Q-Vault OS  |  3 Apps Active")
 
     # ── Session ───────────────────────────────────────────────
+
+    def eventFilter(self, obj, event):
+        """Global Keyboard Interceptor for Alt+Tab and OS shortcuts."""
+        from PyQt5.QtCore import QEvent
+        if event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_Tab and (event.modifiers() & Qt.AltModifier):
+                wm = get_window_manager()
+                windows = list(getattr(wm, "_windows", {}).values())
+                if len(windows) > 1:
+                    if self._switcher.isHidden():
+                        # Initial show: select the SECOND window (last active)
+                        self._switcher.show_switcher(windows, current_idx=1)
+                    else:
+                        self._switcher.cycle()
+                    return True # Intercept
+            
+            # Ctrl+Alt+T: Quick Terminal
+            if event.key() == Qt.Key_T and (event.modifiers() & (Qt.ControlModifier | Qt.AltModifier)):
+                self.launch_app("Command Shell")
+                return True
+                
+        # ── v2.0 Keyboard Snapping ──
+        if event.type() == QEvent.KeyPress and (event.modifiers() & Qt.AltModifier):
+            wm = get_window_manager()
+            active = wm._active
+            if active and active in wm._windows:
+                win = wm._windows[active]
+                from system.window_manager import WindowSlot
+                if event.key() == Qt.Key_Left:
+                    win._snap_ctrl.snap_to_slot(WindowSlot.HALF_LEFT); return True
+                if event.key() == Qt.Key_Right:
+                    win._snap_ctrl.snap_to_slot(WindowSlot.HALF_RIGHT); return True
+                if event.key() == Qt.Key_Up:
+                    win._snap_ctrl.snap_to_slot(WindowSlot.MAXIMIZED); return True
+                if event.key() == Qt.Key_Down:
+                    win.showNormal(); return True
+
+        elif event.type() == QEvent.KeyRelease:
+            if event.key() == Qt.Key_Alt:
+                if not self._switcher.isHidden():
+                    target_win = self._switcher.get_selected_window()
+                    if target_win:
+                        get_window_manager().focus_window(target_win.window_id)
+                    self._switcher.hide()
+                    return True
+                    
+        return super().eventFilter(obj, event)
+
+    def _peek_desktop(self):
+        """Minimize all windows to show desktop."""
+        wm = get_window_manager()
+        for win in wm._windows.values():
+            if not win.is_minimized:
+                win.showMinimized()
+
+    def _on_minimize_others(self, payload):
+        """Logic for Aero Shake."""
+        exclude_id = payload.data.get("exclude_id")
+        wm = get_window_manager()
+        for win_id, win in list(wm._windows.items()):
+            if win_id != exclude_id and not win.is_minimized:
+                win.showMinimized()
 
     def set_user(self, username: str):
         logger.info("Desktop: session active for '%s'", username)

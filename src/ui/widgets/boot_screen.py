@@ -4,11 +4,11 @@ from PyQt5.QtGui import QFont, QColor
 from resources.theme import THEME
 
 BOOT_STAGES = [
-    ("Q-Vault OS",              "Initializing Q-Vault Core...",    100),
-    ("Q-Vault OS",              "Mounting Secure Sandbox...",      100),
-    ("Q-Vault OS",              "Verifying Cryptographic Engine...", 100),
-    ("Q-Vault OS",              "Launching Workspace Manager...",  100),
-    ("Q-Vault OS",              "System Ready.",                   100),
+    ("Q-VAULT SOVEREIGN", "Initializing Core Intelligence...", 100),
+    ("Q-VAULT SOVEREIGN", "Mounting Secure Sandbox...",      100),
+    ("Q-VAULT SOVEREIGN", "Verifying Cryptographic Engine...", 100),
+    ("Q-VAULT SOVEREIGN", "Launching Workspace Manager...",  100),
+    ("Q-VAULT SOVEREIGN", "System Ready.",                   100),
 ]
 
 class BootScreen(QWidget):
@@ -26,12 +26,12 @@ class BootScreen(QWidget):
         layout.setSpacing(16)
 
         # 1. Immediate UI Component Definition
-        self.lbl_logo = QLabel("Q-VAULT")
+        self.lbl_logo = QLabel("Q-VAULT SOVEREIGN")
         self.lbl_logo.setAlignment(Qt.AlignCenter)
-        self.lbl_logo.setFont(QFont("Segoe UI", 42, QFont.Bold))
-        self.lbl_logo.setStyleSheet(f"color: {THEME['primary_glow']}; letter-spacing: 12px; margin-top: 40px;")
+        self.lbl_logo.setFont(QFont("Segoe UI", 36, QFont.Bold))
+        self.lbl_logo.setStyleSheet(f"color: {THEME['primary_glow']}; letter-spacing: 8px; margin-top: 40px;")
 
-        self.lbl_sub = QLabel("SOVEREIGN ARCHITECTURE v1.0")
+        self.lbl_sub = QLabel("CORE KERNEL v1.0.0-SOVEREIGN")
         self.lbl_sub.setAlignment(Qt.AlignCenter)
         self.lbl_sub.setStyleSheet("color: rgba(0,230,255,0.4); font-size: 10px; letter-spacing: 5px; font-weight: bold;")
 

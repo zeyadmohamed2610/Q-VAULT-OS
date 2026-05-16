@@ -120,7 +120,7 @@ class NotificationToast(QFrame):
                 border: 1px solid {color}55;
                 border-radius: 16px;
             }}
-            QLabel {{ background: transparent; font-family: 'Segoe UI'; }}
+            QLabel {{ background: transparent; color: white; font-family: 'Segoe UI'; }}
         """)
         
         # Reset timer on update

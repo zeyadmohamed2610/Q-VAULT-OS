@@ -41,6 +41,7 @@ class SystemEvent(Enum):
     # Window Actions (Requests / Commands — emitted by UI)
     REQ_WINDOW_FOCUS = "ui.window.request_focus"
     REQ_WINDOW_MINIMIZE = "ui.window.request_minimize"
+    REQ_WINDOW_MINIMIZE_OTHERS = "ui.window.request_minimize_others"
     REQ_WINDOW_CLOSE = "ui.window.request_close"
     REQ_APP_LAUNCH = "ui.app.request_launch"
     
@@ -193,12 +194,28 @@ _EVENT_PRIORITIES = {
     SystemEvent.REQ_WINDOW_FOCUS:  EventPriority.HIGH,
     SystemEvent.REQ_WINDOW_MINIMIZE: EventPriority.HIGH,
     SystemEvent.REQ_WINDOW_CLOSE:  EventPriority.HIGH,
+    SystemEvent.WINDOW_OPENED:     EventPriority.HIGH,
+    SystemEvent.WINDOW_CLOSED:     EventPriority.HIGH,
+    SystemEvent.WINDOW_MINIMIZED:  EventPriority.HIGH,
+    SystemEvent.WINDOW_RESTORED:   EventPriority.HIGH,
+    SystemEvent.WINDOW_FOCUSED:    EventPriority.HIGH,
     SystemEvent.ACTION_CLICKED:    EventPriority.HIGH,
     SystemEvent.REQ_MARKETPLACE_TOGGLE: EventPriority.HIGH,
     SystemEvent.DEBUG_EVENT_EMITTED: EventPriority.LOW,
     SystemEvent.DEBUG_METRICS_UPDATED: EventPriority.LOW,
 }
 
+
+# ── Event Authority (Sovereign Security) ──────────────────────────
+# Define which sources are trusted to emit specific sensitive events.
+_SENSITIVE_EVENTS = {
+    SystemEvent.LOGIN_SUCCESS:    ["AuthManager", "SecurityController"],
+    SystemEvent.LOGIN_FAILED:     ["AuthManager", "SecurityController"],
+    SystemEvent.SESSION_LOCKED:   ["AuthManager", "system.heartbeat"],
+    SystemEvent.SESSION_UNLOCKED: ["AuthManager"],
+    SystemEvent.STATE_CHANGED:    ["AuthManager", "RuntimeManager"],
+    SystemEvent.REQ_SYSTEM_RESTART: ["system.shell", "admin.command"],
+}
 
 # ── Subscriber Wrapper ───────────────────────────────────────────
 
@@ -360,6 +377,16 @@ class EventBus(QObject):
             source=source,
             priority=priority
         )
+
+        # ── Sovereign Event Authority Check ────────────────────
+        if event_type in _SENSITIVE_EVENTS:
+            trusted_sources = _SENSITIVE_EVENTS[event_type]
+            if source not in trusted_sources:
+                logger.critical(
+                    "[SECURITY] SPOOFING ATTEMPT: App/Source '%s' tried to emit sensitive event '%s'. Blocking.",
+                    source, event_type.name
+                )
+                return
 
         if priority in (EventPriority.CRITICAL, EventPriority.HIGH):
             self._dispatch(payload)

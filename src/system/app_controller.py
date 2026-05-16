@@ -138,13 +138,12 @@ class AppController:
             ]
         })
         
-        # 2. Welcome Workflow
         engine.register_workflow({
             "name": "welcome_sequence",
             "trigger": SystemEvent.EVT_WELCOME.value, # Manual trigger
             "actions": [
-                {"action": "notify", "params": {"title": "Q-Vault OS", "message": "System ready. Welcome back."}},
-                {"action": "launch", "params": {"app": "Files"}}
+                {"action": "notify", "params": {"title": "Q-Vault Sovereign", "message": "Sovereign environment ready. Identity verified."}},
+                {"action": "launch", "params": {"app": "Vault Explorer"}}
             ]
         })
 
@@ -186,14 +185,18 @@ class AppController:
 
     def _on_app_launch_request(self, payload):
         """Handle global requests to spawn applications."""
-        name = payload.data.get("name")
+        data = payload.data if hasattr(payload, "data") else payload
+        name = data.get("name")
         if not name: return
+        
+        # Extract everything except 'name' to pass as kwargs
+        kwargs = {k: v for k, v in data.items() if k != "name"}
         
         # Dispatch to desktop if available
         if self._stack and "desktop" in self._screens:
             desktop = self._screens["desktop"]
             if hasattr(desktop, "launch_app"):
-                desktop.launch_app(name)
+                desktop.launch_app(name, **kwargs)
 
     def launch_app(self, name: str):
         """Public API for launching apps from anywhere in the OS."""

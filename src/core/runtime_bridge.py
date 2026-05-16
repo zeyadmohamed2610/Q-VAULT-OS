@@ -23,8 +23,14 @@ try:
                 return None
         
         def __getattr__(self, name):
-            # Proxy all other calls to the underlying Rust engine
-            return getattr(self._engine, name)
+            # Proxy all other calls to the underlying Rust engine.
+            # SAFETY: Wrap in getattr with default=None to prevent Rust binary
+            # from raising a fatal SEH exception on missing symbols.
+            attr = getattr(self._engine, name, None)
+            if attr is None:
+                # Return a lambda that returns multiple values to satisfy unpacking
+                return lambda *args, **kwargs: (False, "NOT_IMPLEMENTED")
+            return attr
 
     # Initialize the global security engine instance
     project_root = str(Path(__file__).parent.parent)

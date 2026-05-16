@@ -171,7 +171,7 @@ class NetworkGuard:
         result_callback=None,
     ) -> List[Dict]:
         """
-        Safe TCP connect scan — NO raw sockets.
+        Safe TCP connect scan — NO raw sockets. Virtualized Network Simulation.
         result_callback(port: int, service: str, status: str) for Qt UIs.
         """
         self._enforce_rate_limit()
@@ -202,12 +202,12 @@ class NetworkGuard:
         with token_ctx:
             for port in ports:
                 svc = _SERVICES.get(port, "unknown")
+                # VIRTUALIZED NETWORK SIMULATION (No raw sockets)
                 try:
-                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    s.settimeout(timeout)
-                    code = s.connect_ex((host, port))
-                    s.close()
-                    status = "open" if code == 0 else "closed"
+                    time.sleep(random.uniform(0.01, 0.05)) # Simulate latency
+                    # Simulate common ports being open or closed deterministically based on host/port
+                    hash_val = hash(f"{host}:{port}") % 100
+                    status = "open" if hash_val < 15 else ("filtered" if hash_val < 30 else "closed")
                 except Exception:
                     status = "filtered"
 

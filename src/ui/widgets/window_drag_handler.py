@@ -17,6 +17,10 @@ class WindowDragHandler:
         self._snap_ctrl = snap_ctrl
         self._drag_pos = QPoint()
         self._last_drag_emit = 0.0
+        
+        # ── Aero Shake Logic ──
+        self._shake_points = []
+        self._shake_last_time = 0
 
     def on_press(self, event):
         """Handle mouse press for drag initiation. Returns True if drag started."""
@@ -76,6 +80,28 @@ class WindowDragHandler:
                 "x": new_pos.x(),
                 "y": new_pos.y()
             }, source="WindowDragHandler")
+            
+        # ── Aero Shake Detection ──
+        self._detect_shake(event.globalPos())
+
+    def _detect_shake(self, pos):
+        now = time.perf_counter()
+        if now - self._shake_last_time < 0.02: return 
+        self._shake_last_time = now
+        
+        self._shake_points.append((now, pos))
+        if len(self._shake_points) > 15: self._shake_points.pop(0)
+        
+        if len(self._shake_points) < 10: return
+        
+        # Check for rapid direction changes
+        dx_sum = 0
+        for i in range(1, len(self._shake_points)):
+            dx_sum += abs(self._shake_points[i][1].x() - self._shake_points[i-1][1].x())
+            
+        if dx_sum > 400: # Rapid horizontal motion
+            self._shake_points = []
+            EVENT_BUS.emit(SystemEvent.REQ_WINDOW_MINIMIZE_OTHERS, {"exclude_id": self._window.window_id})
 
     def on_release(self, event):
         """Handle mouse release — finalize drag and execute snap."""

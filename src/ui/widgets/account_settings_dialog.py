@@ -73,7 +73,7 @@ class AccountSettingsDialog(QDialog):
         layout.setSpacing(15)
 
         # Header
-        hdr = QLabel("ACCOUNT SETTINGS")
+        hdr = QLabel("IDENTITY MANAGEMENT")
         hdr.setAlignment(Qt.AlignCenter)
         hdr.setStyleSheet(f"color: {_CYAN}; font-size: 18px; font-weight: bold; letter-spacing: 2px;")
         layout.addWidget(hdr)
@@ -87,7 +87,7 @@ class AccountSettingsDialog(QDialog):
 
         # Fields
         self.display_name = QLineEdit()
-        self.display_name.setPlaceholderText("NEW DISPLAY NAME")
+        self.display_name.setPlaceholderText("SOVEREIGN ALIAS")
         self.display_name.setText(self._auth.display_name)
         self.display_name.setStyleSheet(_INPUT_STYLE)
         layout.addWidget(self.display_name)
@@ -97,13 +97,13 @@ class AccountSettingsDialog(QDialog):
         layout.addSpacing(10)
 
         self.old_pwd = QLineEdit()
-        self.old_pwd.setPlaceholderText("CURRENT PASSWORD")
+        self.old_pwd.setPlaceholderText("IDENTITY VERIFICATION KEY")
         self.old_pwd.setEchoMode(QLineEdit.Password)
         self.old_pwd.setStyleSheet(_INPUT_STYLE)
         layout.addWidget(self.old_pwd)
 
         self.new_pwd = QLineEdit()
-        self.new_pwd.setPlaceholderText("NEW SOVEREIGN PASSWORD")
+        self.new_pwd.setPlaceholderText("NEW VAULT KEY")
         self.new_pwd.setEchoMode(QLineEdit.Password)
         self.new_pwd.setStyleSheet(_INPUT_STYLE)
         layout.addWidget(self.new_pwd)
@@ -123,7 +123,7 @@ class AccountSettingsDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         btns.addWidget(btn_cancel)
 
-        self.btn_save = QPushButton("SYNC CHANGES")
+        self.btn_save = QPushButton("COMMIT CHANGES")
         self.btn_save.setStyleSheet(_BTN_STYLE)
         self.btn_save.clicked.connect(self._do_sync)
         btns.addWidget(self.btn_save)

@@ -28,8 +28,13 @@ from __future__ import annotations
 import fnmatch
 import logging
 import time
+import itertools
+import json
+import os
+import threading
 from copy import deepcopy
-from typing import Generator
+from typing import Generator, Dict, Any, List, Optional
+from cryptography.fernet import Fernet
 
 from core.event_bus import EVENT_BUS, SystemEvent
 from core._path_resolver     import PathResolver
@@ -45,13 +50,15 @@ class Meta:
     """
     Holds file content and metadata for a VFS node.
 
-    New in v4
-    ─────────
+    New in v4.5 (Standardization Pass)
+    ──────────────────────────────────
+    - inode     : int  — Monotonic unique identifier
     - mode      : int  — Unix permission bits  (default 0o644 for files)
     - group     : str  — owning group          (default "user")
     - symlink   : str | None — symlink target path (None = real file)
     - nlink     : int  — hard link count
     """
+    _INODE_COUNTER = itertools.count(start=100) # inodes usually start above reserved range
 
     def __init__(
         self,
@@ -62,6 +69,7 @@ class Meta:
         group: str = "user",
         symlink: str | None = None,
     ) -> None:
+        self.inode            = next(self._INODE_COUNTER)
         self.content          = content
         self.owner            = owner
         self.readable_by_user = readable_by_user
@@ -147,6 +155,105 @@ class VirtualFS:
     def __init__(self) -> None:
         self._tree: dict = self._build_tree()
         self._cwd:  list[str] = ["home", "user"]
+        self._lock = threading.RLock() # Re-entrant lock for thread safety
+
+        
+        # Persistence Metadata
+        from system.config import get_qvault_home
+        self._vault_path = os.path.join(get_qvault_home(), "vault_data", "db", "vfs.bin")
+        self._key = None
+        
+        # Attempt to load persistent state
+        self.load()
+
+    @property
+    def _fernet(self) -> Fernet:
+        if not self._key:
+            try:
+                from system.security_api import get_security_api
+                self._key = get_security_api().get_vfs_key()
+            except Exception as e:
+                logger.error(f"[VFS] Failed to get security key: {e}. Using emergency fallback.")
+                import hashlib
+                fallback = f"QVault_Emergency_{os.name}".encode()
+                self._key = hashlib.sha256(fallback).digest()
+                import base64
+                self._key = base64.urlsafe_b64encode(self._key)
+        return Fernet(self._key)
+
+    def save(self) -> None:
+        """Serialize, encrypt, and persist the VFS tree."""
+        with self._lock:
+            try:
+                def _serialize(node):
+                    if isinstance(node, Meta):
+                        return {
+                            "__type__": "Meta",
+                            "content": node.content,
+                            "owner": node.owner,
+                            "readable": node.readable_by_user,
+                            "mode": node.mode,
+                            "group": node.group,
+                            "symlink": node.symlink,
+                            "inode": node.inode,
+                            "nlink": node.nlink,
+                            "created": node.created_at,
+                            "modified": node.modified_at
+                        }
+                    if isinstance(node, dict):
+                        return {k: _serialize(v) for k, v in node.items()}
+                    return node
+
+                # Skip /proc and /sys as they are dynamic/virtual
+                tree_to_save = {k: v for k, v in self._tree.items() if k not in ["proc", "sys"]}
+                data = json.dumps(_serialize(tree_to_save)).encode()
+                encrypted = self._fernet.encrypt(data)
+                
+                os.makedirs(os.path.dirname(self._vault_path), exist_ok=True)
+                with open(self._vault_path, "wb") as f:
+                    f.write(encrypted)
+                logger.debug(f"[VFS] Saved state to {self._vault_path}")
+            except Exception as e:
+                logger.error(f"[VFS] Save failed: {e}")
+
+    def load(self) -> None:
+        """Load and decrypt the VFS tree from disk."""
+        if not os.path.exists(self._vault_path):
+            return
+            
+        try:
+            with open(self._vault_path, "rb") as f:
+                encrypted = f.read()
+            
+            decrypted = self._fernet.decrypt(encrypted)
+            data = json.loads(decrypted)
+            
+            def _deserialize(d):
+                if isinstance(d, dict) and d.get("__type__") == "Meta":
+                    m = Meta(
+                        content=d["content"],
+                        owner=d["owner"],
+                        readable_by_user=d["readable"],
+                        mode=d["mode"],
+                        group=d["group"],
+                        symlink=d["symlink"]
+                    )
+                    m.inode = d.get("inode", m.inode)
+                    m.nlink = d.get("nlink", 1)
+                    m.created_at = d.get("created", time.time())
+                    m.modified_at = d.get("modified", time.time())
+                    return m
+                if isinstance(d, dict):
+                    return {k: _deserialize(v) for k, v in d.items()}
+                return d
+                
+            loaded_tree = _deserialize(data)
+            # Merge with existing tree (keep dynamic nodes)
+            for k, v in loaded_tree.items():
+                self._tree[k] = v
+            logger.info(f"[VFS] Loaded persistent state from {self._vault_path}")
+        except Exception as e:
+            logger.warning(f"[VFS] Load failed (encryption key mismatch or corruption): {e}")
 
     @staticmethod
     def _build_tree() -> dict:
@@ -406,6 +513,7 @@ class VirtualFS:
 
     def _notify(self) -> None:
         EVENT_BUS.emit(SystemEvent.FS_CHANGED, source="filesystem")
+        self.save() # Auto-save on every change
 
     # ── /proc refresh ─────────────────────────────────────────────────────────
 
@@ -489,6 +597,7 @@ class VirtualFS:
 
             entries.append({
                 "name":       name,
+                "inode":      meta.inode,
                 "is_dir":     is_dir,
                 "is_symlink": meta.is_symlink,
                 "size":       meta.size,
@@ -527,65 +636,69 @@ class VirtualFS:
     # ── Directory mutation ────────────────────────────────────────────────────
 
     def mkdir(self, name: str, parents: bool = False, is_root: bool = False) -> None:
-        parts = PathResolver.resolve(name, self._cwd)
-        if not parts:
-            raise ValueError(f"mkdir: invalid path: {name!r}")
+        with self._lock:
+            parts = PathResolver.resolve(name, self._cwd)
+            if not parts:
+                raise ValueError(f"mkdir: invalid path: {name!r}")
 
-        parent_parts = parts[:-1] if len(parts) > 1 else self._cwd
-        PermissionChecker.check_writable(parent_parts, is_root, "mkdir")
+            parent_parts = parts[:-1] if len(parts) > 1 else self._cwd
+            PermissionChecker.check_writable(parent_parts, is_root, "mkdir")
 
-        if parents:
-            node = self._tree
-            for seg in parts:
-                if seg not in node:
-                    node[seg] = {"_meta": Meta("", owner="root" if is_root else "user", mode=0o755)}
-                node = node[seg]
-        else:
-            if "/" in name.strip("/"):
-                raise ValueError(f"mkdir: {name!r}: No such file or directory (use -p)")
-            seg         = name.strip("/")
-            parent_node = self._cwd_node()
-            if seg in parent_node:
-                raise FileExistsError(f"mkdir: cannot create directory '{name}': File exists")
-            parent_node[seg] = {"_meta": Meta("", owner="root" if is_root else "user", mode=0o755)}
+            if parents:
+                node = self._tree
+                for seg in parts:
+                    if seg not in node:
+                        node[seg] = {"_meta": Meta("", owner="root" if is_root else "user", mode=0o755)}
+                    node = node[seg]
+            else:
+                if "/" in name.strip("/"):
+                    raise ValueError(f"mkdir: {name!r}: No such file or directory (use -p)")
+                seg         = name.strip("/")
+                parent_node = self._cwd_node()
+                if seg in parent_node:
+                    raise FileExistsError(f"mkdir: cannot create directory '{name}': File exists")
+                parent_node[seg] = {"_meta": Meta("", owner="root" if is_root else "user", mode=0o755)}
 
-        self._notify()
+            self._notify()
 
     def rmdir(self, name: str, is_root: bool = False) -> None:
-        node = self._cwd_node()
-        if name not in node:
-            raise FileNotFoundError(f"rmdir: failed to remove '{name}': No such file or directory")
-        target = node[name]
-        if not isinstance(target, dict):
-            raise NotADirectoryError(f"rmdir: failed to remove '{name}': Not a directory")
-        if [k for k in target if k != "_meta"]:
-            raise OSError(f"rmdir: failed to remove '{name}': Directory not empty")
-        del node[name]
-        self._notify()
+        with self._lock:
+            node = self._cwd_node()
+            if name not in node:
+                raise FileNotFoundError(f"rmdir: failed to remove '{name}': No such file or directory")
+            target = node[name]
+            if not isinstance(target, dict):
+                raise NotADirectoryError(f"rmdir: failed to remove '{name}': Not a directory")
+            if [k for k in target if k != "_meta"]:
+                raise OSError(f"rmdir: failed to remove '{name}': Directory not empty")
+            del node[name]
+            self._notify()
 
     def rm(self, name: str, recursive: bool = False, is_root: bool = False) -> None:
-        node = self._cwd_node()
-        if name not in node:
-            raise FileNotFoundError(f"rm: cannot remove '{name}': No such file or directory")
-        target = node[name]
-        if isinstance(target, dict) and not recursive:
-            raise IsADirectoryError(f"rm: cannot remove '{name}': Is a directory  (use -r)")
-        PermissionChecker.check_removable(target, name, is_root)
-        del node[name]
-        self._notify()
+        with self._lock:
+            node = self._cwd_node()
+            if name not in node:
+                raise FileNotFoundError(f"rm: cannot remove '{name}': No such file or directory")
+            target = node[name]
+            if isinstance(target, dict) and not recursive:
+                raise IsADirectoryError(f"rm: cannot remove '{name}': Is a directory  (use -r)")
+            PermissionChecker.check_removable(target, name, is_root)
+            del node[name]
+            self._notify()
 
     # ── File mutation ─────────────────────────────────────────────────────────
 
     def touch(self, name: str, is_root: bool = False) -> None:
-        PermissionChecker.check_writable(self._cwd, is_root, "touch")
-        node = self._cwd_node()
-        if name not in node:
-            node[name] = Meta("", owner="root" if is_root else "user")
-        else:
-            existing = node[name]
-            if isinstance(existing, Meta):
-                existing.modified_at = time.time()
-        self._notify()
+        with self._lock:
+            PermissionChecker.check_writable(self._cwd, is_root, "touch")
+            node = self._cwd_node()
+            if name not in node:
+                node[name] = Meta("", owner="root" if is_root else "user")
+            else:
+                existing = node[name]
+                if isinstance(existing, Meta):
+                    existing.modified_at = time.time()
+            self._notify()
 
     def cat(self, name: str, is_root: bool = False) -> str:
         if self._cwd and self._cwd[0] == "proc":
@@ -603,15 +716,17 @@ class VirtualFS:
         return entry.content
 
     def write_file(self, name: str, content: str, is_root: bool = False) -> None:
-        PermissionChecker.check_writable(self._cwd, is_root, "write")
-        node = self._cwd_node()
-        if name in node and isinstance(node[name], dict):
-            raise IsADirectoryError(f"write_file: '{name}': Is a directory")
-        if name in node:
-            node[name].write(content)
-        else:
-            node[name] = Meta(content, owner="root" if is_root else "user")
-        self._notify()
+        with self._lock:
+            PermissionChecker.check_writable(self._cwd, is_root, "write")
+            node = self._cwd_node()
+            if name in node and isinstance(node[name], dict):
+                raise IsADirectoryError(f"write_file: '{name}': Is a directory")
+            if name in node:
+                node[name].write(content)
+            else:
+                node[name] = Meta(content, owner="root" if is_root else "user")
+            self._notify()
+
 
     # ── New v4: cp / mv / ln ─────────────────────────────────────────────────
 

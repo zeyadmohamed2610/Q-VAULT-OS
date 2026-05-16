@@ -204,23 +204,19 @@ class AppRuntimeManager:
             
         # ── Phase 13.5: Autonomous Pressure Core ──
         from collections import deque
-        self.decision_history = deque(maxlen=100)
-        self._gov_log_buffer  = deque(maxlen=500) # Fixed size buffer to prevent memory leaks if I/O fails
-        self._gov_log_path    = Path.home() / ".qvault" / "logs" / "governance.ndjson"
+        self.decision_history = deque(maxlen=100)       # Structured decision trace
+        self.pressure_history = deque(maxlen=120)      # (timestamp, ratio) — 2 min @ 1Hz
+        self._gov_log_buffer = []                      # NDJSON flush buffer
+        self._gov_log_path = log_dir / "governance.ndjson"  # NDJSON output path
         self.emergency_start_time = 0.0
         self.emergency_alert_sent = False
         self.current_pressure_ratio = 0.0
         self.current_cooldown = 0.0
         self.max_pressure_seen = 0.0
 
-        # ── Phase 13.6: Observability Engine ──
-        self.decision_history = deque(maxlen=50)       # Structured decision trace
-        self.pressure_history = deque(maxlen=120)      # (timestamp, ratio) — 2 min @ 1Hz
-        self._gov_log_buffer = []                      # NDJSON flush buffer
-        self._gov_log_path = log_dir / "governance.ndjson"  # NDJSON output path
+        # ── Phase 13.6/7: Observability & Reality ──
         self._last_decision_time = 0.0                 # Rate-limit: max 1 decision per 500ms
         self._last_flush_time = 0.0                    # Last disk-write timestamp
-        # ── Phase 13.7: Reality Hardening ──
         self.ui_lag_ms = 0.0
         self._last_pulse_time = 0.0
         self._pulse_timer = None 
@@ -563,7 +559,7 @@ class AppRuntimeManager:
             
             # ── Phase 16.7: Dynamic Kill Policy ──
             # Define 'Core' apps that should NEVER be hard-killed to prevent OS-level collapse.
-            CORE_APPS = {"Desktop", "Taskbar", "SystemUI", "Marketplace"}
+            CORE_APPS = {"Sovereign Workspace", "Taskbar", "SystemUI", "Plugin Marketplace", "Security Core"}
             
             if record.trust_score < 20:
                 if record.app_id not in CORE_APPS:

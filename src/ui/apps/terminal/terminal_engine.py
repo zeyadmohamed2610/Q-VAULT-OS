@@ -98,6 +98,9 @@ class TerminalEngine(QObject):
         self._cmd_history: deque = deque(maxlen=15)
         self._suspicious_flags = 0
         
+        # Load persistent history
+        CommandContext.load_history()
+        
         self._init_guards_and_executor(secure_api, start_path)
     
     @property
@@ -206,10 +209,22 @@ class TerminalEngine(QObject):
         # ── Store in history ──────────────────────────────────────────────
         if cmd and (not CommandContext._history or CommandContext._history[-1] != cmd):
             CommandContext._history.append(cmd)
+            CommandContext.save_history()
         self._hist_cursor = -1  # reset navigation cursor
 
         self._analyze_behavior(cmd)
         if self.state == EngineState.TERMINATED:
+            return
+
+        # ── Multiple Commands ─────────────────────────────────────────────
+        if ";" in cmd:
+            subcmds = [s.strip() for s in cmd.split(";")]
+            for sc in subcmds:
+                if sc:
+                    # Recursive call but we suppress prompt except for last
+                    self._suppress_prompt = (sc != subcmds[-1])
+                    self.execute_command(sc)
+            self._suppress_prompt = False
             return
 
         # ── Pipe detection ────────────────────────────────────────────────
@@ -217,10 +232,11 @@ class TerminalEngine(QObject):
             self._handle_pipe(cmd)
             return
 
-        # ── Parse (with alias expansion) ──────────────────────────────────
-        parsed = CommandParser.parse(cmd, aliases=CommandContext._aliases)
+        # ── Parse (with alias expansion & globbing) ───────────────────────
+        parsed = CommandParser.parse(cmd, aliases=CommandContext._aliases, cwd=self.cwd)
         if not parsed.parts:
-            self._emit_prompt()
+            if not getattr(self, "_suppress_prompt", False):
+                self._emit_prompt()
             return
 
         # ── Route ─────────────────────────────────────────────────────────

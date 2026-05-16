@@ -31,7 +31,7 @@ class LoginScreen(QWidget):
         
         # Immediate visual feedback: Set a dark theme background
         self.setAttribute(Qt.WA_StyledBackground, True)
-        self.setStyleSheet("background-color: #050a10;") 
+        self.setStyleSheet(f"background-color: {THEME['bg_black']};") 
         
         # Main Layout - Ultra-Compact Floating
         layout = QVBoxLayout(self)
@@ -61,7 +61,7 @@ class LoginScreen(QWidget):
         """
         
         self.user_field = QLineEdit()
-        self.user_field.setPlaceholderText("USERNAME")
+        self.user_field.setPlaceholderText("IDENTITY ID")
         self.user_field.setFixedSize(340, 52)
         self.user_field.setStyleSheet(input_style)
         
@@ -73,7 +73,7 @@ class LoginScreen(QWidget):
         self.user_field.setGraphicsEffect(user_glow)
         
         self.pass_field = QLineEdit()
-        self.pass_field.setPlaceholderText("PASSWORD")
+        self.pass_field.setPlaceholderText("VAULT KEY")
         self.pass_field.setEchoMode(QLineEdit.Password)
         self.pass_field.setFixedSize(340, 52)
         self.pass_field.setStyleSheet(input_style)
@@ -100,7 +100,7 @@ class LoginScreen(QWidget):
         self.show_pass_action.triggered.connect(self._toggle_password)
         
         # ── Floating Action ──
-        self.login_btn = QPushButton("SIGN-IN") 
+        self.login_btn = QPushButton("AUTHORIZE") 
         self.login_btn.setObjectName("PrimaryBtn")
         self.login_btn.setFixedSize(340, 56)
         self.login_btn.setCursor(Qt.PointingHandCursor)
@@ -195,7 +195,7 @@ class LoginScreen(QWidget):
     def _on_login_failed(self, error):
         self.show_error(error.get("message", "AUTH_FAILED"))
         self.login_btn.setEnabled(True)
-        self.login_btn.setText("SIGN-IN")
+        self.login_btn.setText("AUTHORIZE")
         self.login_btn.setProperty("class", "")
         self.login_btn.style().unpolish(self.login_btn)
         self.login_btn.style().polish(self.login_btn)

@@ -61,9 +61,13 @@ def step(msg: str)  -> None: print(f"\n{C}{B}{'='*60}{RS}\n  {B}{msg}{RS}")
 def print_logo() -> None:
     logo_path = ROOT / "resources" / "ascii_logo.txt"
     if logo_path.exists():
-        content = logo_path.read_text(encoding="utf-8")
-        # Colorize the logo with cyan glow
-        print(f"{C}{B}{content}{RS}")
+        try:
+            with open(logo_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            # Print with elegant cyan coloring
+            print(f"{C}{B}{content}{RS}")
+        except Exception:
+            print(f"\n{C}{B}  Q-VAULT SOVEREIGN OS{RS}\n")
     else:
         print(f"\n{C}{B}  Q-VAULT SOVEREIGN OS{RS}\n")
 
@@ -214,7 +218,7 @@ def bootstrap() -> None:
     t0 = time.time()
     f_total, d_total = count_project_files()
     
-    print(f"\n  {C}{B}Q-Vault OS  |  Sovereign Bootstrap Engine v2.0{RS}")
+    print(f"\n  {C}{B}Q-Vault OS  |  Sovereign Bootstrap Engine v1.0.0{RS}")
     print(f"  {D}Targeting {f_total:,} Files & {d_total:,} Folders | Platform: {sys.platform} | Build: 2026.05.13{RS}")
     
     try:
@@ -225,6 +229,11 @@ def bootstrap() -> None:
     except KeyboardInterrupt:
         print(f"\n  {Y}Bootstrap aborted by user.{RS}")
         sys.exit(0)
+    except Exception:
+        import traceback
+        fail("BOOTSTRAP CRITICAL FAILURE")
+        print(traceback.format_exc())
+        sys.exit(1)
 
     elapsed = time.time() - t0
     print(f"\n  {G}{B}Bootstrap Complete ({elapsed:.1f}s). All systems nominal.{RS}")

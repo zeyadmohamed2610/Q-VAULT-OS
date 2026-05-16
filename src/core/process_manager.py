@@ -18,8 +18,9 @@ STATUS_COMPLETED = "completed"
 class Process:
     """One entry in the process table."""
 
-    def __init__(self, pid: int, name: str, argv: list[str], owner: str, status: str):
+    def __init__(self, pid: int, name: str, argv: list[str], owner: str, status: str, ppid: int = 0):
         self.pid = pid
+        self.ppid = ppid # Added: Parent PID
         self.name = name  # command name only (e.g. "ls")
         self.argv = argv  # full command list (e.g. ["ls", "-la", "/home"])
         self.owner = owner
@@ -42,6 +43,7 @@ class Process:
     def as_dict(self) -> dict:
         return {
             "pid": self.pid,
+            "ppid": self.ppid,
             "name": self.name,
             "argv": self.argv,
             "owner": self.owner,
@@ -61,14 +63,19 @@ class ProcessManager:
     # Prevents "Patience Attacks" or PID-reuse bypasses.
     _PID_SEQUENCE = itertools.count(start=int(time.time()))
     
+    # Standard OS Signals (Simulated)
+    SIGTERM = 15
+    SIGKILL = 9
+    SIGINT = 2
+
     # Boot processes that always appear in the table
     _BOOT = [
-        ("systemd", "/sbin/init", "root", STATUS_SLEEPING),
-        ("kthreadd", "[kthreadd]", "root", STATUS_SLEEPING),
-        ("sshd", "/usr/sbin/sshd -D", "root", STATUS_SLEEPING),
-        ("dbus", "/usr/bin/dbus-daemon --system", "root", STATUS_SLEEPING),
-        ("qvault-wm", "qvault-wm --session default", "user", STATUS_RUNNING),
-        ("qsh", "qsh --login", "user", STATUS_RUNNING),
+        ("systemd", "/sbin/init", "root", STATUS_SLEEPING, 0),
+        ("kthreadd", "[kthreadd]", "root", STATUS_SLEEPING, 1),
+        ("sshd", "/usr/sbin/sshd -D", "root", STATUS_SLEEPING, 1),
+        ("dbus", "/usr/bin/dbus-daemon --system", "root", STATUS_SLEEPING, 1),
+        ("qvault-wm", "qvault-wm --session default", "user", STATUS_RUNNING, 1),
+        ("qsh", "qsh --login", "user", STATUS_RUNNING, 1),
     ]
 
     def __init__(self):
@@ -79,9 +86,9 @@ class ProcessManager:
 
         # Seed boot processes
         boot_start = time.time() - 180  # pretend they started 3 min ago
-        for name, argv, owner, status in self._BOOT:
+        for name, argv, owner, status, ppid in self._BOOT:
             pid = next(self._counter)
-            p = Process(pid, name, argv, owner, status)
+            p = Process(pid, name, argv.split(), owner, status, ppid=ppid)
             p.started = boot_start
             self._procs[pid] = p
 
@@ -102,26 +109,26 @@ class ProcessManager:
         is_system: bool = False,
         is_persistent: bool = False,
         executable: str = None,
+        ppid: int = 1, # Default to init-like parent
     ) -> int:
         """
         Register a new process. Supports REAL execution via `executable`.
         `argv` must be a list of strings.
         """
-        import shlex
         with self._lock:
             pid = next(self._PID_SEQUENCE)
             name = argv[0] if argv else "unknown"
             status = STATUS_RUNNING
 
-            p = Process(pid, name, argv, owner, status)
+            p = Process(pid, name, argv, owner, status, ppid=ppid)
             p.is_system = is_system
             p.is_persistent = is_persistent
+            # Move registration inside the lock to prevent partial state visibility
+            self._procs[pid] = p
 
         # Real Execution (Phase 1)
         if executable:
             import subprocess
-            import logging
-
             try:
                 # Decide between synchronous and asynchronous
                 if background:
@@ -131,7 +138,7 @@ class ProcessManager:
                         stderr=subprocess.PIPE,
                         universal_newlines=True,
                     )
-                    self.logger.info(f"[PM] Spawned ASYNC (Popen): {name} (PID: {pid}) owner={owner}")
+                    self.logger.info(f"[PM] Spawned ASYNC (Popen): {name} (PID: {pid}, PPID: {ppid}) owner={owner}")
                 else:
                     # Synchronous run
                     res = subprocess.run(
@@ -141,14 +148,13 @@ class ProcessManager:
                     )
                     p.handle = res
                     p.status = STATUS_COMPLETED
-                    self.logger.info(f"[PM] Spawned SYNC (run): {name} (PID: {pid}) code={res.returncode}")
+                    self.logger.info(f"[PM] Spawned SYNC (run): {name} (PID: {pid}, PPID: {ppid}) code={res.returncode}")
             except Exception as e:
                 p.status = STATUS_STOPPED
                 self.logger.error(f"[PM] Failed to spawn {name}: {e}")
                 raise RuntimeError(f"Process spawn failed: {e}")
 
-            self._procs[pid] = p
-            self._notify(SystemEvent.PROC_SPAWNED, p)
+        self._notify(SystemEvent.PROC_SPAWNED, p)
 
         if background and sim_duration_ms > 0:
             # After sim_duration_ms the job finishes automatically
@@ -160,12 +166,32 @@ class ProcessManager:
 
         elif not background:
             # Foreground commands complete immediately after spawn
-            # (we mark them completed right away but keep them briefly
-            #  visible so the Task Manager can show a flash of activity)
             QTimer.singleShot(800, lambda _pid=pid: self._complete(_pid))
 
         self._gc()
         return pid
+
+    # ── Signal Handling (New) ──────────────────────────────────
+
+    def signal(self, pid: int, signum: int) -> bool:
+        """Standard Unix-like signaling interface."""
+        with self._lock:
+            p = self._procs.get(pid)
+            if not p: return False
+            
+            self.logger.info(f"[PM] Signal {signum} sent to PID {pid}")
+            
+            if signum == self.SIGKILL:
+                return self.kill(pid)
+            elif signum == self.SIGTERM:
+                # Graceful termination attempt
+                if p.handle and hasattr(p.handle, 'terminate'):
+                    p.handle.terminate()
+                p.status = STATUS_STOPPED
+                self._notify(SystemEvent.PROC_STOPPED, p)
+                QTimer.singleShot(1000, lambda _pid=pid: self._reap(_pid))
+                return True
+            return False
 
     def _complete(self, pid: int):
         with self._lock:
@@ -201,7 +227,10 @@ class ProcessManager:
             # Phase 13.7: Terminate real handle
             if p.handle:
                 try:
-                    p.handle.terminate()
+                    if hasattr(p.handle, 'kill'):
+                        p.handle.kill() # Force kill
+                    else:
+                        p.handle.terminate()
                 except Exception as e:
                     self.logger.warning(f"[PM] Error terminating handle for PID {pid}: {e}")
             
@@ -220,15 +249,17 @@ class ProcessManager:
     # ── Query ─────────────────────────────────────────────────
 
     def all_procs(self) -> list[dict]:
-        return [p.as_dict() for p in self._procs.values()]
+        with self._lock:
+            return [p.as_dict() for p in self._procs.values()]
 
     def background_jobs(self) -> list[dict]:
-        boot_names = {b[0] for b in self._BOOT}
-        return [
-            p.as_dict()
-            for p in self._procs.values()
-            if p.status == STATUS_RUNNING and p.name not in boot_names
-        ]
+        with self._lock:
+            boot_names = {b[0] for b in self._BOOT}
+            return [
+                p.as_dict()
+                for p in self._procs.values()
+                if p.status == STATUS_RUNNING and p.name not in boot_names
+            ]
 
     def get(self, pid: int) -> Process | None:
         return self._procs.get(pid)

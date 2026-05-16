@@ -9,6 +9,3 @@
   :!: :!:                ::!!:!   :!:  !:!  :!:  !:!   :!:        :!:     
   ::::: :!                ::::    ::   :::  ::::: ::   :: ::::    ::     
    : :  :                  ::      :   : :   : :  :     : : :      :      
-
-  >> SOVEREIGN ARCHITECTURE | SECURE RUNTIME | v1.0.0-PRO
-  >> (c) 2026 Q-VAULT SYSTEMS. ALL RIGHTS RESERVED.

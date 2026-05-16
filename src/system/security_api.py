@@ -41,6 +41,9 @@ class SecurityAPI:
         if self._rust_engine is not None:
             return
             
+        # ── Key Derivation for VFS ──
+        self._vfs_key = self._derive_vfs_key()
+        
         root_dir = str(Path.home() / ".qvault")
         if _CORE_AVAILABLE:
             try:
@@ -205,11 +208,14 @@ class SecurityAPI:
     _RISK_ORDER = [RISK_LOW, RISK_MEDIUM, RISK_HIGH]
     
     # UI Color mapping (cached for UI stability)
-    RISK_COLORS = {
-        "LOW":    "#00ff88",
-        "MEDIUM": "#ffaa00",
-        "HIGH":   "#ff4444",
-    }
+    @property
+    def RISK_COLORS(self):
+        from resources.theme import THEME
+        return {
+            "LOW":    THEME["success"],
+            "MEDIUM": THEME["warning"],
+            "HIGH":   THEME["accent_error"],
+        }
 
     def _init_security_state(self):
         self._risk_level = self.RISK_LOW
@@ -257,19 +263,39 @@ class SecurityAPI:
             "risk_after": self._risk_level,
         }
         self._log.append(entry)
-        
-        # Log to Rust core if initialized
-        if self._rust_engine:
-            try:
-                # Internal rust logging doesn't have a direct python export for general events,
-                # but we can trigger it through other secure ops in the future.
-                # For now, we rely on the Python-side log for the UI components.
-                pass
-            except Exception as e:
-                logger.error(f"SecurityAPI: Rust internal log trigger failed: {e}")
-                
         self._notify(entry)
         return entry
+
+    def _derive_vfs_key(self) -> bytes:
+        """Derives a stable, sovereign key for VFS encryption from master.key."""
+        import base64
+        import hashlib
+        from pathlib import Path
+        
+        # Project root relative to src/system/security_api.py
+        master_path = Path(__file__).resolve().parent.parent / "master.key"
+        
+        try:
+            if master_path.exists():
+                with open(master_path, "rb") as f:
+                    key_material = f.read()
+                # Ensure it's exactly 32 bytes for Fernet or hash it if not
+                if len(key_material) != 32:
+                    key_material = hashlib.sha256(key_material).digest()
+                return base64.urlsafe_b64encode(key_material)
+        except Exception as e:
+            logger.error(f"SecurityAPI: Failed to read master.key: {e}")
+        
+        # Fallback to a stable hardware-linked string if master.key is missing or fails
+        fallback = f"QVault_Sovereign_{os.name}_{sys.platform}".encode()
+        h = hashlib.sha256(fallback).digest()
+        return base64.urlsafe_b64encode(h)
+
+    def get_vfs_key(self) -> bytes:
+        """Returns the derived VFS key."""
+        if not hasattr(self, "_vfs_key"):
+            self._vfs_key = self._derive_vfs_key()
+        return self._vfs_key
 
     def _escalate(self):
         idx = self._RISK_ORDER.index(self._risk_level)

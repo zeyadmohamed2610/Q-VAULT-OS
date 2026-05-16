@@ -43,11 +43,13 @@ class RAMWidget(QWidget):
         """)
 
     def _refresh(self):
+        import random
         try:
-            mem = psutil.virtual_memory()
-            pct = int(mem.percent)
-            used_gb = mem.used / (1024**3)
-            total_gb = mem.total / (1024**3)
+            # Sovereign RAM Simulation (Host Leaks Prevented)
+            total_gb = 16.0
+            # Fluctuating usage around 4.5GB
+            used_gb = 4.5 + random.uniform(-0.2, 0.2)
+            pct = int((used_gb / total_gb) * 100)
             
             # Dynamic coloring
             color = theme.THEME['primary_glow']

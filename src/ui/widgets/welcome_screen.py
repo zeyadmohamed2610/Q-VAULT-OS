@@ -136,7 +136,7 @@ class WelcomeScreen(QWidget):
         btn.clicked.connect(self._on_get_started)
         vbox.addWidget(btn, 0, Qt.AlignCenter)
 
-        version = QLabel("Version 4.0 | Professional Edition")
+        version = QLabel("Version 1.0.0 | Professional Edition")
         version.setStyleSheet(
             f"""
             QLabel {{

@@ -755,10 +755,14 @@ class InterruptLogWidget(QWidget):
 
         EVENT_BUS.subscribe(SystemEvent.INTERRUPT_RAISED,  self._on_irq)
         EVENT_BUS.subscribe(SystemEvent.INTERRUPT_HANDLED, self._on_irq_handled)
+        EVENT_BUS.subscribe(SystemEvent.PROC_SPAWNED,      self._on_proc_lifecycle)
+        EVENT_BUS.subscribe(SystemEvent.PROC_STOPPED,      self._on_proc_lifecycle)
 
     def closeEvent(self, event) -> None:
         EVENT_BUS.unsubscribe(SystemEvent.INTERRUPT_RAISED,  self._on_irq)
         EVENT_BUS.unsubscribe(SystemEvent.INTERRUPT_HANDLED, self._on_irq_handled)
+        EVENT_BUS.unsubscribe(SystemEvent.PROC_SPAWNED,      self._on_proc_lifecycle)
+        EVENT_BUS.unsubscribe(SystemEvent.PROC_STOPPED,      self._on_proc_lifecycle)
         super().closeEvent(event)
 
     def _on_irq(self, payload: EventPayload) -> None:
@@ -792,6 +796,23 @@ class InterruptLogWidget(QWidget):
                 color=C_GREEN
             )
         except RuntimeError:
+            pass
+
+    def _on_proc_lifecycle(self, payload: EventPayload) -> None:
+        """Log real OS process events as informational interrupts."""
+        try:
+            from system.kernel.simulation_clock import SIMULATION_CLOCK
+            tick = SIMULATION_CLOCK.tick
+            pid  = payload.data.get("pid")
+            name = payload.data.get("process", {}).get("name", "unknown")
+            ev   = payload.event.name.replace("PROC_", "")
+            
+            color = C_CYAN if "SPAWNED" in ev else C_DIM
+            self._add_row(
+                f"tick={tick:>4}  [INFO: {ev:8s}]  pid={pid} ({name})",
+                color=color
+            )
+        except Exception:
             pass
 
     def _add_row(self, text: str, color: str = C_DIM) -> None:
@@ -857,7 +878,7 @@ class AuditVerifyWidget(QWidget):
             # For demo/real use: read the last line of audit.log
             import os
             log_path = ".qvault/audit.log"
-            if os.exists(log_path):
+            if os.path.exists(log_path):
                 with open(log_path, "r", encoding="utf-8") as f:
                     lines = f.readlines()
                     if lines:
@@ -900,11 +921,18 @@ class ConsentViewerWidget(QWidget):
                 
         try:
             from system.sandbox.permissions import PM_GUARD
+            active = False
             for app_id, perms in PM_GUARD._temp_perms.items():
                 for p in perms:
+                    active = True
                     lbl = QLabel(f"● {app_id:12s} → {p}")
                     lbl.setStyleSheet(f"color: {C_CYAN}; font-family: {MONO}; font-size: 9px;")
                     self._list.insertWidget(self._list.count()-1, lbl)
+            
+            if not active:
+                lbl = QLabel("No active temporary consents.")
+                lbl.setStyleSheet(f"color: {C_DIM}; font-family: {MONO}; font-size: 9px; font-style: italic; padding: 4px;")
+                self._list.insertWidget(self._list.count()-1, lbl)
         except Exception:
             pass
 
@@ -1020,11 +1048,11 @@ class KernelMonitorApp(BaseApp, QWidget):
         BaseApp.__init__(self, secure_api)
         QWidget.__init__(self, parent)
 
-        self.tick_header_signal.connect(self._on_tick_header_safe)
-        self.deadlock_detected_signal.connect(self._on_deadlock_header_safe)
-        self.deadlock_resolved_signal.connect(self._on_resolved_header_safe)
-        self.consent_request_signal.connect(self._on_consent_request_safe)
-        self.pressure_signal.connect(self._on_pressure_safe)
+        self.tick_header_signal.connect(self._on_tick_header_safe, Qt.QueuedConnection)
+        self.deadlock_detected_signal.connect(self._on_deadlock_header_safe, Qt.QueuedConnection)
+        self.deadlock_resolved_signal.connect(self._on_resolved_header_safe, Qt.QueuedConnection)
+        self.consent_request_signal.connect(self._on_consent_request_safe, Qt.QueuedConnection)
+        self.pressure_signal.connect(self._on_pressure_safe, Qt.QueuedConnection)
 
         self.setObjectName("AppContainer")
         self.setMinimumSize(860, 620)
@@ -1053,54 +1081,87 @@ class KernelMonitorApp(BaseApp, QWidget):
 
         root.addWidget(self._make_header())
 
-        # ── Main content area ────────────────────────────────────
-        content = QWidget()
-        content.setStyleSheet(f"background: {C_BG};")
-        content_lay = QVBoxLayout(content)
-        content_lay.setContentsMargins(10, 10, 10, 10)
-        content_lay.setSpacing(8)
+        # ── Tabbed Interface ─────────────────────────────────────
+        from PyQt5.QtWidgets import QTabWidget
+        self.tabs = QTabWidget()
+        self.tabs.setObjectName("TaskManagerTabs")
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ 
+                border: 1px solid {C_BORDER_S}; 
+                background: {C_BG};
+                margin-top: -1px;
+            }}
+            QTabBar::tab {{ 
+                background: {C_PANEL}; 
+                color: {C_DIM}; 
+                padding: 12px 24px; 
+                font-family: {MONO}; 
+                font-size: 11px; 
+                font-weight: bold;
+                border: 1px solid {C_BORDER_S};
+                border-bottom: none;
+                border-top-left-radius: 8px; 
+                border-top-right-radius: 8px;
+                margin-right: 4px;
+            }}
+            QTabBar::tab:selected {{ 
+                background: {C_BG}; 
+                color: {C_CYAN}; 
+                border-bottom: 2px solid {C_CYAN}; 
+            }}
+            QTabBar::tab:hover {{ 
+                background: rgba(0, 230, 255, 0.05); 
+            }}
+        """)
 
-        # Row 1: CPU Timeline + Audit Verify
-        top_row = QHBoxLayout()
-        tl_panel = _panel("CPU TIMELINE", self.cpu_timeline)
-        audit_panel = _panel("AUDIT VERIFY", self.audit_verify)
-        top_row.addWidget(tl_panel, stretch=4)
-        top_row.addWidget(audit_panel, stretch=1)
-        content_lay.addLayout(top_row)
-
-        # Row 2: Memory map (full width)
-        mem_panel = _panel("RAM MAP  ■ allocated  □ free", self.memory_map, fixed_height=110)
-        content_lay.addWidget(mem_panel)
-
-        # Row 3: three panels side-by-side
-        mid_row = QHBoxLayout()
-        mid_row.setSpacing(8)
-
-        rq_panel = _panel("READY QUEUE", self.ready_queue)
-        mid_row.addWidget(rq_panel, stretch=2)
-
-        dl_panel = _panel("DEADLOCK GRAPH", self.deadlock_graph)
-        mid_row.addWidget(dl_panel, stretch=2)
-
-        # Right sidebar: IRQ + Consents + Pressure
-        right_side = QVBoxLayout()
-        irq_panel = _panel("INTERRUPT LOG", self.irq_log)
-        consent_panel = _panel("ACTIVE CONSENTS", self.consent_viewer)
-        pressure_panel = _panel("RESOURCE PRESSURE", self.pressure_meter)
+        # ── Tab 1: System Dashboard (The previous view) ──
+        dash = QWidget()
+        dash_lay = QVBoxLayout(dash)
+        dash_lay.setContentsMargins(12, 12, 12, 12); dash_lay.setSpacing(10)
         
-        right_side.addWidget(irq_panel, stretch=2)
-        right_side.addWidget(consent_panel, stretch=1)
-        right_side.addWidget(pressure_panel, stretch=1)
+        row1 = QHBoxLayout()
+        row1.addWidget(_panel("CPU TIMELINE", self.cpu_timeline), stretch=4)
+        row1.addWidget(_panel("AUDIT VERIFY", self.audit_verify), stretch=1)
+        dash_lay.addLayout(row1)
         
-        mid_row.addLayout(right_side, stretch=1)
+        dash_lay.addWidget(_panel("VIRTUAL MEMORY ARCHITECTURE", self.memory_map, fixed_height=120))
+        dash_lay.addWidget(_panel("CORE UTILIZATION (EWMA)", self.core_monitor, fixed_height=160))
+        self.tabs.addTab(dash, "DASHBOARD")
 
-        content_lay.addLayout(mid_row, stretch=1)
+        # ── Tab 2: Processes (Detailed List) ──
+        proc_page = QWidget()
+        proc_lay = QVBoxLayout(proc_page)
+        proc_lay.setContentsMargins(12, 12, 12, 12)
+        from ui.widgets.task_manager_ui import TaskManagerUI
+        self.proc_list = TaskManagerUI()
+        proc_lay.addWidget(self.proc_list)
+        self.tabs.addTab(proc_page, "PROCESSES")
 
-        # Row 4: Core Monitor (full width)
-        core_panel = _panel("CORE UTILIZATION  (EWMA)", self.core_monitor, fixed_height=160)
-        content_lay.addWidget(core_panel)
+        # ── Tab 3: Scheduler (Wait Queues & Deadlocks) ──
+        sec_page = QWidget()
+        sec_lay = QVBoxLayout(sec_page)
+        sec_lay.setContentsMargins(12, 12, 12, 12); sec_lay.setSpacing(10)
+        sec_lay.addWidget(_panel("READY QUEUE", self.ready_queue, fixed_height=240))
+        sec_lay.addWidget(_panel("DEADLOCK ANALYSIS (RAG)", self.deadlock_graph))
+        self.tabs.addTab(sec_page, "SCHEDULER")
 
-        root.addWidget(content, stretch=1)
+        # ── Tab 4: Governance (Logs & Consents) ──
+        gov_page = QWidget()
+        gov_lay = QHBoxLayout(gov_page)
+        gov_lay.setContentsMargins(12, 12, 12, 12); gov_lay.setSpacing(10)
+        
+        left_gov = QVBoxLayout()
+        left_gov.addWidget(_panel("INTERRUPT EVENT LOG", self.irq_log))
+        gov_lay.addLayout(left_gov, stretch=2)
+        
+        right_gov = QVBoxLayout()
+        right_gov.addWidget(_panel("RESOURCE PRESSURE", self.pressure_meter))
+        right_gov.addWidget(_panel("ACTIVE SOVEREIGN CONSENTS", self.consent_viewer))
+        gov_lay.addLayout(right_gov, stretch=1)
+        
+        self.tabs.addTab(gov_page, "GOVERNANCE")
+
+        root.addWidget(self.tabs, stretch=1)
         root.addWidget(self._make_footer())
 
     def _make_header(self) -> QWidget:
@@ -1113,10 +1174,10 @@ class KernelMonitorApp(BaseApp, QWidget):
         row = QHBoxLayout(header)
         row.setContentsMargins(16, 0, 16, 0)
 
-        title = QLabel("⬡ KERNEL MONITOR")
+        title = QLabel("⬡ SOVEREIGN TASK MANAGER")
         title.setStyleSheet(
             f"color: {C_CYAN}; font-family: {MONO}; "
-            f"font-size: 14px; font-weight: bold; letter-spacing: 3px;"
+            f"font-size: 16px; font-weight: bold; letter-spacing: 2px;"
         )
 
         self._tick_lbl = QLabel("TICK: 0")
@@ -1395,6 +1456,7 @@ class KernelMonitorApp(BaseApp, QWidget):
         self.deadlock_graph.refresh()
         self.core_monitor.refresh()
         self.consent_viewer.refresh()
+        self.proc_list._refresh()
         
         # Runtime Kernel Integrity Heartbeat
         if self.secure_api:

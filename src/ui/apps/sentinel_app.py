@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QFrame, QScrollArea, QTextEdit, QProgressBar)
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QColor
+from resources.theme import THEME
 
 class SystemSentinelApp(QWidget):
     def __init__(self, parent=None):
@@ -17,7 +18,7 @@ class SystemSentinelApp(QWidget):
 
         # ── Header ──
         header = QLabel("SYSTEM SENTINEL — FORENSIC CORE")
-        header.setStyleSheet("color: #00e6ff; font-weight: bold; font-size: 18px; letter-spacing: 2px;")
+        header.setStyleSheet(f"color: {THEME['primary_glow']}; font-weight: bold; font-size: 18px; letter-spacing: 2px;")
         self.layout.addWidget(header)
 
         # ── Stats Row ──
@@ -35,21 +36,21 @@ class SystemSentinelApp(QWidget):
 
         # ── Audit Logs ──
         log_header = QLabel("REAL-TIME SECURITY AUDIT TRAIL")
-        log_header.setStyleSheet("color: rgba(0, 230, 255, 0.6); font-size: 11px; font-weight: bold;")
+        log_header.setStyleSheet(f"color: {THEME['text_dim']}; font-size: 11px; font-weight: bold;")
         self.layout.addWidget(log_header)
 
         self.log_viewer = QTextEdit()
         self.log_viewer.setReadOnly(True)
-        self.log_viewer.setStyleSheet("""
-            QTextEdit {
-                background: rgba(0, 0, 0, 0.4);
-                border: 1px solid rgba(0, 230, 255, 0.1);
+        self.log_viewer.setStyleSheet(f"""
+            QTextEdit {{
+                background: {THEME['bg_dark']};
+                border: 1px solid {THEME['border_subtle']};
                 border-radius: 8px;
-                color: #00ffaa;
+                color: {THEME['success']};
                 font-family: 'Consolas', monospace;
                 font-size: 12px;
                 padding: 10px;
-            }
+            }}
         """)
         self.layout.addWidget(self.log_viewer)
 
@@ -72,10 +73,10 @@ class SystemSentinelApp(QWidget):
         """)
         l = QVBoxLayout(card)
         t = QLabel(title)
-        t.setStyleSheet("color: #888; font-size: 10px; font-weight: bold;")
+        t.setStyleSheet(f"color: {THEME['text_muted']}; font-size: 10px; font-weight: bold;")
         v = QLabel(val)
         v.setObjectName("ValueLabel")
-        v.setStyleSheet("color: #fff; font-size: 24px; font-weight: 900;")
+        v.setStyleSheet(f"color: {THEME['text_main']}; font-size: 24px; font-weight: 900;")
         l.addWidget(t)
         l.addWidget(v)
         return card

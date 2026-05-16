@@ -48,6 +48,7 @@ class OSWindow(QWidget):
         # FORCE: Treat as widget inside workspace, not floating OS window
         self.setWindowFlags(Qt.Widget | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_DeleteOnClose, True)
 
         # ── GEOM AUTHORITY ──
         self._is_applying_geometry = False
@@ -191,9 +192,9 @@ class OSWindow(QWidget):
         self.btn_max = create_ctrl("▢", "rgba(0, 240, 255, 0.2)")
         self.btn_close = create_ctrl("✕", "#ff3b6b")
 
-        self.btn_min.clicked.connect(self.minimize_window)
+        self.btn_min.clicked.connect(lambda: get_window_manager().minimize_window(self.window_id))
         self.btn_max.clicked.connect(lambda: self._snap_ctrl.toggle_maximize())
-        self.btn_close.clicked.connect(self.close_window)
+        self.btn_close.clicked.connect(lambda: get_window_manager().close_window(self.window_id))
 
         tb_layout.addWidget(self.lbl_title)
         tb_layout.addStretch()
@@ -213,6 +214,18 @@ class OSWindow(QWidget):
 
         self.main_layout.addWidget(self.title_bar)
         self.main_layout.addWidget(self.content_container, stretch=1)
+        
+        # ── v2.0 Admin Branding ──
+        self._check_admin_branding(content_widget)
+
+    def _check_admin_branding(self, widget):
+        if not widget: return
+        role = getattr(widget, "current_role", "user")
+        if role == "admin":
+            self.window_title = f"🛡️ [ADMIN] {self._window_title}"
+            self.lbl_title.setText(self.window_title.upper())
+            self.lbl_title.setStyleSheet(self.lbl_title.styleSheet() + f"color: {THEME['primary_glow']};")
+            self.setStyleSheet(self.styleSheet() + f"#OSWindow {{ border: 1.5px solid {THEME['primary_glow']}; }}")
         
         # ── PHYSICS CONTROLLER (Temporarily Disabled for Stability) ──
         self.physics_controller = None
@@ -287,8 +300,12 @@ class OSWindow(QWidget):
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
+            # ── v1.0 State Guard: No resizing if flush ──
+            from system.window_manager import WindowState
+            is_flush = self._snap_ctrl.state in (WindowState.MAXIMIZED, WindowState.TILED)
+            
             direction = self._get_resize_dir(event.pos())
-            if direction:
+            if direction and not is_flush:
                 self._resizing = True
                 self._resize_dir = direction
                 self._resize_start_pos = event.globalPos()
@@ -322,9 +339,21 @@ class OSWindow(QWidget):
             self._do_resize(event.globalPos())
             event.accept()
             return
+            
+        # ── v1.0 State Guard: No resizing if flush ──
+        from system.window_manager import WindowState
+        if self._snap_ctrl.state in (WindowState.MAXIMIZED, WindowState.TILED):
+            if self.cursor().shape() != Qt.ArrowCursor:
+                self.setCursor(Qt.ArrowCursor)
+            self._drag_handler.on_move(event)
+            return
+
         # Update cursor on hover near edge
         direction = self._get_resize_dir(event.pos())
-        self.setCursor(self._CURSOR_MAP.get(direction, Qt.ArrowCursor))
+        target_cursor = self._CURSOR_MAP.get(direction, Qt.ArrowCursor)
+        if self.cursor().shape() != target_cursor:
+            self.setCursor(target_cursor)
+            
         self._drag_handler.on_move(event)
     
     def mouseReleaseEvent(self, event):
@@ -392,10 +421,23 @@ class OSWindow(QWidget):
             return
         self._is_destroyed = True
         
-        # 1. Clean up controller subscriptions
-        if hasattr(self, "anim_controller"):
-            self.anim_controller.cleanup()
+        # 2. Kill App Lifecycle (on_stop) and Child Timers
+        if hasattr(self, "content_widget") and self.content_widget:
+            # Lifecycle stop hook
+            if hasattr(self.content_widget, "on_stop"):
+                try:
+                    if getattr(self.content_widget, "_started", False):
+                        self.content_widget.on_stop()
+                        self.content_widget._started = False
+                except Exception as e:
+                    logger.warning(f"on_stop failed for {self.window_id}: {e}")
             
+            # Stop all child timers to prevent ghost callbacks
+            from PyQt5.QtCore import QTimer
+            for timer in self.content_widget.findChildren(QTimer):
+                try: timer.stop()
+                except: pass
+
         from system.runtime_manager import RUNTIME_MANAGER
         # Kill handles stopping logic and unlinking from WM
         RUNTIME_MANAGER.kill(self.window_id)
@@ -428,8 +470,8 @@ class OSWindow(QWidget):
             pass
 
     def minimize_window(self):
-        from core.event_bus import EVENT_BUS, SystemEvent
-        EVENT_BUS.emit(SystemEvent.REQ_WINDOW_MINIMIZE, {"id": self.window_id}, source="OSWindow")
+        """Request-response bypass for maximum UI responsiveness."""
+        get_window_manager().minimize_window(self.window_id)
 
     def close_window(self):
         # Stop QTimers only to prevent ghost callbacks during close sequence

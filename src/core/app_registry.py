@@ -51,7 +51,7 @@ class AppDefinition:
 
 _MANIFEST: tuple[AppDefinition, ...] = (
     AppDefinition(
-        name="Terminal",
+        name="Command Shell",
         emoji="🖥️",
         module="ui.apps.terminal.terminal_app",
         class_name="TerminalApp",
@@ -60,7 +60,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="File Manager",
+        name="Vault Explorer",
         emoji="📁",
         module="ui.apps.file_manager.file_manager_app",
         class_name="FileManagerApp",
@@ -69,7 +69,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="Trash",
+        name="Recycle Bin",
         emoji="🗑️",
         module="ui.apps.trash.trash_app",
         class_name="TrashApp",
@@ -77,18 +77,8 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         isolation_mode="direct",
         show_on_desktop=True,
     ),
-    # Legacy entries kept for backward compat (not shown on desktop)
     AppDefinition(
-        name="Files",
-        emoji="📁",
-        module="ui.apps.file_manager.file_manager_app",
-        class_name="FileManagerApp",
-        icon_asset="icons/files.svg",
-        isolation_mode="direct",
-        show_on_desktop=False,
-    ),
-    AppDefinition(
-        name="Q-Vault Browser",
+        name="Sovereign Browser",
         emoji="🌐",
         module="ui.apps.browser.browser_app",
         class_name="BrowserApp",
@@ -97,7 +87,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="Q-Vault Security",
+        name="Security Core",
         emoji="🛡️",
         module="ui.apps.qvault_security.qvault_security_app",
         class_name="QVaultSecurityApp",
@@ -106,7 +96,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="Kernel Monitor",
+        name="System Intelligence",
         emoji="🖥",
         module="ui.shell.kernel_monitor_app",
         class_name="KernelMonitorApp",
@@ -115,7 +105,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="Notepad",
+        name="Secure Editor",
         emoji="📝",
         module="ui.apps.notepad.notepad_app",
         class_name="NotepadApp",
@@ -124,7 +114,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="System Sentinel",
+        name="Guardian Sentinel",
         emoji="🛰️",
         module="ui.apps.sentinel_app",
         class_name="SystemSentinelApp",
@@ -133,7 +123,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="Settings",
+        name="Core Configurations",
         emoji="⚙️",
         module="ui.widgets.settings_ui",
         class_name="SettingsUI",
@@ -142,25 +132,7 @@ _MANIFEST: tuple[AppDefinition, ...] = (
         show_on_desktop=True,
     ),
     AppDefinition(
-        name="System Monitor",
-        emoji="📊",
-        module="ui.apps.system_monitor.app",
-        class_name="SystemMonitorWidget",
-        icon_asset="icons/kernel_monitor.svg",
-        isolation_mode="direct",
-        show_on_desktop=False,
-    ),
-    AppDefinition(
-        name="Vault Browser",
-        emoji="🔒",
-        module="ui.apps.vault_browser.app",
-        class_name="VaultBrowser",
-        icon_asset="icons/browser.svg",
-        isolation_mode="direct",
-        show_on_desktop=False,
-    ),
-    AppDefinition(
-        name="Marketplace",
+        name="Plugin Marketplace",
         emoji="🏪",
         module="ui.widgets.marketplace",
         class_name="Marketplace",
@@ -272,7 +244,7 @@ class AppRegistry:
         results: dict[str, str] = {}
         for app in _MANIFEST:
             # Phase 1 Hardening: Skip dry-run for untrusted apps to prevent module-level execution
-            is_core = app.name in ["Terminal", "File Manager", "Trash", "Kernel Monitor", "Q-Vault Security"]
+            is_core = app.name in ["Command Shell", "Vault Explorer", "Recycle Bin", "System Intelligence", "Security Core"]
             
             if not is_core and not force_untrusted:
                 results[app.name] = "SKIPPED (Deferred Verification)"
@@ -318,7 +290,7 @@ class AppRegistry:
             from core.event_bus import EVENT_BUS, SystemEvent, EventPayload
             EVENT_BUS.emit(
                 SystemEvent.EVT_WARNING, 
-                EventPayload("app_registry_error", {"source": "app_registry", "app": app_name, "detail": detail, "escalate": True})
+                {"title": "Registry Alert", "message": f"App '{app_name}' error: {detail}", "escalate": True}
             )
         except Exception:
             pass

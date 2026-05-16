@@ -7,7 +7,6 @@ from core.resources import get_asset_path
 from system.system_helper import SystemControlHelper
 import subprocess
 import re
-import ctypes
 
 class ControlCenter(QFrame):
     """
@@ -160,60 +159,33 @@ class ControlCenter(QFrame):
         return s
 
     def _set_system_volume(self, value):
-        """Sets system volume on Windows via APPCOMMAND."""
-        # Note: Precision volume requires pycaw, this is a fallback
-        import ctypes
-        from PyQt5.QtWidgets import QApplication
-        # Roughly estimate direction/steps
-        pass 
+        """Routes volume control through the sovereign SystemControlHelper (no host mutation)."""
+        SystemControlHelper.set_volume(value)
 
     def _set_system_brightness(self, value):
-        """Sets screen brightness (Portable)."""
-        import platform
-        system = platform.system().lower()
-        
-        try:
-            if system == "windows":
-                import wmi
-                w = wmi.WMI(namespace='wmi')
-                methods = w.WmiMonitorBrightnessMethods()[0]
-                methods.WmiSetBrightness(value, 0)
-            elif system == "linux":
-                # Fallback for Linux using brightnessctl
-                subprocess.run(["brightnessctl", "set", f"{value}%"], check=False)
-        except Exception:
-            pass
+        """Routes brightness control through the sovereign SystemControlHelper (no host mutation)."""
+        SystemControlHelper.set_brightness(value)
 
     def _refresh_wifi(self):
-        """Scans for real Wi-Fi networks (Portable)."""
+        """Scans for available networks via the Sovereign SystemControlHelper."""
         while self.wifi_list.count():
             item = self.wifi_list.takeAt(0)
             if item.widget(): item.widget().deleteLater()
             
         self.wifi_list.addWidget(self._create_header("CONNECTIVITY"))
         
-        import platform
-        system = platform.system().lower()
-        
+        from system.system_helper import SystemControlHelper
         try:
-            if system == "windows":
-                output = subprocess.check_output(["netsh", "wlan", "show", "networks"], 
-                                               creationflags=subprocess.CREATE_NO_WINDOW).decode('utf-8')
-                ssids = re.findall(r"SSID \d+ : (.+)", output)
-            elif system == "linux":
-                # Use nmcli if available
-                output = subprocess.check_output(["nmcli", "-t", "-f", "SSID", "dev", "wifi"], 
-                                               stderr=subprocess.STDOUT).decode('utf-8')
-                ssids = [line.strip() for line in output.splitlines() if line.strip()]
+            networks = SystemControlHelper.get_wifi_networks()
+            if not networks:
+                self.wifi_list.addWidget(self._create_action_btn("icons/trust.svg", "No Networks Found"))
             else:
-                ssids = ["Scanning Not Supported"]
-
-            if not ssids: ssids = ["No Networks Found"]
-            
-            for ssid in ssids[:6]: # Show top 6
-                btn = self._create_action_btn("icons/trust.svg", ssid)
-                self.wifi_list.addWidget(btn)
-        except Exception:
+                for net in networks[:6]: # Show top 6
+                    ssid_name = net.get("name", "Unknown Network")
+                    btn = self._create_action_btn("icons/trust.svg", ssid_name)
+                    self.wifi_list.addWidget(btn)
+        except Exception as e:
+            logger.error(f"ControlCenter: WiFi refresh failed: {e}")
             self.wifi_list.addWidget(self._create_action_btn("icons/trust.svg", "Network Service Unavailable"))
 
     def toggle(self):

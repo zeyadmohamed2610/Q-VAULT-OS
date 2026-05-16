@@ -26,7 +26,7 @@ class TrustIndicator(QFrame):
             "risky": THEME["accent_error"],
             "internal": THEME["primary_glow"]
         }
-        color = colors.get(state, "#888888")
+        color = colors.get(state, THEME["text_muted"])
         self.setStyleSheet(f"""
             QFrame {{
                 background-color: {color};
@@ -37,8 +37,8 @@ class TrustIndicator(QFrame):
 class VaultBrowser(BaseApp, QWidget):
     APP_ID = "vault_browser"
 
-    content_ready = pyqtSignal(str, str, str)  # url, html_content, trust_state
-    error_occurred = pyqtSignal(str)
+    content_ready = pyqtSignal(str, str, str, object)  # url, html_content, trust_state, browser
+    error_occurred = pyqtSignal(str, object)           # message, browser
 
     def __init__(self, secure_api=None, parent=None):
         BaseApp.__init__(self, secure_api)
@@ -62,6 +62,30 @@ class VaultBrowser(BaseApp, QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
+
+        # ── Tab Bar ──
+        self.tabs = QTabWidget()
+        self.tabs.setTabsClosable(True)
+        self.tabs.setMovable(True)
+        self.tabs.tabCloseRequested.connect(self._close_tab)
+        self.tabs.currentChanged.connect(self._on_tab_changed)
+        
+        # Add Tab Button
+        self.add_btn = QPushButton("+")
+        self.add_btn.setFixedSize(28, 28)
+        self.add_btn.setStyleSheet(f"QPushButton {{ background: transparent; color: {theme.PRIMARY}; font-weight: bold; border-radius: 4px; }} QPushButton:hover {{ background: rgba(0,230,255,0.1); }}")
+        self.add_btn.clicked.connect(lambda: self.add_new_tab("vault://home"))
+        self.tabs.setCornerWidget(self.add_btn, Qt.TopRightCorner)
+
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ border-top: 1px solid {theme.BORDER_DIM}; background: {theme.BG_DARK}; }}
+            QTabBar::tab {{
+                background: {theme.BG_PANEL}; color: {theme.TEXT_DIM};
+                padding: 8px 20px; border-top-left-radius: 8px; border-top-right-radius: 8px;
+                margin-right: 2px; font-size: 11px;
+            }}
+            QTabBar::tab:selected {{ background: {theme.BG_DARK}; color: {theme.PRIMARY}; border-bottom: 2px solid {theme.PRIMARY}; }}
+        """)
 
         # ── Address Bar ──
         nav_bar = QWidget()
@@ -124,40 +148,46 @@ class VaultBrowser(BaseApp, QWidget):
         nav_layout.addWidget(self.btn_home)
 
         layout.addWidget(nav_bar)
+        layout.addWidget(self.tabs)
+        
+        # Initial Tab
+        self.add_new_tab("vault://home")
 
-        # ── Content Area ──
-        self.browser_view = QTextBrowser()
-        self.browser_view.setOpenExternalLinks(False)
-        self.browser_view.anchorClicked.connect(self._on_link_clicked)
-        self.browser_view.setStyleSheet(f"""
-            QTextBrowser {{
-                background-color: rgba(10, 16, 28, 140);
-                color: {theme.TEXT};
-                border: none;
-                padding: 20px;
-                font-family: {theme.FONT["family"]};
-                font-size: 14px;
-                selection-background-color: {theme.PRIMARY};
-                selection-color: #000;
-            }}
-        """)
-        layout.addWidget(self.browser_view)
+    def add_new_tab(self, url):
+        # Create a new browser instance per tab
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(False)
+        browser.anchorClicked.connect(self._on_link_clicked)
+        browser.setStyleSheet(f"QTextBrowser {{ background-color: rgba(10, 16, 28, 140); color: {theme.TEXT}; border: none; padding: 20px; font-family: {theme.FONT['family']}; font-size: 14px; }}")
+        
+        idx = self.tabs.addTab(browser, "Loading...")
+        self.tabs.setCurrentIndex(idx)
+        self.load_url(url)
 
-    def on_start(self):
-        # Default start page
-        self.load_url("vault://home")
+    def _close_tab(self, idx):
+        if self.tabs.count() > 1:
+            self.tabs.removeTab(idx)
+        else:
+            self.parent().close() if self.parent() else self.close()
+
+    def _on_tab_changed(self, idx):
+        if idx == -1: return
+        browser = self.tabs.widget(idx)
+        url = getattr(browser, "current_url", "")
+        self.url_input.setText(url)
+        # Update trust indicator (stub)
+        self.trust_indicator.set_state("internal" if url.startswith("vault") else "unknown")
 
     def load_url(self, url: str):
-        if self._is_loading:
-            return
-            
+        browser = self.tabs.currentWidget()
+        if not browser: return
+        
         self.url_input.setText(url)
-        self.browser_view.setHtml(f"<h3 style='color: {theme.TEXT_DIM};'>Fetching {url}...</h3>")
-        self._is_loading = True
+        browser.setHtml(f"<h3 style='color: {theme.TEXT_DIM};'>Fetching {url}...</h3>")
+        browser.current_url = url
         self.trust_indicator.set_state("unknown")
 
-        # Offload fetch to thread to prevent UI freeze
-        threading.Thread(target=self._fetch_worker, args=(url,), daemon=True).start()
+        threading.Thread(target=self._fetch_worker, args=(url, browser), daemon=True).start()
 
     def _on_go_clicked(self):
         url = self.url_input.text().strip()
@@ -170,38 +200,38 @@ class VaultBrowser(BaseApp, QWidget):
     def _on_link_clicked(self, qurl):
         self.load_url(qurl.toString())
 
-    def _fetch_worker(self, url: str):
+    def _fetch_worker(self, url: str, browser: QWidget):
         try:
             if url.startswith("vault://"):
-                self._handle_internal_scheme(url)
+                self._handle_internal_scheme(url, browser)
             else:
-                self._handle_external_http(url)
+                self._handle_external_http(url, browser)
         except Exception as e:
-            self.error_occurred.emit(str(e))
+            self.error_occurred.emit(str(e), browser)
 
-    def _handle_internal_scheme(self, url: str):
+    def _handle_internal_scheme(self, url: str, browser: QWidget):
         path = url.replace("vault://", "").strip().lower()
         
         if path == "home" or path == "":
-            self._render_hacker_news_home()
+            self._render_hacker_news_home(browser)
         elif path == "logs":
-            self._render_system_logs()
+            self._render_system_logs(browser)
         elif path == "logs/auto_refresh":
-            self._render_system_logs(auto_refresh=True)
+            self._render_system_logs(browser, auto_refresh=True)
         else:
-            self.error_occurred.emit(f"Unknown internal endpoint: {path}")
+            self.error_occurred.emit(f"Unknown internal endpoint: {path}", browser)
 
-    def _render_hacker_news_home(self):
+    def _render_hacker_news_home(self, browser: QWidget):
         # Fetch Top Stories
         resp = self.api.network.request("https://hacker-news.firebaseio.com/v0/topstories.json")
         if resp["status"] != 200:
-            self.error_occurred.emit(f"HN API Error: {resp['status']}")
+            self.error_occurred.emit(f"HN API Error: {resp['status']}", browser)
             return
 
         try:
             story_ids = json.loads(resp["content"])[:15]  # Get top 15
         except Exception:
-            self.error_occurred.emit("Failed to parse HN response.")
+            self.error_occurred.emit("Failed to parse HN response.", browser)
             return
 
         html = f"""
@@ -236,9 +266,9 @@ class VaultBrowser(BaseApp, QWidget):
                     pass
 
         html += "</ul>"
-        self.content_ready.emit("vault://home", html, "internal")
+        self.content_ready.emit("vault://home", html, "internal", browser)
 
-    def _render_system_logs(self, auto_refresh=False):
+    def _render_system_logs(self, browser: QWidget, auto_refresh=False):
         # Read local log via fs guard
         try:
             with self.api.fs.open(".logs/system.log", "r") as f:
@@ -256,11 +286,11 @@ class VaultBrowser(BaseApp, QWidget):
             </body></html>
             """
             url_str = "vault://logs/auto_refresh" if auto_refresh else "vault://logs"
-            self.content_ready.emit(url_str, html, "internal")
+            self.content_ready.emit(url_str, html, "internal", browser)
         except Exception as e:
-            self.error_occurred.emit(f"Failed to read logs: {e}")
+            self.error_occurred.emit(f"Failed to read logs: {e}", browser)
 
-    def _handle_external_http(self, url: str):
+    def _handle_external_http(self, url: str, browser: QWidget):
         # Decide trust state via Hybrid Intel Engine
         trust_state = "unknown"
         if self.api:
@@ -311,22 +341,30 @@ class VaultBrowser(BaseApp, QWidget):
         {safe_html}
         """
         
-        self.content_ready.emit(url, html, trust_state)
+        self.content_ready.emit(url, html, trust_state, browser)
 
-    def _on_content_ready(self, url: str, html: str, trust_state: str):
-        self.browser_view.setHtml(html)
-        self.trust_indicator.set_state(trust_state)
-        if self.url_input.text() != url:
+    def _on_content_ready(self, url: str, html: str, trust_state: str, browser: QWidget):
+        browser.setHtml(html)
+        browser.current_url = url
+        
+        # Update tab title
+        idx = self.tabs.indexOf(browser)
+        if idx != -1:
+            title = url.replace("vault://", "").capitalize() or "Home"
+            if len(title) > 15: title = title[:12] + "..."
+            self.tabs.setTabText(idx, title)
+
+        if self.tabs.currentWidget() == browser:
+            self.trust_indicator.set_state(trust_state)
             self.url_input.setText(url)
-        self._is_loading = False
 
-    def _on_error(self, message: str):
+    def _on_error(self, message: str, browser: QWidget):
         err_html = f"""
         <center style='margin-top: 50px;'>
             <h1 style='color: #ff3333;'>SECURE API BLOCKED / ERROR</h1>
             <p style='color: {theme.TEXT};'>{message}</p>
         </center>
         """
-        self.browser_view.setHtml(err_html)
-        self.trust_indicator.set_state("risky")
-        self._is_loading = False
+        browser.setHtml(err_html)
+        if self.tabs.currentWidget() == browser:
+            self.trust_indicator.set_state("risky")

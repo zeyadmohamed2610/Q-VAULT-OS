@@ -1,5 +1,4 @@
 from __future__ import annotations
-import subprocess
 import logging
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -11,74 +10,24 @@ from PyQt5.QtGui import QFont, QColor, QPainter
 logger = logging.getLogger(__name__)
 
 
+from system.system_helper import SystemControlHelper
+
 # ── Background scanner ────────────────────────────────────────
 
 class WifiScanner(QThread):
     networks_found = pyqtSignal(list)
 
     def run(self):
-        import platform
-        sys_name = platform.system()
-        nets = []
-        if sys_name == "Linux":
-            nets = self._scan_linux()
-        elif sys_name == "Windows":
-            nets = self._scan_windows()
-        
-        if not nets:
-            nets = self._fallback()
-        self.networks_found.emit(nets)
-
-    def _scan_linux(self) -> list[dict]:
-        try:
-            r = subprocess.run(
-                ["nmcli", "-t", "-f", "SSID,SIGNAL,SECURITY", "dev", "wifi"],
-                capture_output=True, text=True, timeout=5
-            )
-            nets = []
-            for line in r.stdout.splitlines():
-                parts = line.split(":")
-                if len(parts) >= 2 and parts[0].strip():
-                    sig = int(parts[1]) if parts[1].strip().isdigit() else 50
-                    sec = len(parts) > 2 and parts[2].strip() not in ("", "--")
-                    nets.append({"ssid": parts[0].strip(), "signal": sig, "secured": sec})
-            return nets
-        except Exception as exc:
-            logger.debug("Linux WiFi scan failed: %s", exc)
-            return []
-
-    def _scan_windows(self) -> list[dict]:
-        try:
-            r = subprocess.run(
-                ["netsh", "wlan", "show", "networks", "mode=bssid"],
-                capture_output=True, text=True, timeout=5
-            )
-            nets = []; cur: dict = {}
-            for line in r.stdout.splitlines():
-                line = line.strip()
-                if line.startswith("SSID") and "BSSID" not in line:
-                    if cur: nets.append(cur)
-                    cur = {"ssid": line.split(":", 1)[-1].strip(), "signal": 50, "secured": True}
-                elif "Signal" in line:
-                    try: cur["signal"] = int(line.split(":", 1)[-1].strip().rstrip("%"))
-                    except Exception as e:
-                        logger.debug(f"WifiScanner: Failed to parse signal: {e}")
-                elif "Authentication" in line:
-                    cur["secured"] = "Open" not in line
-            if cur: nets.append(cur)
-            return [n for n in nets if n.get("ssid")]
-        except Exception as exc:
-            logger.debug("Windows WiFi scan failed: %s", exc)
-            return []
-
-    def _fallback(self) -> list[dict]:
-        return [
-            {"ssid": "Q-Vault-Secure",  "signal": 95, "secured": True},
-            {"ssid": "HomeNetwork_5G",  "signal": 78, "secured": True},
-            {"ssid": "Office_WiFi",     "signal": 62, "secured": True},
-            {"ssid": "AndroidHotspot",  "signal": 45, "secured": False},
-            {"ssid": "DIRECT-TV-Box",   "signal": 30, "secured": True},
-        ]
+        nets = SystemControlHelper.get_wifi_networks()
+        # Convert 'name' to 'ssid' and 'secure' to 'secured' for compatibility
+        formatted_nets = []
+        for n in nets:
+            formatted_nets.append({
+                "ssid": n.get("name", "Unknown"),
+                "signal": n.get("signal", 50),
+                "secured": n.get("secure", True)
+            })
+        self.networks_found.emit(formatted_nets)
 
 
 def _bars(strength: int) -> str:
@@ -189,16 +138,10 @@ class WifiPanel(QWidget):
         hrow.addWidget(title)
         hrow.addStretch()
 
-        self._tog = QPushButton("On")
-        self._tog.setCheckable(True)
-        self._tog.setChecked(True)
-        self._tog.setFixedSize(42, 22)
-        self._tog.setStyleSheet(
-            "QPushButton{background:#54b1c6;color:#01020e;"
-            "border:none;border-radius:11px;font-size:10px;font-weight:bold;}"
-            "QPushButton:!checked{background:#243558;color:#4a6880;}"
-        )
-        self._tog.clicked.connect(self._toggle)
+        from ui.widgets.common.toggle_switch import ToggleSwitch
+        self._tog = ToggleSwitch()
+        self._tog.set_checked(True)
+        self._tog.toggled.connect(self._toggle)
         hrow.addWidget(self._tog)
         cl.addLayout(hrow)
 

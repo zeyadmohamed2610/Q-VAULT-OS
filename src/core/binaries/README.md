@@ -1,0 +1,271 @@
+# 📂 binaries
+### *Sovereign OS Module: Kernel Core Services*
+
+---
+
+## 📖 Overview
+This directory is a core component of the **Q-Vault Sovereign Ecosystem**. It manages **low-level OS primitives such as process scheduling, event routing, and VFS mapping**.
+
+In the context of modern Operating Systems, this module aligns with **POSIX-compliant VFS (Inode-based) and Monotonic Process Table**.
+
+## 🛠️ Technical Architecture
+- **Layer**: Kernel Space Simulation
+- **Module Identity**: `src/core/binaries`
+- **Inter-Process Communication**: Event Bus (with Source Authority), UI Adapter, Security Controller
+- **Forensic Security Profile**: Critical. Manages memory-mapped permissions, process isolation, and Event-Level Spoofing Protection.
+
+## 📁 Manifest & Component Analysis
+| Type | Name | Description |
+| :--- | :--- | :--- |
+| 📄 | `Accessibility.dll` | System artifact |
+| 📄 | `D3DCompiler_47_cor3.dll` | System artifact |
+| 📄 | `DirectWriteForwarder.dll` | System artifact |
+| 📄 | `Microsoft.CSharp.dll` | System artifact |
+| 📄 | `Microsoft.DiaSymReader.Native.amd64.dll` | System artifact |
+| 📄 | `Microsoft.Extensions.Logging.Abstractions.dll` | System artifact |
+| 📄 | `Microsoft.VisualBasic.Core.dll` | System artifact |
+| 📄 | `Microsoft.VisualBasic.dll` | System artifact |
+| 📄 | `Microsoft.Win32.Primitives.dll` | System artifact |
+| 📄 | `Microsoft.Win32.Registry.AccessControl.dll` | System artifact |
+| 📄 | `Microsoft.Win32.Registry.dll` | System artifact |
+| 📄 | `Microsoft.Win32.SystemEvents.dll` | System artifact |
+| 📄 | `NBitcoin.dll` | System artifact |
+| 📄 | `Newtonsoft.Json.dll` | System artifact |
+| 📄 | `PQC-Vault.deps.json` | System artifact |
+| 📄 | `PQC-Vault.dll` | System artifact |
+| 📄 | `PQC-Vault.exe` | System artifact |
+| 📄 | `PQC-Vault.pdb` | System artifact |
+| 📄 | `PQC-Vault.runtimeconfig.json` | System artifact |
+| 📄 | `PenImc_cor3.dll` | System artifact |
+| 📄 | `PresentationCore.dll` | System artifact |
+| 📄 | `PresentationFramework-SystemCore.dll` | System artifact |
+| 📄 | `PresentationFramework-SystemData.dll` | System artifact |
+| 📄 | `PresentationFramework-SystemDrawing.dll` | System artifact |
+| 📄 | `PresentationFramework-SystemXml.dll` | System artifact |
+| 📄 | `PresentationFramework-SystemXmlLinq.dll` | System artifact |
+| 📄 | `PresentationFramework.Aero.dll` | System artifact |
+| 📄 | `PresentationFramework.Aero2.dll` | System artifact |
+| 📄 | `PresentationFramework.AeroLite.dll` | System artifact |
+| 📄 | `PresentationFramework.Classic.dll` | System artifact |
+| 📄 | `PresentationFramework.Fluent.dll` | System artifact |
+| 📄 | `PresentationFramework.Luna.dll` | System artifact |
+| 📄 | `PresentationFramework.Royale.dll` | System artifact |
+| 📄 | `PresentationFramework.dll` | System artifact |
+| 📄 | `PresentationNative_cor3.dll` | System artifact |
+| 📄 | `PresentationUI.dll` | System artifact |
+| 📄 | `README.md` | System artifact |
+| 📄 | `ReachFramework.dll` | System artifact |
+| 📄 | `System.AppContext.dll` | System artifact |
+| 📄 | `System.Buffers.dll` | System artifact |
+| 📄 | `System.CodeDom.dll` | System artifact |
+| 📄 | `System.Collections.Concurrent.dll` | System artifact |
+| 📄 | `System.Collections.Immutable.dll` | System artifact |
+| 📄 | `System.Collections.NonGeneric.dll` | System artifact |
+| 📄 | `System.Collections.Specialized.dll` | System artifact |
+| 📄 | `System.Collections.dll` | System artifact |
+| 📄 | `System.ComponentModel.Annotations.dll` | System artifact |
+| 📄 | `System.ComponentModel.DataAnnotations.dll` | System artifact |
+| 📄 | `System.ComponentModel.EventBasedAsync.dll` | System artifact |
+| 📄 | `System.ComponentModel.Primitives.dll` | System artifact |
+| 📄 | `System.ComponentModel.TypeConverter.dll` | System artifact |
+| 📄 | `System.ComponentModel.dll` | System artifact |
+| 📄 | `System.Configuration.ConfigurationManager.dll` | System artifact |
+| 📄 | `System.Configuration.dll` | System artifact |
+| 📄 | `System.Console.dll` | System artifact |
+| 📄 | `System.Core.dll` | System artifact |
+| 📄 | `System.Data.Common.dll` | System artifact |
+| 📄 | `System.Data.DataSetExtensions.dll` | System artifact |
+| 📄 | `System.Data.dll` | System artifact |
+| 📄 | `System.Diagnostics.Contracts.dll` | System artifact |
+| 📄 | `System.Diagnostics.Debug.dll` | System artifact |
+| 📄 | `System.Diagnostics.DiagnosticSource.dll` | System artifact |
+| 📄 | `System.Diagnostics.EventLog.Messages.dll` | System artifact |
+| 📄 | `System.Diagnostics.EventLog.dll` | System artifact |
+| 📄 | `System.Diagnostics.FileVersionInfo.dll` | System artifact |
+| 📄 | `System.Diagnostics.PerformanceCounter.dll` | System artifact |
+| 📄 | `System.Diagnostics.Process.dll` | System artifact |
+| 📄 | `System.Diagnostics.StackTrace.dll` | System artifact |
+| 📄 | `System.Diagnostics.TextWriterTraceListener.dll` | System artifact |
+| 📄 | `System.Diagnostics.Tools.dll` | System artifact |
+| 📄 | `System.Diagnostics.TraceSource.dll` | System artifact |
+| 📄 | `System.Diagnostics.Tracing.dll` | System artifact |
+| 📄 | `System.DirectoryServices.dll` | System artifact |
+| 📄 | `System.Drawing.Primitives.dll` | System artifact |
+| 📄 | `System.Drawing.dll` | System artifact |
+| 📄 | `System.Dynamic.Runtime.dll` | System artifact |
+| 📄 | `System.Formats.Asn1.dll` | System artifact |
+| 📄 | `System.Formats.Nrbf.dll` | System artifact |
+| 📄 | `System.Formats.Tar.dll` | System artifact |
+| 📄 | `System.Globalization.Calendars.dll` | System artifact |
+| 📄 | `System.Globalization.Extensions.dll` | System artifact |
+| 📄 | `System.Globalization.dll` | System artifact |
+| 📄 | `System.IO.Compression.Brotli.dll` | System artifact |
+| 📄 | `System.IO.Compression.FileSystem.dll` | System artifact |
+| 📄 | `System.IO.Compression.Native.dll` | System artifact |
+| 📄 | `System.IO.Compression.ZipFile.dll` | System artifact |
+| 📄 | `System.IO.Compression.dll` | System artifact |
+| 📄 | `System.IO.FileSystem.AccessControl.dll` | System artifact |
+| 📄 | `System.IO.FileSystem.DriveInfo.dll` | System artifact |
+| 📄 | `System.IO.FileSystem.Primitives.dll` | System artifact |
+| 📄 | `System.IO.FileSystem.Watcher.dll` | System artifact |
+| 📄 | `System.IO.FileSystem.dll` | System artifact |
+| 📄 | `System.IO.IsolatedStorage.dll` | System artifact |
+| 📄 | `System.IO.MemoryMappedFiles.dll` | System artifact |
+| 📄 | `System.IO.Packaging.dll` | System artifact |
+| 📄 | `System.IO.Pipelines.dll` | System artifact |
+| 📄 | `System.IO.Pipes.AccessControl.dll` | System artifact |
+| 📄 | `System.IO.Pipes.dll` | System artifact |
+| 📄 | `System.IO.Ports.dll` | System artifact |
+| 📄 | `System.IO.UnmanagedMemoryStream.dll` | System artifact |
+| 📄 | `System.IO.dll` | System artifact |
+| 📄 | `System.Linq.Expressions.dll` | System artifact |
+| 📄 | `System.Linq.Parallel.dll` | System artifact |
+| 📄 | `System.Linq.Queryable.dll` | System artifact |
+| 📄 | `System.Linq.dll` | System artifact |
+| 📄 | `System.Management.dll` | System artifact |
+| 📄 | `System.Memory.dll` | System artifact |
+| 📄 | `System.Net.Http.Json.dll` | System artifact |
+| 📄 | `System.Net.Http.dll` | System artifact |
+| 📄 | `System.Net.HttpListener.dll` | System artifact |
+| 📄 | `System.Net.Mail.dll` | System artifact |
+| 📄 | `System.Net.NameResolution.dll` | System artifact |
+| 📄 | `System.Net.NetworkInformation.dll` | System artifact |
+| 📄 | `System.Net.Ping.dll` | System artifact |
+| 📄 | `System.Net.Primitives.dll` | System artifact |
+| 📄 | `System.Net.Quic.dll` | System artifact |
+| 📄 | `System.Net.Requests.dll` | System artifact |
+| 📄 | `System.Net.Security.dll` | System artifact |
+| 📄 | `System.Net.ServicePoint.dll` | System artifact |
+| 📄 | `System.Net.Sockets.dll` | System artifact |
+| 📄 | `System.Net.WebClient.dll` | System artifact |
+| 📄 | `System.Net.WebHeaderCollection.dll` | System artifact |
+| 📄 | `System.Net.WebProxy.dll` | System artifact |
+| 📄 | `System.Net.WebSockets.Client.dll` | System artifact |
+| 📄 | `System.Net.WebSockets.dll` | System artifact |
+| 📄 | `System.Net.dll` | System artifact |
+| 📄 | `System.Numerics.Vectors.dll` | System artifact |
+| 📄 | `System.Numerics.dll` | System artifact |
+| 📄 | `System.ObjectModel.dll` | System artifact |
+| 📄 | `System.Printing.dll` | System artifact |
+| 📄 | `System.Private.CoreLib.dll` | System artifact |
+| 📄 | `System.Private.DataContractSerialization.dll` | System artifact |
+| 📄 | `System.Private.Uri.dll` | System artifact |
+| 📄 | `System.Private.Xml.Linq.dll` | System artifact |
+| 📄 | `System.Private.Xml.dll` | System artifact |
+| 📄 | `System.Reflection.DispatchProxy.dll` | System artifact |
+| 📄 | `System.Reflection.Emit.ILGeneration.dll` | System artifact |
+| 📄 | `System.Reflection.Emit.Lightweight.dll` | System artifact |
+| 📄 | `System.Reflection.Emit.dll` | System artifact |
+| 📄 | `System.Reflection.Extensions.dll` | System artifact |
+| 📄 | `System.Reflection.Metadata.dll` | System artifact |
+| 📄 | `System.Reflection.Primitives.dll` | System artifact |
+| 📄 | `System.Reflection.TypeExtensions.dll` | System artifact |
+| 📄 | `System.Reflection.dll` | System artifact |
+| 📄 | `System.Resources.Extensions.dll` | System artifact |
+| 📄 | `System.Resources.Reader.dll` | System artifact |
+| 📄 | `System.Resources.ResourceManager.dll` | System artifact |
+| 📄 | `System.Resources.Writer.dll` | System artifact |
+| 📄 | `System.Runtime.CompilerServices.Unsafe.dll` | System artifact |
+| 📄 | `System.Runtime.CompilerServices.VisualC.dll` | System artifact |
+| 📄 | `System.Runtime.Extensions.dll` | System artifact |
+| 📄 | `System.Runtime.Handles.dll` | System artifact |
+| 📄 | `System.Runtime.InteropServices.JavaScript.dll` | System artifact |
+| 📄 | `System.Runtime.InteropServices.RuntimeInformation.dll` | System artifact |
+| 📄 | `System.Runtime.InteropServices.dll` | System artifact |
+| 📄 | `System.Runtime.Intrinsics.dll` | System artifact |
+| 📄 | `System.Runtime.Loader.dll` | System artifact |
+| 📄 | `System.Runtime.Numerics.dll` | System artifact |
+| 📄 | `System.Runtime.Serialization.Formatters.dll` | System artifact |
+| 📄 | `System.Runtime.Serialization.Json.dll` | System artifact |
+| 📄 | `System.Runtime.Serialization.Primitives.dll` | System artifact |
+| 📄 | `System.Runtime.Serialization.Xml.dll` | System artifact |
+| 📄 | `System.Runtime.Serialization.dll` | System artifact |
+| 📄 | `System.Runtime.dll` | System artifact |
+| 📄 | `System.Security.AccessControl.dll` | System artifact |
+| 📄 | `System.Security.Claims.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.Algorithms.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.Cng.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.Csp.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.Encoding.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.OpenSsl.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.Pkcs.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.Primitives.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.ProtectedData.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.X509Certificates.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.Xml.dll` | System artifact |
+| 📄 | `System.Security.Cryptography.dll` | System artifact |
+| 📄 | `System.Security.Permissions.dll` | System artifact |
+| 📄 | `System.Security.Principal.Windows.dll` | System artifact |
+| 📄 | `System.Security.Principal.dll` | System artifact |
+| 📄 | `System.Security.SecureString.dll` | System artifact |
+| 📄 | `System.Security.dll` | System artifact |
+| 📄 | `System.ServiceModel.Web.dll` | System artifact |
+| 📄 | `System.ServiceProcess.dll` | System artifact |
+| 📄 | `System.Text.Encoding.CodePages.dll` | System artifact |
+| 📄 | `System.Text.Encoding.Extensions.dll` | System artifact |
+| 📄 | `System.Text.Encoding.dll` | System artifact |
+| 📄 | `System.Text.Encodings.Web.dll` | System artifact |
+| 📄 | `System.Text.Json.dll` | System artifact |
+| 📄 | `System.Text.RegularExpressions.dll` | System artifact |
+| 📄 | `System.Threading.AccessControl.dll` | System artifact |
+| 📄 | `System.Threading.Channels.dll` | System artifact |
+| 📄 | `System.Threading.Overlapped.dll` | System artifact |
+| 📄 | `System.Threading.Tasks.Dataflow.dll` | System artifact |
+| 📄 | `System.Threading.Tasks.Extensions.dll` | System artifact |
+| 📄 | `System.Threading.Tasks.Parallel.dll` | System artifact |
+| 📄 | `System.Threading.Tasks.dll` | System artifact |
+| 📄 | `System.Threading.Thread.dll` | System artifact |
+| 📄 | `System.Threading.ThreadPool.dll` | System artifact |
+| 📄 | `System.Threading.Timer.dll` | System artifact |
+| 📄 | `System.Threading.dll` | System artifact |
+| 📄 | `System.Transactions.Local.dll` | System artifact |
+| 📄 | `System.Transactions.dll` | System artifact |
+| 📄 | `System.ValueTuple.dll` | System artifact |
+| 📄 | `System.Web.HttpUtility.dll` | System artifact |
+| 📄 | `System.Web.dll` | System artifact |
+| 📄 | `System.Windows.Controls.Ribbon.dll` | System artifact |
+| 📄 | `System.Windows.Extensions.dll` | System artifact |
+| 📄 | `System.Windows.Input.Manipulations.dll` | System artifact |
+| 📄 | `System.Windows.Presentation.dll` | System artifact |
+| 📄 | `System.Windows.dll` | System artifact |
+| 📄 | `System.Xaml.dll` | System artifact |
+| 📄 | `System.Xml.Linq.dll` | System artifact |
+| 📄 | `System.Xml.ReaderWriter.dll` | System artifact |
+| 📄 | `System.Xml.Serialization.dll` | System artifact |
+| 📄 | `System.Xml.XDocument.dll` | System artifact |
+| 📄 | `System.Xml.XPath.XDocument.dll` | System artifact |
+| 📄 | `System.Xml.XPath.dll` | System artifact |
+| 📄 | `System.Xml.XmlDocument.dll` | System artifact |
+| 📄 | `System.Xml.XmlSerializer.dll` | System artifact |
+| 📄 | `System.Xml.dll` | System artifact |
+| 📄 | `System.dll` | System artifact |
+| 📄 | `UIAutomationClient.dll` | System artifact |
+| 📄 | `UIAutomationClientSideProviders.dll` | System artifact |
+| 📄 | `UIAutomationProvider.dll` | System artifact |
+| 📄 | `UIAutomationTypes.dll` | System artifact |
+| 📄 | `WindowsBase.dll` | System artifact |
+| 📄 | `clretwrc.dll` | System artifact |
+| 📄 | `clrgc.dll` | System artifact |
+| 📄 | `clrgcexp.dll` | System artifact |
+| 📄 | `clrjit.dll` | System artifact |
+| 📄 | `coreclr.dll` | System artifact |
+| 📄 | `createdump.exe` | System artifact |
+| 📄 | `hostfxr.dll` | System artifact |
+| 📄 | `hostpolicy.dll` | System artifact |
+| 📄 | `mscordaccore.dll` | System artifact |
+| 📄 | `mscordaccore_amd64_amd64_9.0.1526.17522.dll` | System artifact |
+| 📄 | `mscordbi.dll` | System artifact |
+| 📄 | `mscorlib.dll` | System artifact |
+| 📄 | `mscorrc.dll` | System artifact |
+| 📄 | `msquic.dll` | System artifact |
+| 📄 | `netstandard.dll` | System artifact |
+| 📄 | `qvault_core.pyd` | System artifact |
+| 📄 | `vcruntime140_cor3.dll` | System artifact |
+| 📄 | `wpfgfx_cor3.dll` | System artifact |
+
+---
+## 🔍 Professor-Grade Technical Deep Dive
+Implements an Inode-based filesystem simulation and a process table with PPID tracking. Features a hardened Event Bus with source verification for sensitive state transitions.
+
+---
+*Generated by the Sovereign Documentation Engine v4.1*

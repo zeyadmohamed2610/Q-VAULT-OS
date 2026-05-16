@@ -123,7 +123,7 @@ class MotionController:
     def minimize_window(window):
         """Scale down + fade out towards the bottom (simulating taskbar direction)."""
         if hasattr(window, "_min_anim") and window._min_anim.state() == QPropertyAnimation.Running:
-            return
+            return window._min_anim
         
         # Save geometry for restore
         window._pre_minimize_geom = window.geometry()

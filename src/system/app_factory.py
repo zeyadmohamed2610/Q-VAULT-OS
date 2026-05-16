@@ -18,7 +18,7 @@ def create_app_instance(
     Ensures 100% UX Consistency by using IsolatedAppWidget proxy for process apps.
     """
     # 1. Resolve Module and Class
-    ALLOWED_PREFIXES = ("ui.apps.", "ui.widgets.", "system.", "system.kernel.")
+    ALLOWED_PREFIXES = ("ui.apps.", "ui.widgets.", "ui.shell.", "system.", "system.kernel.")
     module_path = app_def.module
     if not module_path.startswith(ALLOWED_PREFIXES):
         module_path = f"ui.apps.{module_path}"

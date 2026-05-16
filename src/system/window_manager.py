@@ -71,7 +71,7 @@ class WindowManager(QObject):
         for wid in self._workspaces[self.current_workspace]:
             if wid in self._windows:
                 w = self._windows[wid]
-                if hasattr(w, "lbl_title") and w.lbl_title.text() == title:
+                if hasattr(w, "window_title") and w.window_title == title:
                     return w
         return None
 
@@ -333,11 +333,21 @@ class WindowManager(QObject):
         self.request_geometry(window_id, 
                              target_rect.x(), target_rect.y(), 
                              target_rect.width(), target_rect.height())
-        
+
+        # Map SnapZone to WindowSlot for downstream components
+        slot_map = {
+            SnapZone.LEFT: WindowSlot.HALF_LEFT,
+            SnapZone.RIGHT: WindowSlot.HALF_RIGHT,
+            SnapZone.MAXIMIZE: WindowSlot.MAXIMIZED,
+            SnapZone.TOP_LEFT: WindowSlot.QUARTER_TL,
+            SnapZone.TOP_RIGHT: WindowSlot.QUARTER_TR
+        }
+        final_slot = slot_map.get(zone, WindowSlot.NORMAL)
+
         # Emit fact for UI effects
         EVENT_BUS.emit(SystemEvent.EVT_WINDOW_SNAPPED, {
             "id": window_id,
-            "slot": zone
+            "slot": final_slot
         }, source="WindowManager")
 
 _instance = None

@@ -25,38 +25,37 @@ class OutputFormatter:
     @staticmethod
     def boot_banner() -> str:
         """
-        Q-VAULT ASCII art — pure ASCII, works in every monospace font.
+        Q-VAULT ASCII art — loaded from resources/ascii_logo.txt for parity.
         """
-        lines = [
-            "",
-            "  @@@@@@               @@@  @@@   @@@@@@   @@@  @@@  @@@       @@@@@@@  ",
-            " @@@@@@@@              @@@  @@@  @@@@@@@@  @@@  @@@  @@@       @@@@@@@  ",
-            " @@!  @@@              @@!  @@@  @@!  @@@  @@!  @@@  @@!         @@!    ",
-            " !@!  @!@              !@!  @!@  !@!  @!@  !@!  @!@  !@!         !@!    ",
-            " @!@  !@!   @!@!@!@!@  @!@  !@!  @!@!@!@!  @!@  !@!  @!!         @!!    ",
-            " !@!  !!!   !!!@!@!!!  !@!  !!!  !!!@!!!!  !@!  !!!  !!!         !!!    ",
-            " !!:!!:!:              :!:  !!:  !!:  !!!  !!:  !!!  !!:         !!:    ",
-            " :!: :!:                ::!!:!   :!:  !:!  :!:  !:!   :!:        :!:    ",
-            " ::::: :!                ::::    ::   :::  ::::: ::   :: ::::     ::    ",
-            "  : :  :::                :       :   : :   : :  :   : :: : :     :     ",
-            ""
-        ]
-        logo = "\n".join(lines)
+        logo = ""
+        try:
+            # Locate root relative to this file: src/ui/apps/terminal/_output_formatter.py
+            root = Path(__file__).parent.parent.parent.parent.parent
+            logo_path = root / "resources" / "ascii_logo.txt"
+            if logo_path.exists():
+                logo = logo_path.read_text(encoding="utf-8")
+        except Exception:
+            pass
+
+        if not logo:
+            logo = "  Q-VAULT SOVEREIGN OS\n"
+
+        # Apply bold cyan to the logo
+        elegant_logo = f"\033[1;36m{logo}\033[0m"
+
         return (
-            "\n" + logo + "\n"
-            "  -------------------------------------------------\n"
-            "  Secure AI-Powered OS Terminal  |  Q-Vault v1.0\n"
-            "  Rust Security Core Active  |  Session Encrypted  \n"
-            "  -------------------------------------------------\n"
+            f"\n{elegant_logo}\n"
+            "  \033[1;34m>>\033[0m Sovereign Intelligence Shell v1.0\n"
+            "  \033[1;34m>>\033[0m Session Encrypted & Secured\n"
             "\n"
-            "  Type 'help' for a command list, 'man <cmd>' for details.\n"
+            "  Type 'help' for commands, 'man <cmd>' for details.\n"
             "\n"
         )
 
     @staticmethod
     def setup_prompt_initial() -> str:
         return (
-            "Q-Vault: Secure AI-Powered Terminal Environment\n"
+            "Q-Vault Sovereign Intelligence Gateway\n"
             "[Security] Setup Master Key (Password): "
         )
 
@@ -250,7 +249,7 @@ class OutputFormatter:
         return (
             "\n"
             " ╔══════════════════════════════════════════════════════╗\n"
-            " ║          Q-Vault OS — Command Reference v1           ║\n"
+            " ║      Q-VAULT SOVEREIGN — Command Reference v1.0      ║\n"
             " ╚══════════════════════════════════════════════════════╝\n"
             "\n"
             " [ ∇ ] FILE & DIRECTORY MANAGEMENT\n"

@@ -112,13 +112,11 @@ class StorageWidget(QWidget):
         """)
 
     def _refresh(self):
-        import shutil
-        from system.config import get_qvault_home
         try:
-            total, used, free = shutil.disk_usage(get_qvault_home())
-            pct = int((used / total) * 100)
-            used_gb = used / (1024**3)
-            total_gb = total / (1024**3)
+            # Sovereign Storage Simulation (Host Leaks Prevented)
+            total_gb = 500.0
+            used_gb = 145.2 # Simulated usage
+            pct = int((used_gb / total_gb) * 100)
             
             # Dynamic coloring
             color = theme.THEME['primary_glow']

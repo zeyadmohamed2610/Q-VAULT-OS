@@ -5,7 +5,7 @@ import logging
 
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QFrame
+    QLabel, QPushButton, QFrame, QLineEdit
 )
 from PyQt5.QtCore import Qt, QPoint, pyqtSignal, QPointF
 from PyQt5.QtGui import QFont, QPainter, QRadialGradient, QColor
@@ -24,6 +24,7 @@ class LauncherPanel(QWidget):
         super().__init__(parent, Qt.Popup | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setFixedWidth(260)
+        self._action_buttons = []
         self._build_ui()
 
     def _build_ui(self):
@@ -81,6 +82,24 @@ class LauncherPanel(QWidget):
         
         lay.addSpacing(12)
 
+        # ── Search: Quick App Access ──
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search apps & actions...")
+        self.search_input.setStyleSheet(f"""
+            QLineEdit {{
+                background: rgba(0, 0, 0, 0.4);
+                color: white;
+                border: 1px solid rgba(0, 240, 255, 0.1);
+                border-radius: 12px;
+                padding: 8px 12px;
+                font-size: 11px;
+            }}
+            QLineEdit:focus {{ border-color: {THEME['primary_glow']}; }}
+        """)
+        self.search_input.textChanged.connect(self._on_search_changed)
+        lay.addWidget(self.search_input)
+        lay.addSpacing(4)
+
         # ── Telemetry: System Dashboard ──────────────────────
         tele_box = QVBoxLayout(); tele_box.setSpacing(10)
         
@@ -124,33 +143,34 @@ class LauncherPanel(QWidget):
                     color: white;
                 }}
             """)
+            self._action_buttons.append(btn)
             return btn
 
         # ── Group 1: Session Actions ──────────────────────────
-        lay.addWidget(self._make_section_header("SESSION"))
+        lay.addWidget(self._make_section_header("VAULT ACCESS"))
         
-        btn_lock = create_btn("Lock System", "🔒", THEME['primary_glow'])
+        btn_lock = create_btn("Restrict Access", "🔒", THEME['primary_glow'])
         btn_lock.clicked.connect(self._lock)
         lay.addWidget(btn_lock)
 
-        btn_logout = create_btn("Logout", "󰗽", THEME['primary_soft'])
+        btn_logout = create_btn("Relinquish Identity", "󰗽", THEME['primary_soft'])
         btn_logout.clicked.connect(self._logout)
         lay.addWidget(btn_logout)
 
-        btn_settings = create_btn("Account Settings", "⚙", THEME['primary_glow'])
+        btn_settings = create_btn("Identity Config", "⚙", THEME['primary_glow'])
         btn_settings.clicked.connect(self._open_settings)
         lay.addWidget(btn_settings)
 
         lay.addSpacing(6); lay.addWidget(self._make_separator()); lay.addSpacing(6)
 
         # ── Group 2: Power Actions ────────────────────────────
-        lay.addWidget(self._make_section_header("SYSTEM POWER"))
+        lay.addWidget(self._make_section_header("CORE POWER"))
 
-        btn_restart = create_btn("Restart System", "󰜉", THEME['warning']) 
+        btn_restart = create_btn("Warm Reboot", "󰜉", THEME['warning']) 
         btn_restart.clicked.connect(self._restart)
         lay.addWidget(btn_restart)
         
-        off_btn = create_btn("Power Off", "󰐥", THEME['accent_error'], is_critical=True)
+        off_btn = create_btn("System Cold-Start", "󰐥", THEME['accent_error'], is_critical=True)
         off_btn.clicked.connect(self._shutdown)
         lay.addWidget(off_btn)
 
@@ -198,10 +218,20 @@ class LauncherPanel(QWidget):
         from system.system_helper import SystemControlHelper
         SystemControlHelper.power_action("shutdown")
 
+    def _on_search_changed(self, text):
+        text = text.lower()
+        for btn in self._action_buttons:
+            if text in btn.text().lower():
+                btn.show()
+            else:
+                btn.hide()
+
     def popup_above(self, pos: QPoint):
+        self.search_input.clear()
         self.adjustSize()
         self.move(pos.x() - self.width() // 2, pos.y() - self.height() - 15)
         self.show()
+        self.search_input.setFocus()
 
     def paintEvent(self, event):
         # Card style handled by stylesheet

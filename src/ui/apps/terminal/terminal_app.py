@@ -5,9 +5,9 @@ import psutil
 from pathlib import Path
 from collections import deque
 
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QScrollBar, QFrame, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QPlainTextEdit, QScrollBar, QFrame, QLabel, QTabWidget, QPushButton, QLineEdit
 from PyQt5.QtGui import QFont, QColor, QTextCharFormat, QSyntaxHighlighter, QTextCursor, QPainter
-from PyQt5.QtCore import Qt, pyqtSignal, QEvent, QTimer
+from PyQt5.QtCore import Qt, pyqtSignal, QEvent, QTimer, pyqtSlot
 
 from system.config import get_qvault_home
 from core.event_bus import EVENT_BUS, SystemEvent
@@ -24,10 +24,10 @@ def _best_mono_font(size: int = 12) -> QFont:
     Returns the standardized sovereign monospace font.
     """
     from resources.theme import FONT_MONO
-    # FONT_MONO is a string of the family name from the design tokens
-    f = QFont(FONT_MONO, size)
+    f = QFont("Consolas", size)  # Force Consolas for ASCII art stability
     f.setStyleHint(QFont.Monospace)
     f.setFixedPitch(True)
+    f.setLetterSpacing(QFont.AbsoluteSpacing, 0)
     return f
 
 class _Highlighter(QSyntaxHighlighter):
@@ -98,15 +98,18 @@ class TerminalBuffer(QPlainTextEdit):
         self._history = []
         self._hist_idx = -1
         self._is_password_mode = False
+        self.setAcceptDrops(True)
         
         # Terminal styling — use best available font for box-drawing char support
         self.setFont(_best_mono_font(12))
         self.document().setDocumentMargin(8)
-        # Override global stylesheet with glassmorphic depth
+        # Override global stylesheet with glassmorphic depth and force monospace font
+        from resources.theme import FONT_MONO
         self.setStyleSheet(f"""
             QPlainTextEdit {{
                 background: rgba(6, 8, 13, 160); 
                 color: {THEME['text_main']}; 
+                font-family: {FONT_MONO};
                 border: none; 
                 padding: 4px;
                 border-radius: 8px;
@@ -116,10 +119,10 @@ class TerminalBuffer(QPlainTextEdit):
         self.document().setMaximumBlockCount(3000)
         
         # ── v2.0 Precise Typography ──
-        # Set line height to 100% (1.0) to ensure ASCII segments touch vertically
+        # Use FixedHeight to ensure ASCII block characters touch vertically
         from PyQt5.QtGui import QTextBlockFormat
         fmt = QTextBlockFormat()
-        fmt.setLineHeight(100, QTextBlockFormat.ProportionalHeight)
+        fmt.setLineHeight(15, QTextBlockFormat.FixedHeight)
         self.textCursor().setBlockFormat(fmt)
         
         self._suggestion = ""
@@ -356,6 +359,16 @@ class TerminalBuffer(QPlainTextEdit):
                 cursor.removeSelectedText()
                 return
 
+            # Ctrl+Shift+V: Explicit Paste
+            if (event.modifiers() & Qt.ShiftModifier) and event.key() == Qt.Key_V:
+                self.paste()
+                return
+                
+            # Ctrl+Shift+C: Explicit Copy
+            if (event.modifiers() & Qt.ShiftModifier) and event.key() == Qt.Key_C:
+                self.copy()
+                return
+
             # Ctrl+W: Clear word before cursor
             if event.key() == Qt.Key_W:
                 if cursor.position() > self._prompt_pos:
@@ -447,6 +460,45 @@ class TerminalBuffer(QPlainTextEdit):
         # Update suggestion after any text change
         self._update_suggestion()
 
+    def wheelEvent(self, event):
+        """Handle font zooming with Ctrl + Mouse Wheel."""
+        if event.modifiers() & Qt.ControlModifier:
+            delta = event.angleDelta().y()
+            font = self.font()
+            size = font.pointSize()
+            if delta > 0:
+                size = min(36, size + 1)
+            else:
+                size = max(6, size - 1)
+            font.setPointSize(size)
+            self.setFont(font)
+            event.accept()
+        else:
+            super().wheelEvent(event)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        """Drop file paths into terminal."""
+        if event.mimeData().hasUrls():
+            paths = [url.toLocalFile() for url in event.mimeData().urls()]
+            if paths:
+                # Wrap paths with spaces in quotes
+                formatted = []
+                for p in paths:
+                    if " " in p: formatted.append(f'"{p}"')
+                    else: formatted.append(p)
+                
+                self.moveCursor(QTextCursor.End)
+                self.insertPlainText(" ".join(formatted))
+                event.acceptProposedAction()
+                self.setFocus()
+
     def _update_suggestion(self):
         curr_raw = self._get_current_input()
         curr = curr_raw.strip()
@@ -489,46 +541,148 @@ class TerminalBuffer(QPlainTextEdit):
             self.viewport().update()
 
 class TerminalApp(QWidget):
-    def __init__(self, secure_api=None, start_path: str = None, role_override: str = None, parent=None):
+    def __init__(self, secure_api=None, start_path: str = None, role_override: str = None, parent=None, **kwargs):
         super().__init__(parent)
         self.secure_api = secure_api
         self._base_dir = Path(get_qvault_home()).resolve()
         
         # v1.0 Refactor: Use TerminalEngine for core logic
         from .terminal_engine import TerminalEngine
-        start_path_obj = Path(start_path).resolve() if start_path else None
-        self._engine = TerminalEngine(secure_api=secure_api, start_path=start_path_obj)
+        self._start_path = Path(start_path).resolve() if start_path else None
+        self._role_override = role_override
         
         self._setup_ui()
         
-        # Inject engine into buffer for context menu and suggestions
-        self._buffer._engine = self._engine
+        # Create initial tab
+        self.add_new_tab(self._start_path, self._role_override)
         
-        # Connect Engine -> Buffer
-        self._engine.output_ready.connect(self._buffer.append_output)
-        self._engine.prompt_update.connect(lambda _, p: self._buffer.set_prompt_text(p))
-        self._engine.password_mode.connect(lambda _, m: self._buffer.set_password_mode(m))
+        # Shortcuts
+        self._setup_shortcuts()
+
+    def _setup_shortcuts(self):
+        from PyQt5.QtWidgets import QShortcut
+        from PyQt5.QtGui import QKeySequence
         
-        # Connect Buffer -> Engine
-        self._buffer.command_entered.connect(self._engine.execute_command)
-        self._buffer.tab_pressed.connect(self._handle_tab)
+        # Ctrl+Tab: Next Tab
+        self._sc_next = QShortcut(QKeySequence("Ctrl+Tab"), self)
+        self._sc_next.activated.connect(self._next_tab)
         
-        # Connect State changes to UI
-        self._engine.state_changed.connect(self._update_state_ui)
+        # Ctrl+Shift+Tab: Prev Tab
+        self._sc_prev = QShortcut(QKeySequence("Ctrl+Shift+Tab"), self)
+        self._sc_prev.activated.connect(self._prev_tab)
         
-        # Hook nano/notepad requests
-        self._engine._executor._on_nano_request = self._open_nano
-        self._engine._executor._on_notepad_request = self._open_notepad
+        # Ctrl+T: New Tab
+        self._sc_new = QShortcut(QKeySequence("Ctrl+T"), self)
+        self._sc_new.activated.connect(lambda: self.add_new_tab())
+
+    def _next_tab(self):
+        idx = self.tabs.currentIndex()
+        self.tabs.setCurrentIndex((idx + 1) % self.tabs.count())
+
+    def _prev_tab(self):
+        idx = self.tabs.currentIndex()
+        self.tabs.setCurrentIndex((idx - 1) % self.tabs.count())
+
+    @pyqtSlot(str)
+    def _on_output_ready(self, text: str):
+        sender = self.sender()
+        # Find which buffer belongs to this engine
+        for i in range(self.tabs.count()):
+            tab = self.tabs.widget(i)
+            if hasattr(tab, "_engine") and tab._engine == sender:
+                tab._buffer.append_output(text)
+                return
+
+    @pyqtSlot(str, str)
+    def _on_prompt_update(self, dummy: str, text: str):
+        sender = self.sender()
+        for i in range(self.tabs.count()):
+            tab = self.tabs.widget(i)
+            if hasattr(tab, "_engine") and tab._engine == sender:
+                tab._buffer.set_prompt_text(text)
+                # Update tab text to show current dir
+                cwd_name = sender.cwd.name or "Home"
+                self.tabs.setTabText(i, f" {cwd_name} ")
+                return
+
+    @pyqtSlot(str, bool)
+    def _on_password_mode(self, dummy: str, mode: bool):
+        sender = self.sender()
+        for i in range(self.tabs.count()):
+            tab = self.tabs.widget(i)
+            if hasattr(tab, "_engine") and tab._engine == sender:
+                tab._buffer.set_password_mode(mode)
+                return
+
+    @pyqtSlot(object)
+    def _on_state_changed(self, state):
+        self._update_state_ui(state)
+
+    def add_new_tab(self, path=None, role=None):
+        from .terminal_engine import TerminalEngine
+        tab_widget = QWidget()
+        tab_layout = QVBoxLayout(tab_widget)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
         
-        if role_override == "admin":
-            # Already authenticated by desktop context menu
-            self._engine.boot_terminal(skip_prompt=True)
-            self._engine._elevate_to_root()
+        engine = TerminalEngine(secure_api=self.secure_api, start_path=path)
+        buffer = TerminalBuffer()
+        buffer._engine = engine
+        tab_widget._engine = engine
+        tab_widget._buffer = buffer
+        
+        tab_layout.addWidget(buffer)
+        
+        # Connect
+        engine.output_ready.connect(self._on_output_ready, Qt.QueuedConnection)
+        engine.prompt_update.connect(self._on_prompt_update, Qt.QueuedConnection)
+        engine.password_mode.connect(self._on_password_mode, Qt.QueuedConnection)
+        engine.state_changed.connect(self._on_state_changed, Qt.QueuedConnection)
+        
+        buffer.command_entered.connect(engine.execute_command)
+        buffer.tab_pressed.connect(lambda inp: self._handle_tab_for(engine, buffer, inp))
+        
+        engine._executor._on_nano_request = lambda p: self._open_nano_for(tab_widget, p)
+        engine._executor._on_notepad_request = lambda p: self._open_notepad_for(tab_widget, p)
+        
+        idx = self.tabs.addTab(tab_widget, " Terminal ")
+        self.tabs.setCurrentIndex(idx)
+        
+        if role == "admin":
+            engine.boot_terminal(skip_prompt=True)
+            engine._elevate_to_root()
         else:
-            self._engine.boot_terminal()
+            engine.boot_terminal()
             
-        # Scroll to bottom so prompt is visible
-        QTimer.singleShot(100, self._buffer.ensureCursorVisible)
+        QTimer.singleShot(100, buffer.setFocus)
+
+    def _handle_tab_for(self, engine, buffer, current_input):
+        # Implementation moved from _handle_tab to support multiple instances
+        if not current_input: return
+        parts = current_input.split()
+        last_part = current_input.split()[-1] if not current_input.endswith(" ") else ""
+        matches = []
+        cwd = engine.cwd
+        if "/" in last_part or len(parts) > 1 or current_input.endswith(" "):
+            try:
+                search_dir = (cwd / last_part).parent.resolve() if "/" in last_part else cwd
+                name_prefix = Path(last_part).name if "/" in last_part else last_part
+                if search_dir.exists():
+                    for entry in search_dir.iterdir():
+                        if entry.name.startswith(name_prefix):
+                            suffix = "/" if entry.is_dir() else ""
+                            matches.append(entry.name + suffix)
+            except Exception: pass
+        if (len(parts) <= 1 and not current_input.endswith(" ")) and "/" not in last_part:
+            from ._commands import COMMAND_REGISTRY
+            matches += [c for c in COMMAND_REGISTRY.keys() if c.startswith(last_part)]
+        matches = sorted(list(set(matches)))
+        if len(matches) == 1:
+            new_input = current_input[:current_input.rfind(last_part)] + matches[0]
+            buffer._replace_current_input(new_input)
+        elif len(matches) > 1:
+            buffer.append_output("\n" + "  ".join(matches))
+            engine._emit_prompt()
+            buffer._replace_current_input(current_input)
 
     def _setup_ui(self):
         self.layout = QVBoxLayout(self)
@@ -558,16 +712,65 @@ class TerminalApp(QWidget):
         header_layout.addWidget(self.state_label)
         
         header_layout.addStretch()
+
+        self.add_tab_btn = QPushButton("+")
+        self.add_tab_btn.setFixedSize(24, 24)
+        self.add_tab_btn.setToolTip("New Tab")
+        self.add_tab_btn.clicked.connect(lambda: self.add_new_tab(self._start_path))
+        self.add_tab_btn.setStyleSheet(f"""
+            QPushButton {{ 
+                background: {THEME['hover_glow']}; color: {THEME['primary_glow']}; 
+                border-radius: 4px; font-weight: bold; border: 1px solid {THEME['border_subtle']};
+            }}
+            QPushButton:hover {{ background: {THEME['primary_glow']}; color: {THEME['bg_dark']}; }}
+        """)
+        header_layout.addWidget(self.add_tab_btn)
         
         self.metrics_label = QLabel("CPU: 0%  |  MEM: 0%")
         header_layout.addWidget(self.metrics_label)
         
         self.layout.addWidget(self.header)
 
-        # ── Buffer ──
-        self._buffer = TerminalBuffer()
-        self._hl = _Highlighter(self._buffer.document())
-        self.layout.addWidget(self._buffer)
+        # ── Tabs ──
+        self.tabs = QTabWidget()
+        self.tabs.setTabsClosable(True)
+        self.tabs.tabCloseRequested.connect(self._close_tab)
+        self.tabs.setStyleSheet(f"""
+            QTabWidget::pane {{ border: none; background: transparent; }}
+            QTabBar::tab {{
+                background: {THEME['bg_dark']}; color: {THEME['text_dim']};
+                padding: 6px 12px; border-top-left-radius: 4px; border-top-right-radius: 4px;
+                margin-right: 2px; border: 1px solid {THEME['border_subtle']}; border-bottom: none;
+            }}
+            QTabBar::tab:selected {{
+                background: rgba(6, 8, 13, 200); color: {THEME['primary_glow']};
+                border-color: {THEME['primary_glow']};
+            }}
+            QTabBar::close-button {{ image: none; }} /* Custom close logic or icon if needed */
+        """)
+        self.layout.addWidget(self.tabs)
+
+        # ── Search Bar (Hidden by default) ──
+        self.search_container = QFrame()
+        self.search_container.hide()
+        self.search_container.setFixedHeight(34)
+        self.search_container.setStyleSheet(f"background: {THEME['bg_dark']}; border-top: 1px solid {THEME['border_subtle']};")
+        search_layout = QHBoxLayout(self.search_container)
+        search_layout.setContentsMargins(15, 0, 15, 0)
+        
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search in output... (Esc to close)")
+        self.search_input.setStyleSheet("border: none; background: transparent;")
+        self.search_input.textChanged.connect(self._do_search)
+        self.search_input.returnPressed.connect(self._do_search)
+        search_layout.addWidget(self.search_input)
+        
+        btn_close_search = QPushButton("✕")
+        btn_close_search.setFixedSize(20, 20)
+        btn_close_search.clicked.connect(self.search_container.hide)
+        search_layout.addWidget(btn_close_search)
+        
+        self.layout.addWidget(self.search_container)
 
         # Metrics update timer
         self._metrics_timer = QTimer(self)
@@ -582,20 +785,30 @@ class TerminalApp(QWidget):
         except Exception:
             pass
 
-    def _set_dim(self, enabled: bool):
-        """Toggle a semi-transparent dimming overlay for focus."""
-        if not hasattr(self, "_dim_overlay"):
-            self._dim_overlay = QFrame(self)
-            self._dim_overlay.setStyleSheet("background: rgba(0, 0, 0, 160);")
-            self._dim_overlay.hide()
-            
-        if enabled:
-            # Match buffer geometry
-            self._dim_overlay.setGeometry(self._buffer.geometry())
-            self._dim_overlay.show()
-            self._dim_overlay.raise_()
+    def _do_search(self):
+        text = self.search_input.text()
+        current_tab = self.tabs.currentWidget()
+        if not current_tab: return
+        
+        buffer = current_tab._buffer
+        if not text:
+            # Clear highlights (by resetting format or just moving cursor)
+            return
+
+        # Simple search and scroll
+        if not buffer.find(text):
+            # If not found from current pos, try from beginning
+            cursor = buffer.textCursor()
+            cursor.movePosition(QTextCursor.Start)
+            buffer.setTextCursor(cursor)
+            buffer.find(text)
+
+    def _close_tab(self, index):
+        if self.tabs.count() > 1:
+            self.tabs.removeTab(index)
         else:
-            self._dim_overlay.hide()
+            # Maybe close the whole app or just don't allow closing last tab
+            pass
 
     def _update_state_ui(self, state):
         # Update header based on engine state
@@ -612,6 +825,7 @@ class TerminalApp(QWidget):
         else:
             self.state_label.setText("[ ⚛ ] NORMAL")
             self.state_label.setStyleSheet(f"color: {THEME['primary_glow']};")
+
 
     def _handle_tab(self, current_input):
         if not current_input: return
@@ -676,55 +890,65 @@ class TerminalApp(QWidget):
             self._engine._emit_prompt()
             self._buffer._replace_current_input(current_input)
 
-    def _open_nano(self, file_path):
-        """Opens the NanoEditor overlay."""
-        self._set_dim(True)
+    def _open_nano_for(self, tab, file_path):
+        """Opens the NanoEditor overlay for a specific tab."""
+        # Dimming logic would need adjustment for tabs, for now just open
         try:
             content = ""
             if file_path.exists():
                 content = file_path.read_text(encoding='utf-8')
             
-            self.nano = NanoEditor(file_path, content, parent=self)
-            self.nano.setGeometry(self.rect())
+            self.nano = NanoEditor(file_path, content, parent=tab)
+            self.nano.setGeometry(tab.rect())
             self.nano.show()
-            self.nano.closed.connect(self._on_nano_closed)
+            self.nano.closed.connect(lambda: tab._buffer.setFocus())
         except Exception as e:
-            self._buffer.append_output(f"[ERROR] Nano failed: {e}")
-            self._set_dim(False)
+            tab._buffer.append_output(f"[ERROR] Nano failed: {e}")
 
-    def _on_nano_closed(self):
-        self._set_dim(False)
-        self._buffer.setFocus()
-        # Trigger a prompt refresh from engine
-        self._engine._emit_prompt()
-
-    def _open_notepad(self, file_path=None):
-        """Opens the NotepadApp overlay."""
-        self._set_dim(True)
+    def _open_notepad_for(self, tab, file_path=None):
+        """Opens the NotepadApp overlay for a specific tab."""
         try:
-            self.notepad = NotepadApp(secure_api=self.secure_api, parent=self)
+            self.notepad = NotepadApp(secure_api=self.secure_api, parent=tab)
             if file_path and file_path.exists():
                 self.notepad._open_file(str(file_path))
             
-            self.notepad.setGeometry(self.rect())
-            self.notepad.closed.connect(self._on_notepad_closed)
+            self.notepad.setGeometry(tab.rect())
+            self.notepad.closed.connect(lambda: tab._buffer.setFocus())
             self.notepad.show()
         except Exception as e:
-            self._buffer.append_output(f"[ERROR] Notepad failed: {e}")
-            self._set_dim(False)
-
-    def _on_notepad_closed(self):
-        self._set_dim(False)
-        self._buffer.setFocus()
-        self._engine._emit_prompt()
+            tab._buffer.append_output(f"[ERROR] Notepad failed: {e}")
 
     def change_directory(self, path: str):
-        """API for external callers to dynamically change directory."""
+        """API for external callers to dynamically change directory on active tab."""
         t = Path(path).resolve()
-        # Direct access to engine's executor to update CWD
-        self._engine._executor.cwd = t
-        self._engine._emit_prompt()
+        current_tab = self.tabs.currentWidget()
+        if current_tab and hasattr(current_tab, "_engine"):
+            current_tab._engine._executor.cwd = t
+            current_tab._engine._emit_prompt()
 
     def showEvent(self, event):
         super().showEvent(event)
-        self._buffer.setFocus()
+        current_tab = self.tabs.currentWidget()
+        if current_tab:
+            current_tab._buffer.setFocus()
+
+    def keyPressEvent(self, event):
+        # Global Terminal Shortcuts
+        if event.modifiers() & Qt.ControlModifier:
+            if event.key() == Qt.Key_F:
+                self.search_container.show()
+                self.search_input.setFocus()
+                return
+            if event.key() == Qt.Key_T:
+                self.add_new_tab(self._start_path)
+                return
+            if event.key() == Qt.Key_W:
+                self._close_tab(self.tabs.currentIndex())
+                return
+        
+        if event.key() == Qt.Key_Escape:
+            if self.search_container.isVisible():
+                self.search_container.hide()
+                return
+
+        super().keyPressEvent(event)

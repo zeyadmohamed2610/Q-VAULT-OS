@@ -113,6 +113,7 @@ class Scheduler:
         
         # ── Lifecycle Synchronization ──
         # Ensure scheduler cleans up when processes die elsewhere
+        EVENT_BUS.subscribe(SystemEvent.PROC_SPAWNED,   self._on_process_spawned)
         EVENT_BUS.subscribe(SystemEvent.PROC_STOPPED,   self._on_proc_death)
         EVENT_BUS.subscribe(SystemEvent.PROC_COMPLETED, self._on_proc_death)
         
@@ -123,6 +124,7 @@ class Scheduler:
         if not self._subscribed:
             return
         EVENT_BUS.unsubscribe(SystemEvent.CLOCK_TICK, self._on_tick)
+        EVENT_BUS.unsubscribe(SystemEvent.PROC_SPAWNED,   self._on_process_spawned)
         EVENT_BUS.unsubscribe(SystemEvent.PROC_STOPPED,   self._on_proc_death)
         EVENT_BUS.unsubscribe(SystemEvent.PROC_COMPLETED, self._on_proc_death)
         self._subscribed = False
@@ -179,6 +181,20 @@ class Scheduler:
         if pid is not None:
             with self._lock:
                 self.remove_process(pid)
+
+    def _on_process_spawned(self, payload: EventPayload) -> None:
+        """Bridge actual OS processes into the simulated scheduler."""
+        proc_data = payload.data.get("process")
+        if proc_data:
+            pid = proc_data.get("pid")
+            name = proc_data.get("name", "unknown")
+            # Create a simulation Process object
+            import random
+            burst = random.randint(50, 300) # Give it a random dummy burst time for simulation
+            sim_p = Process(pid=pid, name=name, argv=[name], owner="system", status=STATUS_READY)
+            sim_p.burst_time = burst
+            sim_p.remaining_time = burst
+            self.add_process(sim_p)
 
     # ── Tick handler ─────────────────────────────────────────────
 

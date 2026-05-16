@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import os
 import shlex
+import re
 from typing import NamedTuple
+from system.config import get_qvault_home
 
 
 # ── Subprocess Whitelist ──────────────────────────────────────────────────────
@@ -113,7 +115,7 @@ class CommandParser:
     })
 
     @classmethod
-    def parse(cls, raw: str, aliases: dict[str, str] | None = None) -> ParsedCommand:
+    def parse(cls, raw: str, aliases: dict[str, str] | None = None, cwd: Path | None = None) -> ParsedCommand:
         """
         Tokenise raw input into a ParsedCommand.
 
@@ -143,6 +145,27 @@ class CommandParser:
                 if remainder:
                     expanded += " " + remainder
                 raw = expanded
+
+        # ── Environment Variable Expansion ──────────────────────────────────
+        # Expand $VAR patterns using a combination of OS env and system logic
+        import re
+        def _expand_match(m):
+            var_name = m.group(1)
+            # System specific overrides
+            if var_name == "HOME": return str(get_qvault_home())
+            if var_name == "USER": return "user"
+            return os.environ.get(var_name, f"${var_name}")
+        
+        raw = re.sub(r'\$([A-zA-Z_][a-zA-Z0-9_]*)', _expand_match, raw)
+
+        # ── Tilde Expansion ────────────────────────────────────────────────
+        home = str(get_qvault_home())
+        if raw == "~" or raw.startswith("~/"):
+            raw = raw.replace("~", home, 1)
+        elif " ~/" in raw:
+            raw = raw.replace(" ~/", f" {home}/")
+        elif " ~ " in raw:
+            raw = raw.replace(" ~ ", f" {home} ")
 
         # ── Tokenise ──────────────────────────────────────────────────────
         try:
@@ -183,7 +206,24 @@ class CommandParser:
                 for ch in token[1:]:
                     flags.add(ch)
             else:
-                args.append(token)
+                # ── Globbing ──────────────────────────────────────────────
+                if "*" in token or "?" in token:
+                    import glob
+                    # Search relative to current directory if provided
+                    search_pattern = token
+                    if cwd and not os.path.isabs(token):
+                        search_pattern = str(cwd / token)
+                    
+                    matches = glob.glob(search_pattern)
+                    if matches:
+                        # Convert back to relative names if we added cwd
+                        if cwd and not os.path.isabs(token):
+                            matches = [os.path.relpath(m, str(cwd)) for m in matches]
+                        args.extend(matches)
+                    else:
+                        args.append(token)
+                else:
+                    args.append(token)
 
         # ── Redirection extraction ─────────────────────────────────────────
         redirect_file = None

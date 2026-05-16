@@ -91,6 +91,29 @@ class CommandContext:
     }
     # Command history (populated by TerminalEngine before dispatch)
     _history: ClassVar[list[str]] = []
+    _history_file: ClassVar[Path] = Path(".qvault/terminal_history.txt")
+
+    @classmethod
+    def load_history(cls):
+        """Load history from disk."""
+        try:
+            h_file = Path(os.environ.get("QVAULT_HOME", ".")) / cls._history_file
+            if h_file.exists():
+                cls._history = h_file.read_text(encoding="utf-8").splitlines()
+        except Exception:
+            pass
+
+    @classmethod
+    def save_history(cls):
+        """Save history to disk."""
+        try:
+            h_dir = Path(os.environ.get("QVAULT_HOME", ".")) / ".qvault"
+            h_dir.mkdir(parents=True, exist_ok=True)
+            h_file = h_dir / "terminal_history.txt"
+            # Keep only last 1000 lines
+            h_file.write_text("\n".join(cls._history[-1000:]), encoding="utf-8")
+        except Exception:
+            pass
 
     def __init__(self, executor) -> None:
         self.executor  = executor

@@ -44,7 +44,7 @@ class _AppIcon(QWidget):
     def __init__(self, data: dict, parent=None):
         super().__init__(parent)
         self.data = data
-        self.setFixedSize(48, 48)
+        self.setFixedSize(44, 44)
         self.setCursor(Qt.PointingHandCursor)
         self.setToolTip(data.get("app_name", "App"))
         self._hov = False
@@ -68,19 +68,21 @@ class _AppIcon(QWidget):
         p.setRenderHint(QPainter.Antialiasing)
         rect = self.rect().adjusted(4, 4, -4, -4)
         if self._hov:
-            p.setBrush(QColor(255, 255, 255, 20))
+            p.setBrush(QColor(84, 177, 198, 20))
             p.setPen(Qt.NoPen)
-            p.drawRoundedRect(rect, 10, 10)
+            p.drawRoundedRect(rect, 12, 12)
         if self.data.get("is_running"):
             ind_w = 24 if self.data.get("active") else 16
             ind_col = QColor(THEME['primary_glow'])
+            p.setPen(Qt.NoPen)
             if self.data.get("active"):
                 p.setBrush(QColor(THEME['primary_glow'] + "15"))
-                p.drawRoundedRect(rect, 10, 10)
+                p.drawRoundedRect(rect, 12, 12)
+            
             p.setBrush(ind_col)
-            p.setPen(Qt.NoPen)
             p.drawRoundedRect(self.width()//2 - ind_w//2, self.height() - 6, ind_w, 3, 1.5, 1.5)
-        p.drawPixmap(self.width()//2 - 13, self.height()//2 - 15, self._pix)
+        
+        p.drawPixmap(self.width()//2 - 13, self.height()//2 - 13, self._pix)
         p.end()
 
 class _DockClock(QWidget):
@@ -108,7 +110,10 @@ class TaskbarUI(QWidget):
     app_clicked   = pyqtSignal(str)
     close_app     = pyqtSignal(str)
     new_instance_requested = pyqtSignal(str)
+    run_as_admin_requested = pyqtSignal(str) # app_name
     open_launcher = pyqtSignal()
+    pin_app = pyqtSignal(str)
+    unpin_app = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -139,7 +144,7 @@ class TaskbarUI(QWidget):
         self.logo_btn.setFixedSize(40, 40)
         self.logo_btn.setObjectName("SystemLogo")
         self.logo_btn.setCursor(Qt.PointingHandCursor)
-        self.logo_btn.setToolTip("Q-Vault System Menu")
+        self.logo_btn.setToolTip("Sovereign Command Center")
         
         # Load qvault_logo.svg as icon
         _logo_pix = _render_svg("icons/qvault_logo.svg", 28)
@@ -203,8 +208,42 @@ class TaskbarUI(QWidget):
         
         self._init_systray()
         il.addWidget(_DockClock())
+        
+        # ── v2.0 Peek / Show Desktop Button ──
+        self.peek_btn = QPushButton()
+        self.peek_btn.setFixedSize(12, 36)
+        self.peek_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: rgba(0, 230, 255, 0.05);
+                border-left: 1px solid rgba(0, 230, 255, 0.2);
+                border-radius: 0;
+            }}
+            QPushButton:hover {{ background: rgba(0, 230, 255, 0.2); }}
+        """)
+        self.peek_btn.clicked.connect(lambda: self.app_clicked.emit("__PEEK__"))
+        il.addWidget(self.peek_btn)
+        
         outer.addWidget(self.pill, alignment=Qt.AlignCenter)
         self._init_launcher()
+
+    def contextMenuEvent(self, event):
+        """Right-click taskbar to open system controls."""
+        from PyQt5.QtWidgets import QMenu
+        menu = QMenu(self)
+        menu.setStyleSheet(f"QMenu {{ background: {THEME['bg_dark']}; border: 1px solid {THEME['border_color']}; color: white; padding: 4px; border-radius: 8px; }}")
+        
+        tm_act = menu.addAction("🛠  Sovereign Task Manager")
+        tm_act.triggered.connect(self._launch_task_manager)
+        
+        menu.addSeparator()
+        
+        settings_act = menu.addAction("⚙  Core Configurations")
+        settings_act.triggered.connect(lambda: self.new_instance_requested.emit("Core Configurations"))
+        
+        menu.exec_(event.globalPos())
+
+    def _launch_task_manager(self):
+        self.new_instance_requested.emit("System Intelligence") # Or a dedicated Task Manager if we registered one
 
     def _init_systray(self):
         self._wifi_btn = TrayIconButton("resources/icons/wifi.svg", "Wi-Fi")
@@ -234,14 +273,16 @@ class TaskbarUI(QWidget):
     def update_state(self, state):
         apps_data = state.get("apps", [])
         current_ids = set(self._tabs.keys())
-        incoming_ids = {a["app_name"] for a in apps_data}
+        incoming_ids = {a.get("aid", a["app_name"]) for a in apps_data}
         
         for aid in current_ids - incoming_ids:
             widget = self._tabs.pop(aid)
+            self._app_list_l.removeWidget(widget)
+            widget.setParent(None)
             widget.deleteLater()
             
         for a in apps_data:
-            aid = a["app_name"]
+            aid = a.get("aid", a["app_name"])
             if aid in self._tabs:
                 self._tabs[aid].update_data(a)
             else:
@@ -261,32 +302,96 @@ class TaskbarUI(QWidget):
         self.app_clicked.emit(instance_id)
 
     def _on_app_right_clicked(self, data, pos):
-        from PyQt5.QtWidgets import QMenu
+        from PyQt5.QtWidgets import QMenu, QAction
         menu = QMenu(self)
-        menu.setStyleSheet(f"QMenu {{ background: {THEME['bg_dark']}; border: 1px solid {THEME['border_color']}; color: white; padding: 4px; border-radius: 8px; }}")
+        # Apply professional glassmorphic menu style
+        menu.setStyleSheet(f"""
+            QMenu {{
+                background: rgba(15, 25, 35, 235);
+                border: 1px solid {THEME['primary_glow']}33;
+                border-radius: 12px;
+                padding: 6px;
+                color: {THEME['text_main']};
+                font-family: 'Inter', 'Segoe UI';
+                font-size: 13px;
+            }}
+            QMenu::item {{
+                padding: 8px 32px 8px 12px;
+                border-radius: 6px;
+                margin: 2px 0;
+            }}
+            QMenu::item:selected {{
+                background: {THEME['primary_glow']}22;
+                color: {THEME['primary_glow']};
+            }}
+            QMenu::separator {{
+                height: 1px;
+                background: {THEME['primary_glow']}11;
+                margin: 6px 10px;
+            }}
+        """)
         
+        app_name = data.get("app_name", "Application")
+        
+        # ── 1. Execution Controls ──
         if data.get("is_running"):
-            menu.addAction("✕  Close Window").triggered.connect(lambda: self._emit_close(data["instances"][0]))
+            act_focus = menu.addAction(f"🗔  Focus {app_name}")
+            act_focus.triggered.connect(lambda: self.app_clicked.emit(data["instances"][0]))
+            
+            act_new = menu.addAction(f"➕  New Instance")
+            act_new.triggered.connect(lambda: self.new_instance_requested.emit(app_name))
+            
             menu.addSeparator()
-            menu.addAction("💀  FORCE KILL").triggered.connect(lambda: self._emit_kill(data["instances"][0]))
+            
+            act_term = menu.addAction("✕  Terminate Interface")
+            act_term.triggered.connect(lambda: self.close_app.emit(data["instances"][0]))
+            
+            act_kill = menu.addAction("💀  CRITICAL PURGE")
+            act_kill.setToolTip("Force kill all processes associated with this app.")
+            act_kill.triggered.connect(lambda: self._emit_kill(data["instances"][0]))
         else:
-            menu.addAction("🚀  Launch App").triggered.connect(lambda: self._on_app_clicked(data))
+            act_init = menu.addAction(f"🚀  Initialize {app_name}")
+            act_init.triggered.connect(lambda: self.new_instance_requested.emit(app_name))
+            
+        act_admin = menu.addAction("🛡️  Run as Administrator")
+        act_admin.triggered.connect(lambda: self.run_as_admin_requested.emit(app_name))
+        
+        menu.addSeparator()
+        
+        # ── 2. Persistence Controls ──
+        is_pinned = data.get("is_pinned", False)
+        pin_text = "📌  Unanchor from Workspace" if is_pinned else "📌  Anchor to Workspace"
+        act_pin = menu.addAction(pin_text)
+        if is_pinned:
+            act_pin.triggered.connect(lambda: self.unpin_app.emit(app_name))
+        else:
+            act_pin.triggered.connect(lambda: self.pin_app.emit(app_name))
+            
         menu.exec_(pos)
 
-    def _emit_close(self, iid):
-        self.close_app.emit(iid)
-
     def _emit_kill(self, iid):
+        """Kernel-level hard kill bypass."""
         from system.runtime_manager import RUNTIME_MANAGER
+        # 1. Trigger the Kernel Kill
         RUNTIME_MANAGER.kill(iid)
+        # 2. Force immediate cleanup of the simulation worker
+        RUNTIME_MANAGER.unregister(iid)
 
     def _reposition(self):
         if self._repositioning: return
         self._repositioning = True
         try:
             par = self.parent()
-            sw = par.width() if par else 1280
-            sh = par.height() if par else 800
+            if not par: return
+            
+            # If we are in a layout, the layout handles positioning.
+            # We only use setGeometry for floating/absolute positioning.
+            if par.layout() and par.layout().indexOf(self) != -1:
+                self._repositioning = False
+                return
+
+            sw = par.width()
+            sh = par.height()
             self.adjustSize()
             w = self.pill.sizeHint().width() + 40
             w = min(sw - 40, w)
