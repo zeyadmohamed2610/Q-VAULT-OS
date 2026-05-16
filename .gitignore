@@ -48,6 +48,8 @@ test_output.log
 users/
 qvault_home/
 data/
+vault_data/
+.qvault/
 *.vault
 *.db
 *.key

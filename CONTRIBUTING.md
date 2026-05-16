@@ -19,16 +19,9 @@ As a sovereign framework, we maintain extremely high standards for code quality:
 - **Security**: Never bypass the `SecureAPI`. Direct host OS calls are forbidden within applications.
 - **Aesthetics**: Follow the "Cyan-Glow" design system defined in `src/resources/theme.py`.
 
-## 🧪 Testing
-We use `pytest`. Please ensure your feature includes tests.
-```powershell
-pytest
-```
-
 ## 📬 Pull Request Process
 1. Update the `README.md` in the relevant directory if you changed functionality.
-2. Ensure the CI pipeline passes.
-3. Submit the PR with a clear description of the "Why" and "How".
+2. Submit the PR with a clear description of the "Why" and "How".
 
 ---
 *Stay Sovereign.*
