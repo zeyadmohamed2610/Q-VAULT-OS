@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Q-Vault Sovereign OS | The Future of Data Sovereignty</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glow-bg"></div>
+    
+    <nav>
+        <div class="logo">
+            <span class="cyan">Q</span>-VAULT <span class="dim">SOVEREIGN</span>
+        </div>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="https://github.com/zeyadmohamed2610/Q-VAULT-OS" class="btn-outline">GitHub</a>
+        </div>
+    </nav>
+
+    <header>
+        <div class="hero-content">
+            <h1 class="reveal">The Next Generation of <span class="gradient-text">Sovereign Intelligence</span></h1>
+            <p class="subtitle reveal">A high-performance, post-quantum secure operating system framework built for absolute data autonomy and forensic integrity.</p>
+            <div class="cta-group reveal">
+                <a href="https://github.com/zeyadmohamed2610/Q-VAULT-OS" class="btn-primary">Get Started</a>
+                <a href="#demo" class="btn-secondary">View Specs</a>
+            </div>
+        </div>
+    </header>
+
+    <section id="demo" class="reveal">
+        <div class="preview-card">
+            <div class="window-controls">
+                <span></span><span></span><span></span>
+            </div>
+            <img src="qvault_preview.png" alt="Q-Vault UI Preview" class="hero-img">
+        </div>
+    </section>
+
+    <section id="features">
+        <div class="grid">
+            <div class="feature-card reveal">
+                <div class="icon">🛡️</div>
+                <h3>Post-Quantum Security</h3>
+                <p>Rust-hardened kernel primitives with ML-KEM-768 encryption anchors.</p>
+            </div>
+            <div class="feature-card reveal">
+                <div class="icon">🧠</div>
+                <h3>Agentic Reasoning</h3>
+                <p>Autonomous backpressure governance and intent-based system management.</p>
+            </div>
+            <div class="feature-card reveal">
+                <div class="icon">📂</div>
+                <h3>Sovereign VFS</h3>
+                <p>Unix-parity virtual filesystem with Inode-level permission isolation.</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <p>© 2026 Q-Vault Sovereign Project. Built for the Future of Computing.</p>
+    </footer>
+
+    <script>
+        // Simple scroll reveal
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        });
+
+        document.querySelectorAll('.reveal').forEach((el) => observer.observe(el));
+    </script>
+</body>
+</html>
