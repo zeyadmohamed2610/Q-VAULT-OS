@@ -84,8 +84,24 @@ class SecurityAPI:
             logger.info("SecurityAPI: Initialized with Dynamic MockEngine (Simulation Mode).")
 
     def login(self, username: str, password: str) -> Dict[str, Any]:
-        """Call Rust to authenticate; receive session UUID on success."""
-        # Special case: allow 'admin' password for simulation if needed
+        """
+        Authenticate via Persistent Overrides or Rust Core.
+        Checks for local overrides first to allow 'Change Password' to work definitively.
+        """
+        # ── Step 1: Check Persistent Overrides ──
+        overrides = self._load_overrides()
+        if username in overrides:
+            stored = overrides[username]
+            if stored.get("password") == password:
+                self._token = f"sovereign-session-{username}-{int(time.time())}"
+                logger.info(f"SecurityAPI: Login accepted via Persistent Override for {username}")
+                self._sync_state(username)
+                return {"success": True, "value": self._token, "message": "Login accepted (Override)"}
+            else:
+                logger.warning(f"SecurityAPI: Override login failed for {username}")
+                return {"success": False, "code": "AUTH_FAILED"}
+
+        # ── Step 2: Fallback to Rust Core ──
         if not _CORE_AVAILABLE:
             result = self._rust_engine.login(username, password)
         else:
@@ -93,25 +109,54 @@ class SecurityAPI:
             
         if result["success"]:
             self._token = result["value"]
-            # Sync to system state for purely UI logic to know the active session
-            try:
-                from core.system_state import STATE
-                STATE.current_user = username
-                STATE.session_type = "secure"
-            except Exception as e:
-                logger.error(f"SecurityAPI: Failed to sync STATE.current_user: {e}")
+            self._sync_state(username)
             return {"success": True, "message": "Login accepted", "user": username}
         else:
             logger.warning(f"Login failed: {result.get('code')}")
             return result
 
+    def _sync_state(self, username: str):
+        """Internal helper to sync global state."""
+        try:
+            from core.system_state import STATE
+            STATE.current_user = username
+            STATE.session_type = "secure"
+        except Exception as e:
+            logger.error(f"SecurityAPI: Failed to sync STATE.current_user: {e}")
+
+    def _load_overrides(self) -> Dict[str, Any]:
+        import json
+        path = Path("vault_data/identity_overrides.json")
+        if path.exists():
+            try:
+                with open(path, "r") as f:
+                    return json.load(f)
+            except Exception:
+                return {}
+        return {}
+
+    def _save_overrides(self, overrides: Dict[str, Any]):
+        import json
+        os.makedirs("vault_data", exist_ok=True)
+        path = Path("vault_data/identity_overrides.json")
+        with open(path, "w") as f:
+            json.dump(overrides, f, indent=4)
+
     def verify_password(self, username: str, password: str) -> bool:
         """
-        Verify credentials via Rust WITHOUT changing the current session token or state.
-        Used for elevation (SUDO) prompts.
+        Verify credentials via Overrides or Rust Core WITHOUT changing state.
+        Ensures consistent security for SUDO and re-auth prompts.
         """
+        # Check overrides first
+        overrides = self._load_overrides()
+        if username in overrides:
+            return overrides[username].get("password") == password
+
         try:
-            result = safe_call(self._rust_engine.login, username, password)
+            if not _CORE_AVAILABLE:
+                result = self._rust_engine.login(username, password)
+            else:
+                result = safe_call(self._rust_engine.login, username, password)
             return result.get("success", False)
         except Exception as e:
             logger.error(f"SecurityAPI: verify_password error: {e}")
@@ -165,15 +210,36 @@ class SecurityAPI:
         return res.get("value", []) if res.get("success") else []
 
     def update_user(self, username: str, new_password: str = None, new_name: str = None) -> Dict[str, Any]:
-        """Update user credentials or identity metadata."""
+        """
+        Update user credentials or identity metadata with Persistent Persistence.
+        This ensures changes (like password updates) survive system reboots even with an immutable Rust core.
+        """
         if not self._token:
             return {"success": False, "code": "NO_SESSION"}
         
+        # ── Persistent Logic ──
+        overrides = self._load_overrides()
+        if username not in overrides:
+            overrides[username] = {}
+        
+        if new_password:
+            overrides[username]["password"] = new_password
+        if new_name:
+            overrides[username]["display_name"] = new_name
+            
+        self._save_overrides(overrides)
+        logger.info(f"SecurityAPI: Persistent override saved for user {username}")
+
+        # ── Attempt Downstream Update (Best Effort) ──
         if not _CORE_AVAILABLE:
             return self._rust_engine.update_user(username, new_password, new_name)
         
-        # In Rust core, this would be a specific command
-        return safe_call(self._rust_engine.update_user, self._token, username, new_password, new_name)
+        if hasattr(self._rust_engine, "update_user"):
+            safe_call(self._rust_engine.update_user, self._token, username, new_password, new_name)
+        elif hasattr(self._rust_engine, "update_password") and new_password:
+            safe_call(self._rust_engine.update_password, self._token, username, new_password)
+            
+        return {"success": True, "message": "Identity updated and persisted sovereignly."}
 
     def hash_data(self, data: bytes) -> Dict[str, Any]:
         res = safe_call(self._rust_engine.hash_data, data)

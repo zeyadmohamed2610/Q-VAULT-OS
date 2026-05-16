@@ -166,6 +166,50 @@ The OS communicates with the PQC-Vault engine via a specialized **Runtime Bridge
 
 ---
 
+## ⌨️ Sovereign Shortcuts (Power User Guide)
+Q-Vault OS is optimized for keyboard-driven productivity. Master these shortcuts to navigate like a pro:
+
+| Shortcut | Action | Scope |
+| :--- | :--- | :--- |
+| **`Alt + Tab`** | High-Fidelity App Switcher | System-wide |
+| **`Ctrl + Shift + S`** | **Launch Automated Stress Tester** | Desktop |
+| **`Win + D`** | Minimize All Windows | Desktop |
+| **`Ctrl + Alt + L`** | Instant Lock (Sovereign Re-auth) | System-wide |
+| **`F11`** | Toggle Fullscreen Mode | System-wide |
+| **`Shift + Click`** | Multi-select Desktop Icons | Desktop |
+| **`Ctrl + T`** | Open Terminal Here (from Explorer) | Explorer |
+
+---
+
+## 💻 Terminal v4 (Command Reference)
+The Q-Vault Terminal provides near-total parity with modern Linux shells.
+
+| Command | Description | Level |
+| :--- | :--- | :--- |
+| **`ps aux`** | Comprehensive Process List with CPU/MEM usage | System |
+| **`top` / `htop`** | Real-time Resource Monitor (Simulated) | System |
+| **`free -h`** | Display Memory Usage statistics | Kernel |
+| **`grep`** | Search file contents with pattern matching | VFS |
+| **`find`** | Advanced filesystem search (by name/size/type) | VFS |
+| **`tree`** | Visual directory structure representation | VFS |
+| **`stress`** | Launch process stress simulation | Kernel |
+| **`fullstress`** | Maximum system load simulation | Kernel |
+| **`sudo`** | Elevation of privilege for administrative tasks | Security |
+| **`chown`** | Change file/directory ownership | Security |
+
+---
+
+## 🧩 Advanced Kernel Modules
+Q-Vault OS features a deep simulation of hardware-level OS concepts:
+
+- **Adaptive Scheduler**: Dynamically switches between **FCFS**, **SJF**, **Round-Robin**, and **Priority** scheduling on-the-fly.
+- **MMU (Memory Management Unit)**: Simulates virtual-to-physical address translation and page allocation.
+- **Deadlock Detector**: Real-time monitoring of resource allocation graphs to prevent and resolve system deadlocks.
+- **Multicore Engine**: Simulates parallel execution across virtual CPU cores.
+- **Interrupt Manager**: Handles high-priority system events and asynchronous I/O signals.
+
+---
+
 ## ⚖️ License
 Distributed under the MIT License. See `LICENSE` for more information.
 
