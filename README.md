@@ -109,12 +109,26 @@ Understanding where your data lives:
 # Clone the repository
 git clone https://github.com/zeyadmohamed2610/Q-VAULT-OS.git
 
-#  Change to  Q-VAULT-OS directory
+# Change to Q-VAULT-OS directory
 cd Q-VAULT-OS
 
 # Run the Sovereign Bootstrap
 python run.py
 ```
+
+### 🌐 Multi-Platform Setup Guide
+Q-Vault OS is built for absolute portability. Follow the instructions for your specific environment:
+
+| Platform | Requirements | Performance Mode |
+| :--- | :--- | :--- |
+| **Windows 10/11 (64-bit)** | None (Auto-resolves) | **Native Sovereign** |
+| **Windows (32-bit)** | None | **Sovereign Simulation** |
+| **Linux (Ubuntu/Debian)** | `sudo apt install libxcb-xinerama0` | **Sovereign Simulation*** |
+| **macOS (Intel/M-Series)** | `brew install python` | **Sovereign Simulation*** |
+
+*\*Note: Linux/Mac users can achieve Native Performance by rebuilding the Rust core from the `engine_rust` directory.*
+
+---
 
 ---
 
