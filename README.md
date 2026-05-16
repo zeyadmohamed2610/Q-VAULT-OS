@@ -109,6 +109,9 @@ Understanding where your data lives:
 # Clone the repository
 git clone https://github.com/zeyadmohamed2610/Q-VAULT-OS.git
 
+#  Change to  Q-VAULT-OS directory
+cd Q-VAULT-OS
+
 # Run the Sovereign Bootstrap
 python run.py
 ```
